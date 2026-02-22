@@ -43,6 +43,240 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Mock API service - replace with real API later
+const mockResponderAPI = {
+  getDashboardData: async () => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return {
+      stats: [
+        { 
+          label: 'Total Responses', 
+          value: '156', 
+          change: '+12', 
+          trend: 'up',
+          color: 'from-blue-500 to-cyan-500',
+          bg: 'bg-blue-50',
+          chart: [40, 70, 50, 80, 60, 90, 75]
+        },
+        { 
+          label: 'Active Now', 
+          value: '1', 
+          change: 'Critical', 
+          trend: 'urgent',
+          color: 'from-purple-500 to-pink-500',
+          bg: 'bg-purple-50',
+          chart: [90, 85, 95, 80, 90, 85, 95]
+        },
+        { 
+          label: 'Resolved Today', 
+          value: '12', 
+          change: '+3', 
+          trend: 'up',
+          color: 'from-green-500 to-emerald-500',
+          bg: 'bg-green-50',
+          chart: [30, 45, 60, 40, 70, 55, 80]
+        },
+        { 
+          label: 'On Duty', 
+          value: '8h', 
+          change: '2h left', 
+          trend: 'neutral',
+          color: 'from-indigo-500 to-purple-500',
+          bg: 'bg-indigo-50',
+          chart: [80, 65, 70, 55, 60, 45, 40]
+        }
+      ],
+      myIncidents: [
+        { 
+          id: 'INC-001', 
+          title: 'Structure Fire on Kebele 14', 
+          location: 'Kebele 14, Near St. George Church', 
+          severity: 'critical', 
+          status: 'active',
+          distance: '1.2 km',
+          type: 'Fire',
+          eta: '4 min',
+          priority: 1,
+          units: ['Engine 7', 'Ladder 3'],
+          reportedBy: 'Citizen',
+          time: '2 min ago'
+        },
+        { 
+          id: 'INC-006', 
+          title: 'Gas Leak at Restaurant', 
+          location: 'Fasil Avenue, Kebele 11', 
+          severity: 'high', 
+          status: 'resolved',
+          distance: '2.5 km',
+          type: 'Hazmat',
+          eta: '-',
+          priority: 2,
+          units: ['Hazmat 2'],
+          reportedBy: 'Restaurant Owner',
+          time: '45 min ago'
+        },
+        { 
+          id: 'INC-009', 
+          title: 'Vehicle Accident with Injuries', 
+          location: 'Ring Road, Junction 7', 
+          severity: 'high', 
+          status: 'responding',
+          distance: '3.1 km',
+          type: 'MVA',
+          eta: '6 min',
+          priority: 2,
+          units: ['Rescue 1', 'Ambulance 4'],
+          reportedBy: 'Dispatch',
+          time: '8 min ago'
+        }
+      ],
+      equipment: [
+        { name: 'Air Tank', status: '85%', icon: <Wind />, color: 'from-green-500 to-green-600' },
+        { name: 'Thermal Camera', status: 'Online', icon: <Thermometer />, color: 'from-blue-500 to-blue-600' },
+        { name: 'Radio Battery', status: '92%', icon: <Battery />, color: 'from-green-500 to-green-600' },
+        { name: 'Hydraulic Tools', status: 'Ready', icon: <Gauge />, color: 'from-yellow-500 to-yellow-600' }
+      ],
+      recentActivities: [
+        { action: 'Dispatched to INC-001', location: 'Kebele 14', time: '2 min ago', icon: '🚒' },
+        { action: 'Status update received', detail: 'Backup requested', time: '5 min ago', icon: '📻' },
+        { action: 'New incident assigned', detail: 'INC-009 - MVA', time: '8 min ago', icon: '🚨' },
+        { action: 'Equipment check completed', detail: 'All systems nominal', time: '15 min ago', icon: '🔧' },
+        { action: 'Shift handoff reminder', detail: 'in 2 hours', time: '30 min ago', icon: '⏰' },
+      ]
+    };
+  },
+
+  refreshData: async () => {
+    // Simulate refreshing data with slight variations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      stats: [
+        { 
+          label: 'Total Responses', 
+          value: '158', 
+          change: '+14', 
+          trend: 'up',
+          color: 'from-blue-500 to-cyan-500',
+          bg: 'bg-blue-50',
+          chart: [41, 71, 51, 81, 61, 91, 76]
+        },
+        { 
+          label: 'Active Now', 
+          value: '2', 
+          change: 'Critical', 
+          trend: 'urgent',
+          color: 'from-purple-500 to-pink-500',
+          bg: 'bg-purple-50',
+          chart: [91, 86, 96, 81, 91, 86, 96]
+        },
+        { 
+          label: 'Resolved Today', 
+          value: '14', 
+          change: '+5', 
+          trend: 'up',
+          color: 'from-green-500 to-emerald-500',
+          bg: 'bg-green-50',
+          chart: [31, 46, 61, 41, 71, 56, 81]
+        },
+        { 
+          label: 'On Duty', 
+          value: '8h', 
+          change: '1.5h left', 
+          trend: 'neutral',
+          color: 'from-indigo-500 to-purple-500',
+          bg: 'bg-indigo-50',
+          chart: [81, 66, 71, 56, 61, 46, 41]
+        }
+      ],
+      myIncidents: [
+        { 
+          id: 'INC-001', 
+          title: 'Structure Fire on Kebele 14', 
+          location: 'Kebele 14, Near St. George Church', 
+          severity: 'critical', 
+          status: 'active',
+          distance: '0.8 km',
+          type: 'Fire',
+          eta: '3 min',
+          priority: 1,
+          units: ['Engine 7', 'Ladder 3', 'Rescue 2'],
+          reportedBy: 'Citizen',
+          time: '5 min ago'
+        },
+        { 
+          id: 'INC-009', 
+          title: 'Vehicle Accident with Injuries', 
+          location: 'Ring Road, Junction 7', 
+          severity: 'high', 
+          status: 'responding',
+          distance: '2.8 km',
+          type: 'MVA',
+          eta: '5 min',
+          priority: 2,
+          units: ['Rescue 1', 'Ambulance 4'],
+          reportedBy: 'Dispatch',
+          time: '11 min ago'
+        },
+        { 
+          id: 'INC-010', 
+          title: 'Medical Emergency - Cardiac Arrest', 
+          location: 'Residential Area, Block D', 
+          severity: 'critical', 
+          status: 'active',
+          distance: '2.1 km',
+          type: 'Medical',
+          eta: '7 min',
+          priority: 1,
+          units: ['Ambulance 2'],
+          reportedBy: 'Family',
+          time: '1 min ago'
+        },
+        { 
+          id: 'INC-006', 
+          title: 'Gas Leak at Restaurant', 
+          location: 'Fasil Avenue, Kebele 11', 
+          severity: 'high', 
+          status: 'resolved',
+          distance: '2.5 km',
+          type: 'Hazmat',
+          eta: '-',
+          priority: 2,
+          units: ['Hazmat 2'],
+          reportedBy: 'Restaurant Owner',
+          time: '48 min ago'
+        }
+      ],
+      equipment: [
+        { name: 'Air Tank', status: '78%', icon: <Wind />, color: 'from-green-500 to-green-600' },
+        { name: 'Thermal Camera', status: 'Online', icon: <Thermometer />, color: 'from-blue-500 to-blue-600' },
+        { name: 'Radio Battery', status: '88%', icon: <Battery />, color: 'from-green-500 to-green-600' },
+        { name: 'Hydraulic Tools', status: 'Ready', icon: <Gauge />, color: 'from-green-500 to-green-600' },
+        { name: 'First Aid Kit', status: 'Full', icon: <Shield />, color: 'from-green-500 to-green-600' }
+      ],
+      recentActivities: [
+        { action: 'New incident INC-010 assigned', detail: 'Medical Emergency', time: '1 min ago', icon: '🚨' },
+        { action: 'Dispatched to INC-001', location: 'Kebele 14', time: '2 min ago', icon: '🚒' },
+        { action: 'Status update received', detail: 'Backup requested', time: '5 min ago', icon: '📻' },
+        { action: 'ETA updated for INC-009', detail: '5 minutes', time: '7 min ago', icon: '⏱️' },
+        { action: 'Equipment check completed', detail: 'All systems nominal', time: '15 min ago', icon: '🔧' },
+      ]
+    };
+  },
+
+  updateIncidentStatus: async (incidentId, status) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { success: true, message: `Incident ${incidentId} status updated to ${status}` };
+  },
+
+  requestBackup: async (incidentId) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { success: true, message: `Backup requested for incident ${incidentId}` };
+  }
+};
+
 const ResponderDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -53,11 +287,72 @@ const ResponderDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   
+  // State for data
+  const [stats, setStats] = useState([]);
+  const [myIncidents, setMyIncidents] = useState([]);
+  const [equipment, setEquipment] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
   // Update time every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const data = await mockResponderAPI.getDashboardData();
+      setStats(data.stats);
+      setMyIncidents(data.myIncidents);
+      setEquipment(data.equipment);
+      setRecentActivities(data.recentActivities);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await mockResponderAPI.refreshData();
+      setStats(data.stats);
+      setMyIncidents(data.myIncidents);
+      setEquipment(data.equipment);
+      setRecentActivities(data.recentActivities);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleUpdateStatus = async (incidentId, status) => {
+    try {
+      await mockResponderAPI.updateIncidentStatus(incidentId, status);
+      handleRefresh(); // Refresh data after update
+    } catch (error) {
+      console.error("Error updating incident status:", error);
+    }
+  };
+
+  const handleRequestBackup = async (incidentId) => {
+    try {
+      await mockResponderAPI.requestBackup(incidentId);
+      alert(`Backup requested for incident ${incidentId}`);
+    } catch (error) {
+      console.error("Error requesting backup:", error);
+    }
+  };
 
   const user = JSON.parse(localStorage.getItem('user')) || {
     name: "Solomon Tadesse",
@@ -70,109 +365,6 @@ const ResponderDashboard = () => {
     station: "Station 3",
     avatar: "https://ui-avatars.com/api/?name=Solomon+Tadesse&background=2563eb&color=fff&bold=true"
   };
-
-  const stats = [
-    { 
-      label: 'Total Responses', 
-      value: '156', 
-      icon: <AlertTriangle />, 
-      change: '+12', 
-      trend: 'up',
-      color: 'from-blue-500 to-cyan-500',
-      bg: 'bg-blue-50',
-      chart: [40, 70, 50, 80, 60, 90, 75]
-    },
-    { 
-      label: 'Active Now', 
-      value: '1', 
-      icon: <Radio />, 
-      change: 'Critical', 
-      trend: 'urgent',
-      color: 'from-purple-500 to-pink-500',
-      bg: 'bg-purple-50',
-      chart: [90, 85, 95, 80, 90, 85, 95]
-    },
-    { 
-      label: 'Resolved Today', 
-      value: '12', 
-      icon: <CheckCircle />, 
-      change: '+3', 
-      trend: 'up',
-      color: 'from-green-500 to-emerald-500',
-      bg: 'bg-green-50',
-      chart: [30, 45, 60, 40, 70, 55, 80]
-    },
-    { 
-      label: 'On Duty', 
-      value: '8h', 
-      icon: <Clock />, 
-      change: '2h left', 
-      trend: 'neutral',
-      color: 'from-indigo-500 to-purple-500',
-      bg: 'bg-indigo-50',
-      chart: [80, 65, 70, 55, 60, 45, 40]
-    }
-  ];
-
-  const myIncidents = [
-    { 
-      id: 'INC-001', 
-      title: 'Structure Fire on Kebele 14', 
-      location: 'Kebele 14, Near St. George Church', 
-      severity: 'critical', 
-      status: 'active',
-      distance: '1.2 km',
-      type: 'Fire',
-      eta: '4 min',
-      priority: 1,
-      units: ['Engine 7', 'Ladder 3'],
-      reportedBy: 'Citizen',
-      time: '2 min ago'
-    },
-    { 
-      id: 'INC-006', 
-      title: 'Gas Leak at Restaurant', 
-      location: 'Fasil Avenue, Kebele 11', 
-      severity: 'high', 
-      status: 'resolved',
-      distance: '2.5 km',
-      type: 'Hazmat',
-      eta: '-',
-      priority: 2,
-      units: ['Hazmat 2'],
-      reportedBy: 'Restaurant Owner',
-      time: '45 min ago'
-    },
-    { 
-      id: 'INC-009', 
-      title: 'Vehicle Accident with Injuries', 
-      location: 'Ring Road, Junction 7', 
-      severity: 'high', 
-      status: 'responding',
-      distance: '3.1 km',
-      type: 'MVA',
-      eta: '6 min',
-      priority: 2,
-      units: ['Rescue 1', 'Ambulance 4'],
-      reportedBy: 'Dispatch',
-      time: '8 min ago'
-    }
-  ];
-
-  const equipment = [
-    { name: 'Air Tank', status: '85%', icon: <Wind />, color: 'from-green-500 to-green-600' },
-    { name: 'Thermal Camera', status: 'Online', icon: <Thermometer />, color: 'from-blue-500 to-blue-600' },
-    { name: 'Radio Battery', status: '92%', icon: <Battery />, color: 'from-green-500 to-green-600' },
-    { name: 'Hydraulic Tools', status: 'Ready', icon: <Gauge />, color: 'from-yellow-500 to-yellow-600' }
-  ];
-
-  const recentActivities = [
-    { action: 'Dispatched to INC-001', location: 'Kebele 14', time: '2 min ago', icon: '🚒' },
-    { action: 'Status update received', detail: 'Backup requested', time: '5 min ago', icon: '📻' },
-    { action: 'New incident assigned', detail: 'INC-009 - MVA', time: '8 min ago', icon: '🚨' },
-    { action: 'Equipment check completed', detail: 'All systems nominal', time: '15 min ago', icon: '🔧' },
-    { action: 'Shift handoff reminder', detail: 'in 2 hours', time: '30 min ago', icon: '⏰' },
-  ];
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -212,6 +404,20 @@ const ResponderDashboard = () => {
     </div>
   );
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/80">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeIncident = myIncidents.find(i => i.status === 'active');
+
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       {/* Sidebar */}
@@ -233,7 +439,8 @@ const ResponderDashboard = () => {
         <div className="relative p-6 flex items-center justify-between border-b border-white/10">
           <motion.div 
             whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate("/")}
           >
             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-xl">
               ER
@@ -296,9 +503,9 @@ const ResponderDashboard = () => {
         <nav className="relative flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
           {[
             { id: 'dashboard', icon: <Compass size={20} />, label: 'Dashboard', count: null },
-            { id: 'incidents', icon: <AlertTriangle size={20} />, label: 'My Incidents', count: '2', color: 'bg-red-500' },
+            { id: 'incidents', icon: <AlertTriangle size={20} />, label: 'My Incidents', count: myIncidents.filter(i => i.status !== 'resolved').length.toString(), color: 'bg-red-500' },
             { id: 'map', icon: <MapPin size={20} />, label: 'Live Map', count: null },
-            { id: 'equipment', icon: <Gauge size={20} />, label: 'Equipment', count: '4', color: 'bg-green-500' },
+            { id: 'equipment', icon: <Gauge size={20} />, label: 'Equipment', count: equipment.length.toString(), color: 'bg-green-500' },
             { id: 'status', icon: <Radio size={20} />, label: 'Status', count: null },
             { id: 'profile', icon: <User size={20} />, label: 'Profile', count: null }
           ].map((item) => (
@@ -410,6 +617,17 @@ const ResponderDashboard = () => {
                 <PlusCircle size={20} />
               </motion.button>
 
+              {/* Refresh Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition shadow-lg border border-gray-200 disabled:opacity-50"
+              >
+                <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+              </motion.button>
+
               {/* Notification Bell */}
               <div className="relative">
                 <motion.button
@@ -433,7 +651,7 @@ const ResponderDashboard = () => {
                     >
                       <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
                         <h3 className="font-semibold">Notifications</h3>
-                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">5 new</span>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{recentActivities.length} new</span>
                       </div>
                       <div className="max-h-96 overflow-auto">
                         {recentActivities.map((activity, i) => (
@@ -506,10 +724,12 @@ const ResponderDashboard = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} />
-                  Update Status
+                  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                  {refreshing ? 'Updating...' : 'Update Status'}
                 </motion.button>
               </div>
             </div>
@@ -522,53 +742,64 @@ const ResponderDashboard = () => {
             transition={{ delay: 0.2 }}
             className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
           >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                whileHover={{ y: -5, scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="relative group"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 blur-xl`} />
-                <div className="relative bg-white/90 backdrop-blur rounded-2xl p-6 shadow-xl border border-white/50 overflow-hidden">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
-                      <div className="flex items-end gap-1">
-                        <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+            {stats.map((stat, index) => {
+              const IconComponent = 
+                index === 0 ? AlertTriangle :
+                index === 1 ? Radio :
+                index === 2 ? CheckCircle : Clock;
+              
+              return (
+                <motion.div
+                  key={index}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative group"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 blur-xl`} />
+                  <div className="relative bg-white/90 backdrop-blur rounded-2xl p-6 shadow-xl border border-white/50 overflow-hidden">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
+                        <div className="flex items-end gap-1">
+                          <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+                        </div>
+                      </div>
+                      <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center text-2xl`}>
+                        <IconComponent className={`w-6 h-6 ${
+                          index === 0 ? 'text-blue-500' :
+                          index === 1 ? 'text-purple-500' :
+                          index === 2 ? 'text-green-500' : 'text-indigo-500'
+                        }`} />
                       </div>
                     </div>
-                    <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center text-2xl`}>
-                      {stat.icon}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {stat.trend === 'up' && <ArrowUpRight size={16} className="text-green-500" />}
-                      {stat.trend === 'down' && <ArrowDownRight size={16} className="text-red-500" />}
-                      {stat.trend === 'urgent' && <Zap size={16} className="text-purple-500 animate-pulse" />}
-                      <span className={`text-xs font-medium ${
-                        stat.trend === 'up' ? 'text-green-600' : 
-                        stat.trend === 'down' ? 'text-red-600' : 
-                        stat.trend === 'urgent' ? 'text-purple-600' : 'text-gray-600'
-                      }`}>
-                        {stat.change}
-                      </span>
-                    </div>
                     
-                    {/* Mini Chart */}
-                    <MiniChart data={stat.chart} color={stat.color} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {stat.trend === 'up' && <ArrowUpRight size={16} className="text-green-500" />}
+                        {stat.trend === 'down' && <ArrowDownRight size={16} className="text-red-500" />}
+                        {stat.trend === 'urgent' && <Zap size={16} className="text-purple-500 animate-pulse" />}
+                        <span className={`text-xs font-medium ${
+                          stat.trend === 'up' ? 'text-green-600' : 
+                          stat.trend === 'down' ? 'text-red-600' : 
+                          stat.trend === 'urgent' ? 'text-purple-600' : 'text-gray-600'
+                        }`}>
+                          {stat.change}
+                        </span>
+                      </div>
+                      
+                      {/* Mini Chart */}
+                      <MiniChart data={stat.chart} color={stat.color} />
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </motion.div>
 
-          {/* Current Active Incident - Enhanced with Blue Theme */}
-          {myIncidents.find(i => i.status === 'active') && (
+          {/* Current Active Incident */}
+          {activeIncident && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -596,24 +827,24 @@ const ResponderDashboard = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                       <div className="flex items-center gap-3 mb-3">
-                        <h2 className="text-3xl font-bold">INC-001</h2>
+                        <h2 className="text-3xl font-bold">{activeIncident.id}</h2>
                         <span className="px-3 py-1 bg-red-500/30 backdrop-blur rounded-full text-xs font-semibold">
-                          Priority 1
+                          Priority {activeIncident.priority}
                         </span>
                       </div>
-                      <p className="text-xl mb-4">Structure Fire on Kebele 14</p>
+                      <p className="text-xl mb-4">{activeIncident.title}</p>
                       <div className="space-y-2">
                         <p className="flex items-center gap-2 text-white/80">
                           <MapPin size={16} />
-                          Kebele 14, Near St. George Church · 1.2 km away
+                          {activeIncident.location} · {activeIncident.distance} away
                         </p>
                         <p className="flex items-center gap-2 text-white/80">
                           <Clock size={16} />
-                          Reported 2 min ago
+                          Reported {activeIncident.time}
                         </p>
                         <p className="flex items-center gap-2 text-white/80">
                           <Users size={16} />
-                          Units: Engine 7, Ladder 3
+                          Units: {activeIncident.units?.join(', ')}
                         </p>
                       </div>
                     </div>
@@ -621,19 +852,21 @@ const ResponderDashboard = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-white/10 backdrop-blur rounded-xl p-3">
                         <p className="text-xs opacity-80">Type</p>
-                        <p className="font-semibold text-lg">🔥 Fire</p>
+                        <p className="font-semibold text-lg">{activeIncident.type === 'Fire' ? '🔥' : '🚑'} {activeIncident.type}</p>
                       </div>
                       <div className="bg-white/10 backdrop-blur rounded-xl p-3">
                         <p className="text-xs opacity-80">ETA</p>
-                        <p className="font-semibold text-3xl text-yellow-300">4 min</p>
+                        <p className="font-semibold text-3xl text-yellow-300">{activeIncident.eta}</p>
                       </div>
                       <div className="bg-white/10 backdrop-blur rounded-xl p-3">
                         <p className="text-xs opacity-80">Severity</p>
-                        <p className="font-semibold text-red-300">Critical</p>
+                        <p className={`font-semibold ${activeIncident.severity === 'critical' ? 'text-red-300' : 'text-orange-300'}`}>
+                          {activeIncident.severity}
+                        </p>
                       </div>
                       <div className="bg-white/10 backdrop-blur rounded-xl p-3">
                         <p className="text-xs opacity-80">Responders</p>
-                        <p className="font-semibold">6 on scene</p>
+                        <p className="font-semibold">{activeIncident.units?.length || 1} on scene</p>
                       </div>
                     </div>
                   </div>
@@ -650,10 +883,11 @@ const ResponderDashboard = () => {
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
+                      onClick={() => handleRequestBackup(activeIncident.id)}
                       className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-400 transition flex items-center justify-center gap-2 shadow-lg"
                     >
                       <Phone size={18} />
-                      Contact IC
+                      Request Backup
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -760,7 +994,10 @@ const ResponderDashboard = () => {
                           View Details
                         </button>
                         {incident.status === 'active' && (
-                          <button className="text-sm bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition">
+                          <button 
+                            onClick={() => handleUpdateStatus(incident.id, 'responding')}
+                            className="text-sm bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition"
+                          >
                             Update
                           </button>
                         )}
@@ -804,7 +1041,8 @@ const ResponderDashboard = () => {
                         <span className="text-sm font-medium text-gray-700">{item.name}</span>
                       </div>
                       <span className={`text-sm font-semibold ${
-                        item.status.includes('%') ? 'text-green-600' : 'text-blue-600'
+                        item.status.includes('%') ? 'text-green-600' : 
+                        item.status === 'Online' ? 'text-blue-600' : 'text-green-600'
                       }`}>
                         {item.status}
                       </span>
@@ -821,17 +1059,18 @@ const ResponderDashboard = () => {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { icon: <Navigation />, label: 'Navigate', color: 'from-blue-500 to-cyan-500' },
-                    { icon: <Radio />, label: 'Radio', color: 'from-purple-500 to-pink-500' },
-                    { icon: <Phone />, label: 'Call Dispatch', color: 'from-green-500 to-emerald-500' },
-                    { icon: <MapPin />, label: 'Mark Location', color: 'from-indigo-500 to-purple-500' },
-                    { icon: <Users />, label: 'Request Backup', color: 'from-orange-500 to-red-500' },
-                    { icon: <CheckCircle />, label: 'Status Update', color: 'from-teal-500 to-green-500' }
+                    { icon: <Navigation />, label: 'Navigate', color: 'from-blue-500 to-cyan-500', onClick: () => console.log('Navigate') },
+                    { icon: <Radio />, label: 'Radio', color: 'from-purple-500 to-pink-500', onClick: () => console.log('Radio') },
+                    { icon: <Phone />, label: 'Call Dispatch', color: 'from-green-500 to-emerald-500', onClick: () => console.log('Call') },
+                    { icon: <MapPin />, label: 'Mark Location', color: 'from-indigo-500 to-purple-500', onClick: () => console.log('Mark') },
+                    { icon: <Users />, label: 'Request Backup', color: 'from-orange-500 to-red-500', onClick: () => handleRequestBackup('current') },
+                    { icon: <CheckCircle />, label: 'Status Update', color: 'from-teal-500 to-green-500', onClick: () => handleUpdateStatus('current', 'responding') }
                   ].map((action, index) => (
                     <motion.button
                       key={index}
                       whileHover={{ scale: 1.05, y: -2 }}
                       whileTap={{ scale: 0.95 }}
+                      onClick={action.onClick}
                       className={`p-4 bg-gradient-to-br ${action.color} text-white rounded-xl hover:shadow-lg transition-all flex flex-col items-center gap-2`}
                     >
                       {action.icon}

@@ -35,6 +35,252 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Mock API service - replace with real API later
+const mockAdminAPI = {
+  getDashboardData: async () => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return {
+      stats: [
+        { 
+          label: "Total Incidents", 
+          value: "1,256", 
+          icon: <AlertTriangle />, 
+          change: "+12.5%", 
+          trend: "up",
+          color: "from-red-500 to-orange-500", 
+          bg: "bg-red-50",
+          chart: [40, 70, 50, 80, 60, 90, 75]
+        },
+        { 
+          label: "Active Now", 
+          value: "23", 
+          icon: <Activity />, 
+          change: "+5", 
+          trend: "up",
+          color: "from-blue-500 to-cyan-500", 
+          bg: "bg-blue-50",
+          chart: [60, 70, 45, 80, 65, 75, 50]
+        },
+        { 
+          label: "Resolved Today", 
+          value: "12", 
+          icon: <CheckCircle />, 
+          change: "+3", 
+          trend: "up",
+          color: "from-green-500 to-emerald-500", 
+          bg: "bg-green-50",
+          chart: [30, 45, 60, 40, 70, 55, 80]
+        },
+        { 
+          label: "Avg Response", 
+          value: "4.2", 
+          suffix: "min", 
+          icon: <Clock />, 
+          change: "-0.8", 
+          trend: "down",
+          color: "from-purple-500 to-pink-500", 
+          bg: "bg-purple-50",
+          chart: [80, 65, 70, 55, 60, 45, 40]
+        },
+      ],
+      incidents: [
+        { 
+          id: "INC-001", 
+          title: "Structure Fire on Kebele 14", 
+          location: "Kebele 14, Near Market", 
+          severity: "critical", 
+          status: "active", 
+          time: "2 min ago",
+          assignedTo: "Unit 7",
+          priority: 1,
+        },
+        { 
+          id: "INC-002", 
+          title: "Multi-Vehicle Accident", 
+          location: "Ring Road, Junction 4", 
+          severity: "high", 
+          status: "responding", 
+          time: "5 min ago",
+          assignedTo: "Unit 3, Unit 9",
+          priority: 2,
+        },
+        { 
+          id: "INC-003", 
+          title: "Medical Emergency", 
+          location: "University Area, Block C", 
+          severity: "high", 
+          status: "responding", 
+          time: "8 min ago",
+          assignedTo: "Ambulance 2",
+          priority: 2,
+        },
+        { 
+          id: "INC-004", 
+          title: "Flooding Area", 
+          location: "Lakeside, Zone 3", 
+          severity: "medium", 
+          status: "active", 
+          time: "15 min ago",
+          assignedTo: "Unassigned",
+          priority: 3,
+        },
+        { 
+          id: "INC-005", 
+          title: "Gas Leak Report", 
+          location: "Industrial Zone", 
+          severity: "critical", 
+          status: "active", 
+          time: "22 min ago",
+          assignedTo: "Hazmat Team",
+          priority: 1,
+        },
+      ],
+      recentActivities: [
+        { action: "New incident reported", user: "Citizen", time: "2 min ago", icon: "🚨" },
+        { action: "Unit dispatched to INC-002", user: "Dispatch", time: "5 min ago", icon: "🚒" },
+        { action: "INC-001 escalated to critical", user: "System", time: "10 min ago", icon: "⚠️" },
+        { action: "New responder joined", user: "Admin", time: "15 min ago", icon: "👤" },
+        { action: "Equipment status updated", user: "Maintenance", time: "25 min ago", icon: "🔧" },
+      ],
+      systemStatus: [
+        { label: 'API Services', status: 'Operational', color: 'bg-green-500' },
+        { label: 'Database', status: 'Healthy', color: 'bg-green-500' },
+        { label: 'WebSocket', status: 'Connected', color: 'bg-green-500' },
+        { label: 'Response Time', status: '124ms', color: 'bg-blue-500' },
+      ]
+    };
+  },
+
+  refreshData: async () => {
+    // Simulate refreshing data with slight variations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Return slightly modified data to simulate real updates
+    return {
+      stats: [
+        { 
+          label: "Total Incidents", 
+          value: "1,258", 
+          icon: <AlertTriangle />, 
+          change: "+12.7%", 
+          trend: "up",
+          color: "from-red-500 to-orange-500", 
+          bg: "bg-red-50",
+          chart: [42, 71, 52, 81, 62, 91, 76]
+        },
+        { 
+          label: "Active Now", 
+          value: "24", 
+          icon: <Activity />, 
+          change: "+6", 
+          trend: "up",
+          color: "from-blue-500 to-cyan-500", 
+          bg: "bg-blue-50",
+          chart: [61, 71, 46, 81, 66, 76, 51]
+        },
+        { 
+          label: "Resolved Today", 
+          value: "13", 
+          icon: <CheckCircle />, 
+          change: "+4", 
+          trend: "up",
+          color: "from-green-500 to-emerald-500", 
+          bg: "bg-green-50",
+          chart: [31, 46, 61, 41, 71, 56, 81]
+        },
+        { 
+          label: "Avg Response", 
+          value: "4.1", 
+          suffix: "min", 
+          icon: <Clock />, 
+          change: "-0.9", 
+          trend: "down",
+          color: "from-purple-500 to-pink-500", 
+          bg: "bg-purple-50",
+          chart: [81, 66, 71, 56, 61, 46, 41]
+        },
+      ],
+      incidents: [
+        { 
+          id: "INC-001", 
+          title: "Structure Fire on Kebele 14", 
+          location: "Kebele 14, Near Market", 
+          severity: "critical", 
+          status: "active", 
+          time: "5 min ago",
+          assignedTo: "Unit 7",
+          priority: 1,
+        },
+        { 
+          id: "INC-002", 
+          title: "Multi-Vehicle Accident", 
+          location: "Ring Road, Junction 4", 
+          severity: "high", 
+          status: "responding", 
+          time: "8 min ago",
+          assignedTo: "Unit 3, Unit 9",
+          priority: 2,
+        },
+        { 
+          id: "INC-003", 
+          title: "Medical Emergency", 
+          location: "University Area, Block C", 
+          severity: "high", 
+          status: "responding", 
+          time: "11 min ago",
+          assignedTo: "Ambulance 2",
+          priority: 2,
+        },
+        { 
+          id: "INC-004", 
+          title: "Flooding Area", 
+          location: "Lakeside, Zone 3", 
+          severity: "medium", 
+          status: "active", 
+          time: "18 min ago",
+          assignedTo: "Unassigned",
+          priority: 3,
+        },
+        { 
+          id: "INC-005", 
+          title: "Gas Leak Report", 
+          location: "Industrial Zone", 
+          severity: "critical", 
+          status: "active", 
+          time: "25 min ago",
+          assignedTo: "Hazmat Team",
+          priority: 1,
+        },
+        { 
+          id: "INC-006", 
+          title: "New Traffic Incident", 
+          location: "Ring Road, Junction 7", 
+          severity: "medium", 
+          status: "active", 
+          time: "1 min ago",
+          assignedTo: "Unit 12",
+          priority: 2,
+        },
+      ],
+      recentActivities: [
+        { action: "New incident reported", user: "Citizen", time: "1 min ago", icon: "🚨" },
+        { action: "INC-006 assigned to Unit 12", user: "Dispatch", time: "2 min ago", icon: "🚒" },
+        { action: "Unit dispatched to INC-002", user: "Dispatch", time: "5 min ago", icon: "🚒" },
+        { action: "INC-001 escalated to critical", user: "System", time: "10 min ago", icon: "⚠️" },
+        { action: "New responder joined", user: "Admin", time: "15 min ago", icon: "👤" },
+      ],
+      systemStatus: [
+        { label: 'API Services', status: 'Operational', color: 'bg-green-500' },
+        { label: 'Database', status: 'Healthy', color: 'bg-green-500' },
+        { label: 'WebSocket', status: 'Connected', color: 'bg-green-500' },
+        { label: 'Response Time', status: '118ms', color: 'bg-green-500' },
+      ]
+    };
+  }
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -44,13 +290,16 @@ const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIncidents, setSelectedIncidents] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // State for data - initialized as empty arrays
+  const [stats, setStats] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [systemStatus, setSystemStatus] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+  // Get user from localStorage
   const user = JSON.parse(localStorage.getItem("user")) || {
     name: "Abebe Kebede",
     role: "Administrator",
@@ -59,115 +308,48 @@ const AdminDashboard = () => {
     avatar: "https://ui-avatars.com/api/?name=Abebe+Kebede&background=2563eb&color=fff&bold=true"
   };
 
-  const stats = [
-    { 
-      label: "Total Incidents", 
-      value: "1,256", 
-      icon: <AlertTriangle />, 
-      change: "+12.5%", 
-      trend: "up",
-      color: "from-red-500 to-orange-500", 
-      bg: "bg-red-50",
-      chart: [40, 70, 50, 80, 60, 90, 75]
-    },
-    { 
-      label: "Active Now", 
-      value: "23", 
-      icon: <Activity />, 
-      change: "+5", 
-      trend: "up",
-      color: "from-blue-500 to-cyan-500", 
-      bg: "bg-blue-50",
-      chart: [60, 70, 45, 80, 65, 75, 50]
-    },
-    { 
-      label: "Resolved Today", 
-      value: "12", 
-      icon: <CheckCircle />, 
-      change: "+3", 
-      trend: "up",
-      color: "from-green-500 to-emerald-500", 
-      bg: "bg-green-50",
-      chart: [30, 45, 60, 40, 70, 55, 80]
-    },
-    { 
-      label: "Avg Response", 
-      value: "4.2", 
-      suffix: "min", 
-      icon: <Clock />, 
-      change: "-0.8", 
-      trend: "down",
-      color: "from-purple-500 to-pink-500", 
-      bg: "bg-purple-50",
-      chart: [80, 65, 70, 55, 60, 45, 40]
-    },
-  ];
+  // Initial data fetch on component mount
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const incidents = [
-    { 
-      id: "INC-001", 
-      title: "Structure Fire on Kebele 14", 
-      location: "Kebele 14, Near Market", 
-      severity: "critical", 
-      status: "active", 
-      time: "2 min ago",
-      assignedTo: "Unit 7",
-      priority: 1,
-      coordinates: { lat: 11.6, lng: 37.3 }
-    },
-    { 
-      id: "INC-002", 
-      title: "Multi-Vehicle Accident", 
-      location: "Ring Road, Junction 4", 
-      severity: "high", 
-      status: "responding", 
-      time: "5 min ago",
-      assignedTo: "Unit 3, Unit 9",
-      priority: 2,
-      coordinates: { lat: 11.6, lng: 37.4 }
-    },
-    { 
-      id: "INC-003", 
-      title: "Medical Emergency", 
-      location: "University Area, Block C", 
-      severity: "high", 
-      status: "responding", 
-      time: "8 min ago",
-      assignedTo: "Ambulance 2",
-      priority: 2,
-      coordinates: { lat: 11.6, lng: 37.35 }
-    },
-    { 
-      id: "INC-004", 
-      title: "Flooding Area", 
-      location: "Lakeside, Zone 3", 
-      severity: "medium", 
-      status: "active", 
-      time: "15 min ago",
-      assignedTo: "Unassigned",
-      priority: 3,
-      coordinates: { lat: 11.6, lng: 37.32 }
-    },
-    { 
-      id: "INC-005", 
-      title: "Gas Leak Report", 
-      location: "Industrial Zone", 
-      severity: "critical", 
-      status: "active", 
-      time: "22 min ago",
-      assignedTo: "Hazmat Team",
-      priority: 1,
-      coordinates: { lat: 11.61, lng: 37.38 }
-    },
-  ];
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const recentActivities = [
-    { action: "New incident reported", user: "Citizen", time: "2 min ago", icon: "🚨" },
-    { action: "Unit dispatched to INC-002", user: "Dispatch", time: "5 min ago", icon: "🚒" },
-    { action: "INC-001 escalated to critical", user: "System", time: "10 min ago", icon: "⚠️" },
-    { action: "New responder joined", user: "Admin", time: "15 min ago", icon: "👤" },
-    { action: "Equipment status updated", user: "Maintenance", time: "25 min ago", icon: "🔧" },
-  ];
+  // Function to fetch dashboard data
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const data = await mockAdminAPI.getDashboardData();
+      setStats(data.stats);
+      setIncidents(data.incidents);
+      setRecentActivities(data.recentActivities);
+      setSystemStatus(data.systemStatus);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to refresh data (called by refresh button)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await mockAdminAPI.refreshData();
+      setStats(data.stats);
+      setIncidents(data.incidents);
+      setRecentActivities(data.recentActivities);
+      setSystemStatus(data.systemStatus);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -215,9 +397,21 @@ const AdminDashboard = () => {
     </div>
   );
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/80">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-      {/* Sidebar */}
+      {/* Sidebar - unchanged */}
       <motion.div 
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -226,17 +420,17 @@ const AdminDashboard = () => {
           bg-gradient-to-b from-indigo-900/95 via-blue-900/95 to-indigo-900/95 
           backdrop-blur-xl text-white shadow-2xl transition-all duration-500 flex flex-col relative overflow-hidden border-r border-white/10`}
       >
-        {/* Animated background */}
+        {/* ... (sidebar content remains the same) ... */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 -left-40 w-80 h-80 bg-blue-500 rounded-full blur-3xl animate-pulse-slow"></div>
           <div className="absolute bottom-0 -right-40 w-80 h-80 bg-purple-500 rounded-full blur-3xl animate-pulse-slower"></div>
         </div>
 
-        {/* Logo Section */}
         <div className="relative p-6 flex items-center justify-between border-b border-white/10">
           <motion.div 
             whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate("/")}
           >
             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-xl">
               BL
@@ -263,7 +457,6 @@ const AdminDashboard = () => {
           </motion.button>
         </div>
 
-        {/* User Profile */}
         <div className="relative p-6 border-b border-white/10">
           <div className="flex items-center gap-4">
             <motion.div 
@@ -295,11 +488,10 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="relative flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
           {[
             { id: "dashboard", icon: <BarChart3 size={20} />, label: "Dashboard", count: null },
-            { id: "incidents", icon: <AlertTriangle size={20} />, label: "Incidents", count: "4", color: "bg-red-500" },
+            { id: "incidents", icon: <AlertTriangle size={20} />, label: "Incidents", count: incidents.filter(i => i.status === 'active').length.toString(), color: "bg-red-500" },
             { id: "analytics", icon: <TrendingUp size={20} />, label: "Analytics", count: null },
             { id: "map", icon: <Map size={20} />, label: "Live Map", count: null },
             { id: "users", icon: <Users size={20} />, label: "Users", count: "12", color: "bg-green-500" },
@@ -344,7 +536,6 @@ const AdminDashboard = () => {
           ))}
         </nav>
 
-        {/* Logout Button */}
         <div className="relative p-4 border-t border-white/10">
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -414,6 +605,17 @@ const AdminDashboard = () => {
                 <PlusCircle size={20} />
               </motion.button>
 
+              {/* Refresh Button - NOW FUNCTIONAL */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition shadow-lg border border-gray-200 disabled:opacity-50"
+              >
+                <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+              </motion.button>
+
               {/* Notification Bell */}
               <div className="relative">
                 <motion.button
@@ -437,7 +639,7 @@ const AdminDashboard = () => {
                     >
                       <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
                         <h3 className="font-semibold">Notifications</h3>
-                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">5 new</span>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{recentActivities.length} new</span>
                       </div>
                       <div className="max-h-96 overflow-auto">
                         {recentActivities.map((activity, i) => (
@@ -524,13 +726,12 @@ const AdminDashboard = () => {
 
         {/* Dashboard Content */}
         <div className="p-8">
-          {/* Welcome Banner - FIXED: Removed inline SVG */}
+          {/* Welcome Banner */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 mb-8 text-white relative overflow-hidden"
           >
-            {/* Simple pattern overlay using CSS gradient instead of SVG */}
             <div 
               className="absolute inset-0 opacity-20"
               style={{
@@ -551,15 +752,17 @@ const AdminDashboard = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2 disabled:opacity-50"
               >
-                <RefreshCw size={16} />
-                Refresh Data
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
               </motion.button>
             </div>
           </motion.div>
 
-          {/* Stats Grid */}
+          {/* Stats Grid - Now using state data */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -615,7 +818,7 @@ const AdminDashboard = () => {
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Incidents Table - Takes 2 columns */}
+            {/* Incidents Table - Now using state data */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -677,7 +880,7 @@ const AdminDashboard = () => {
                               setSelectedIncidents([]);
                             }
                           }}
-                          checked={selectedIncidents.length === incidents.length}
+                          checked={selectedIncidents.length === incidents.length && incidents.length > 0}
                         />
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
@@ -760,21 +963,10 @@ const AdminDashboard = () => {
 
               {/* Pagination */}
               <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-                <p className="text-sm text-gray-500">Showing 1-5 of 24 incidents</p>
+                <p className="text-sm text-gray-500">Showing 1-{incidents.length} of {incidents.length} incidents</p>
                 <div className="flex gap-2">
                   <button className="px-3 py-1 rounded-lg text-sm hover:bg-gray-200 transition">Previous</button>
-                  {[1,2,3,4,5].map((page) => (
-                    <button
-                      key={page}
-                      className={`w-8 h-8 rounded-lg text-sm ${
-                        page === 1 
-                          ? 'bg-blue-600 text-white' 
-                          : 'hover:bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  <button className="px-3 py-1 rounded-lg text-sm bg-blue-600 text-white">1</button>
                   <button className="px-3 py-1 rounded-lg text-sm hover:bg-gray-200 transition">Next</button>
                 </div>
               </div>
@@ -845,12 +1037,7 @@ const AdminDashboard = () => {
               <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-white/50 p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">System Status</h3>
                 <div className="space-y-3">
-                  {[
-                    { label: 'API Services', status: 'Operational', color: 'bg-green-500' },
-                    { label: 'Database', status: 'Healthy', color: 'bg-green-500' },
-                    { label: 'WebSocket', status: 'Connected', color: 'bg-green-500' },
-                    { label: 'Response Time', status: '124ms', color: 'bg-blue-500' },
-                  ].map((item, idx) => (
+                  {systemStatus.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                       <span className="text-sm text-gray-600">{item.label}</span>
                       <div className="flex items-center gap-2">

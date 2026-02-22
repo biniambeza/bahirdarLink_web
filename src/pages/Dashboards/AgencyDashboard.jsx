@@ -40,6 +40,328 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Mock API service - replace with real API later
+const mockAgencyAPI = {
+  getDashboardData: async () => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return {
+      stats: [
+        { 
+          label: 'Active Incidents', 
+          value: '8', 
+          change: '+2', 
+          trend: 'up',
+          color: 'from-red-500 to-orange-500',
+          bg: 'bg-red-50',
+          chart: [45, 70, 55, 80, 65, 75, 60]
+        },
+        { 
+          label: 'Available Units', 
+          value: '12', 
+          change: '+3', 
+          trend: 'up',
+          color: 'from-blue-500 to-cyan-500',
+          bg: 'bg-blue-50',
+          chart: [60, 75, 50, 85, 70, 65, 80]
+        },
+        { 
+          label: 'Response Time', 
+          value: '3.8', 
+          suffix: 'min',
+          change: '-0.5', 
+          trend: 'down',
+          color: 'from-green-500 to-emerald-500',
+          bg: 'bg-green-50',
+          chart: [80, 65, 70, 55, 60, 45, 40]
+        },
+        { 
+          label: 'Resolved Today', 
+          value: '7', 
+          change: '+2', 
+          trend: 'up',
+          color: 'from-purple-500 to-pink-500',
+          bg: 'bg-purple-50',
+          chart: [30, 45, 60, 40, 70, 55, 80]
+        }
+      ],
+      incidents: [
+        { 
+          id: 'INC-002', 
+          title: 'Multi-Vehicle Accident on Ring Road', 
+          location: 'Ring Road, Near Ghion Hotel', 
+          severity: 'high', 
+          status: 'responding', 
+          time: '5 min ago',
+          units: ['Unit-03', 'Unit-07'],
+          priority: 1,
+          reporter: 'Citizen'
+        },
+        { 
+          id: 'INC-005', 
+          title: 'Theft Report at Market Area', 
+          location: 'Central Market, Kebele 7', 
+          severity: 'low', 
+          status: 'resolved', 
+          time: '30 min ago',
+          units: ['Unit-12'],
+          priority: 3,
+          reporter: 'Shop Owner'
+        },
+        { 
+          id: 'INC-007', 
+          title: 'Suspicious Activity at Bus Station', 
+          location: 'Main Bus Station, Kebele 5', 
+          severity: 'medium', 
+          status: 'active', 
+          time: '15 min ago',
+          units: [],
+          priority: 2,
+          reporter: 'Security Guard'
+        },
+        { 
+          id: 'INC-008', 
+          title: 'Traffic Violation - Major Road', 
+          location: 'Interchange, Zone 2', 
+          severity: 'low', 
+          status: 'active', 
+          time: '22 min ago',
+          units: ['Unit-05'],
+          priority: 3,
+          reporter: 'Traffic Camera'
+        }
+      ],
+      units: [
+        { 
+          id: 'UNIT-01', 
+          type: 'Patrol Car', 
+          status: 'available', 
+          location: 'Kebele 12', 
+          eta: '2 min',
+          officers: ['Officer Bekele', 'Officer Desta'],
+          fuel: 85,
+          lastMaintenance: '2024-01-15'
+        },
+        { 
+          id: 'UNIT-02', 
+          type: 'Rapid Response', 
+          status: 'responding', 
+          location: 'Ring Road', 
+          eta: '5 min',
+          officers: ['Sgt. Mulugeta'],
+          fuel: 72,
+          lastMaintenance: '2024-01-10'
+        },
+        { 
+          id: 'UNIT-03', 
+          type: 'K9 Unit', 
+          status: 'available', 
+          location: 'HQ', 
+          eta: '-',
+          officers: ['Officer Tesfaye', 'K9 Rex'],
+          fuel: 93,
+          lastMaintenance: '2024-01-12'
+        },
+        { 
+          id: 'UNIT-04', 
+          type: 'Motorcycle Unit', 
+          status: 'patrol', 
+          location: 'Market Area', 
+          eta: '8 min',
+          officers: ['Officer Alemu'],
+          fuel: 78,
+          lastMaintenance: '2024-01-14'
+        }
+      ],
+      recentActivities: [
+        { action: 'Unit dispatched to INC-002', user: 'Dispatch', time: '5 min ago', icon: '🚓' },
+        { action: 'New incident reported', user: 'Citizen', time: '8 min ago', icon: '📢' },
+        { action: 'Backup requested for UNIT-02', user: 'Sgt. Mulugeta', time: '12 min ago', icon: '🆘' },
+        { action: 'Evidence uploaded for INC-005', user: 'Officer Bekele', time: '20 min ago', icon: '📸' },
+        { action: 'Shift change completed', user: 'System', time: '35 min ago', icon: '🔄' },
+      ],
+      systemStatus: [
+        { label: 'Radio Network', status: 'Operational', icon: <Radio size={14} />, color: 'bg-green-500' },
+        { label: 'GPS Tracking', status: 'Active', icon: <MapPin size={14} />, color: 'bg-green-500' },
+        { label: 'Database Sync', status: 'Real-time', icon: <Wifi size={14} />, color: 'bg-green-500' },
+        { label: 'Emergency Channel', status: 'Standby', icon: <Zap size={14} />, color: 'bg-yellow-500' },
+        { label: 'Response Network', status: '124ms', icon: <Signal size={14} />, color: 'bg-blue-500' }
+      ]
+    };
+  },
+
+  refreshData: async () => {
+    // Simulate refreshing data with slight variations
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      stats: [
+        { 
+          label: 'Active Incidents', 
+          value: '9', 
+          change: '+3', 
+          trend: 'up',
+          color: 'from-red-500 to-orange-500',
+          bg: 'bg-red-50',
+          chart: [46, 71, 56, 81, 66, 76, 61]
+        },
+        { 
+          label: 'Available Units', 
+          value: '10', 
+          change: '+1', 
+          trend: 'up',
+          color: 'from-blue-500 to-cyan-500',
+          bg: 'bg-blue-50',
+          chart: [61, 76, 51, 86, 71, 66, 81]
+        },
+        { 
+          label: 'Response Time', 
+          value: '3.6', 
+          suffix: 'min',
+          change: '-0.7', 
+          trend: 'down',
+          color: 'from-green-500 to-emerald-500',
+          bg: 'bg-green-50',
+          chart: [81, 66, 71, 56, 61, 46, 41]
+        },
+        { 
+          label: 'Resolved Today', 
+          value: '9', 
+          change: '+4', 
+          trend: 'up',
+          color: 'from-purple-500 to-pink-500',
+          bg: 'bg-purple-50',
+          chart: [31, 46, 61, 41, 71, 56, 81]
+        }
+      ],
+      incidents: [
+        { 
+          id: 'INC-002', 
+          title: 'Multi-Vehicle Accident on Ring Road', 
+          location: 'Ring Road, Near Ghion Hotel', 
+          severity: 'high', 
+          status: 'responding', 
+          time: '8 min ago',
+          units: ['Unit-03', 'Unit-07'],
+          priority: 1,
+          reporter: 'Citizen'
+        },
+        { 
+          id: 'INC-005', 
+          title: 'Theft Report at Market Area', 
+          location: 'Central Market, Kebele 7', 
+          severity: 'low', 
+          status: 'resolved', 
+          time: '33 min ago',
+          units: ['Unit-12'],
+          priority: 3,
+          reporter: 'Shop Owner'
+        },
+        { 
+          id: 'INC-007', 
+          title: 'Suspicious Activity at Bus Station', 
+          location: 'Main Bus Station, Kebele 5', 
+          severity: 'medium', 
+          status: 'responding', 
+          time: '18 min ago',
+          units: ['Unit-08'],
+          priority: 2,
+          reporter: 'Security Guard'
+        },
+        { 
+          id: 'INC-008', 
+          title: 'Traffic Violation - Major Road', 
+          location: 'Interchange, Zone 2', 
+          severity: 'low', 
+          status: 'resolved', 
+          time: '25 min ago',
+          units: ['Unit-05'],
+          priority: 3,
+          reporter: 'Traffic Camera'
+        },
+        { 
+          id: 'INC-009', 
+          title: 'New Disturbance Reported', 
+          location: 'Downtown Area', 
+          severity: 'medium', 
+          status: 'active', 
+          time: '2 min ago',
+          units: [],
+          priority: 2,
+          reporter: 'Citizen'
+        }
+      ],
+      units: [
+        { 
+          id: 'UNIT-01', 
+          type: 'Patrol Car', 
+          status: 'responding', 
+          location: 'Kebele 12', 
+          eta: '4 min',
+          officers: ['Officer Bekele', 'Officer Desta'],
+          fuel: 82,
+          lastMaintenance: '2024-01-15'
+        },
+        { 
+          id: 'UNIT-02', 
+          type: 'Rapid Response', 
+          status: 'responding', 
+          location: 'Ring Road', 
+          eta: '3 min',
+          officers: ['Sgt. Mulugeta'],
+          fuel: 68,
+          lastMaintenance: '2024-01-10'
+        },
+        { 
+          id: 'UNIT-03', 
+          type: 'K9 Unit', 
+          status: 'available', 
+          location: 'HQ', 
+          eta: '-',
+          officers: ['Officer Tesfaye', 'K9 Rex'],
+          fuel: 93,
+          lastMaintenance: '2024-01-12'
+        },
+        { 
+          id: 'UNIT-04', 
+          type: 'Motorcycle Unit', 
+          status: 'available', 
+          location: 'Market Area', 
+          eta: '-',
+          officers: ['Officer Alemu'],
+          fuel: 78,
+          lastMaintenance: '2024-01-14'
+        }
+      ],
+      recentActivities: [
+        { action: 'New incident INC-009 reported', user: 'Citizen', time: '2 min ago', icon: '🚨' },
+        { action: 'Unit dispatched to INC-007', user: 'Dispatch', time: '4 min ago', icon: '🚓' },
+        { action: 'Unit dispatched to INC-002', user: 'Dispatch', time: '5 min ago', icon: '🚓' },
+        { action: 'Backup requested for UNIT-02', user: 'Sgt. Mulugeta', time: '12 min ago', icon: '🆘' },
+        { action: 'Evidence uploaded for INC-005', user: 'Officer Bekele', time: '20 min ago', icon: '📸' },
+      ],
+      systemStatus: [
+        { label: 'Radio Network', status: 'Operational', icon: <Radio size={14} />, color: 'bg-green-500' },
+        { label: 'GPS Tracking', status: 'Active', icon: <MapPin size={14} />, color: 'bg-green-500' },
+        { label: 'Database Sync', status: 'Real-time', icon: <Wifi size={14} />, color: 'bg-green-500' },
+        { label: 'Emergency Channel', status: 'Active', icon: <Zap size={14} />, color: 'bg-green-500' },
+        { label: 'Response Network', status: '112ms', icon: <Signal size={14} />, color: 'bg-green-500' }
+      ]
+    };
+  },
+
+  dispatchUnit: async (unitId, incidentId) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { success: true, message: `Unit ${unitId} dispatched to ${incidentId}` };
+  },
+
+  updateIncidentStatus: async (incidentId, status) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { success: true, message: `Incident ${incidentId} status updated to ${status}` };
+  }
+};
+
 const AgencyDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -49,13 +371,17 @@ const AgencyDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIncidents, setSelectedIncidents] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // State for data
+  const [stats, setStats] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [systemStatus, setSystemStatus] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+  // Get user from localStorage
   const user = JSON.parse(localStorage.getItem('user')) || {
     name: "Tigist Haile",
     role: "Agency Officer",
@@ -66,152 +392,73 @@ const AgencyDashboard = () => {
     avatar: "https://ui-avatars.com/api/?name=Tigist+Haile&background=2563eb&color=fff&bold=true"
   };
 
-  const stats = [
-    { 
-      label: 'Active Incidents', 
-      value: '8', 
-      icon: <AlertTriangle />, 
-      change: '+2', 
-      trend: 'up',
-      color: 'from-red-500 to-orange-500',
-      bg: 'bg-red-50',
-      chart: [45, 70, 55, 80, 65, 75, 60]
-    },
-    { 
-      label: 'Available Units', 
-      value: '12', 
-      icon: <Car />, 
-      change: '+3', 
-      trend: 'up',
-      color: 'from-blue-500 to-cyan-500',
-      bg: 'bg-blue-50',
-      chart: [60, 75, 50, 85, 70, 65, 80]
-    },
-    { 
-      label: 'Response Time', 
-      value: '3.8', 
-      suffix: 'min',
-      icon: <Clock />, 
-      change: '-0.5', 
-      trend: 'down',
-      color: 'from-green-500 to-emerald-500',
-      bg: 'bg-green-50',
-      chart: [80, 65, 70, 55, 60, 45, 40]
-    },
-    { 
-      label: 'Resolved Today', 
-      value: '7', 
-      icon: <CheckCircle />, 
-      change: '+2', 
-      trend: 'up',
-      color: 'from-purple-500 to-pink-500',
-      bg: 'bg-purple-50',
-      chart: [30, 45, 60, 40, 70, 55, 80]
-    }
-  ];
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const incidents = [
-    { 
-      id: 'INC-002', 
-      title: 'Multi-Vehicle Accident on Ring Road', 
-      location: 'Ring Road, Near Ghion Hotel', 
-      severity: 'high', 
-      status: 'responding', 
-      time: '5 min ago',
-      units: ['Unit-03', 'Unit-07'],
-      priority: 1,
-      reporter: 'Citizen'
-    },
-    { 
-      id: 'INC-005', 
-      title: 'Theft Report at Market Area', 
-      location: 'Central Market, Kebele 7', 
-      severity: 'low', 
-      status: 'resolved', 
-      time: '30 min ago',
-      units: ['Unit-12'],
-      priority: 3,
-      reporter: 'Shop Owner'
-    },
-    { 
-      id: 'INC-007', 
-      title: 'Suspicious Activity at Bus Station', 
-      location: 'Main Bus Station, Kebele 5', 
-      severity: 'medium', 
-      status: 'active', 
-      time: '15 min ago',
-      units: [],
-      priority: 2,
-      reporter: 'Security Guard'
-    },
-    { 
-      id: 'INC-008', 
-      title: 'Traffic Violation - Major Road', 
-      location: 'Interchange, Zone 2', 
-      severity: 'low', 
-      status: 'active', 
-      time: '22 min ago',
-      units: ['Unit-05'],
-      priority: 3,
-      reporter: 'Traffic Camera'
-    }
-  ];
+  // Initial data fetch
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const units = [
-    { 
-      id: 'UNIT-01', 
-      type: 'Patrol Car', 
-      status: 'available', 
-      location: 'Kebele 12', 
-      eta: '2 min',
-      officers: ['Officer Bekele', 'Officer Desta'],
-      fuel: 85,
-      lastMaintenance: '2024-01-15'
-    },
-    { 
-      id: 'UNIT-02', 
-      type: 'Rapid Response', 
-      status: 'responding', 
-      location: 'Ring Road', 
-      eta: '5 min',
-      officers: ['Sgt. Mulugeta'],
-      fuel: 72,
-      lastMaintenance: '2024-01-10'
-    },
-    { 
-      id: 'UNIT-03', 
-      type: 'K9 Unit', 
-      status: 'available', 
-      location: 'HQ', 
-      eta: '-',
-      officers: ['Officer Tesfaye', 'K9 Rex'],
-      fuel: 93,
-      lastMaintenance: '2024-01-12'
-    },
-    { 
-      id: 'UNIT-04', 
-      type: 'Motorcycle Unit', 
-      status: 'patrol', 
-      location: 'Market Area', 
-      eta: '8 min',
-      officers: ['Officer Alemu'],
-      fuel: 78,
-      lastMaintenance: '2024-01-14'
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const data = await mockAgencyAPI.getDashboardData();
+      setStats(data.stats);
+      setIncidents(data.incidents);
+      setUnits(data.units);
+      setRecentActivities(data.recentActivities);
+      setSystemStatus(data.systemStatus);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const recentActivities = [
-    { action: 'Unit dispatched to INC-002', user: 'Dispatch', time: '5 min ago', icon: '🚓' },
-    { action: 'New incident reported', user: 'Citizen', time: '8 min ago', icon: '📢' },
-    { action: 'Backup requested for UNIT-02', user: 'Sgt. Mulugeta', time: '12 min ago', icon: '🆘' },
-    { action: 'Evidence uploaded for INC-005', user: 'Officer Bekele', time: '20 min ago', icon: '📸' },
-    { action: 'Shift change completed', user: 'System', time: '35 min ago', icon: '🔄' },
-  ];
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await mockAgencyAPI.refreshData();
+      setStats(data.stats);
+      setIncidents(data.incidents);
+      setUnits(data.units);
+      setRecentActivities(data.recentActivities);
+      setSystemStatus(data.systemStatus);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const handleDispatchUnit = async (unitId, incidentId) => {
+    try {
+      await mockAgencyAPI.dispatchUnit(unitId, incidentId);
+      // Refresh data to show updated status
+      handleRefresh();
+    } catch (error) {
+      console.error("Error dispatching unit:", error);
+    }
+  };
+
+  const handleUpdateIncidentStatus = async (incidentId, status) => {
+    try {
+      await mockAgencyAPI.updateIncidentStatus(incidentId, status);
+      // Refresh data to show updated status
+      handleRefresh();
+    } catch (error) {
+      console.error("Error updating incident status:", error);
+    }
   };
 
   const getSeverityBadge = (severity) => {
@@ -255,6 +502,18 @@ const AgencyDashboard = () => {
     </div>
   );
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/80">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       {/* Sidebar */}
@@ -276,7 +535,8 @@ const AgencyDashboard = () => {
         <div className="relative p-6 flex items-center justify-between border-b border-white/10">
           <motion.div 
             whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate("/")}
           >
             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-xl">
               PD
@@ -339,9 +599,9 @@ const AgencyDashboard = () => {
         <nav className="relative flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
           {[
             { id: 'dashboard', icon: <BarChart2 size={20} />, label: 'Dashboard', count: null },
-            { id: 'incidents', icon: <AlertTriangle size={20} />, label: 'Incidents', count: '3', color: 'bg-red-500' },
+            { id: 'incidents', icon: <AlertTriangle size={20} />, label: 'Incidents', count: incidents.filter(i => i.status !== 'resolved').length.toString(), color: 'bg-red-500' },
             { id: 'requests', icon: <FileText size={20} />, label: 'Requests', count: '5', color: 'bg-yellow-500' },
-            { id: 'units', icon: <Car size={20} />, label: 'Units', count: '12', color: 'bg-green-500' },
+            { id: 'units', icon: <Car size={20} />, label: 'Units', count: units.filter(u => u.status === 'available').length.toString(), color: 'bg-green-500' },
             { id: 'dispatch', icon: <Radio size={20} />, label: 'Dispatch', count: null },
             { id: 'team', icon: <Users size={20} />, label: 'Team', count: '24', color: 'bg-purple-500' },
             { id: 'reports', icon: <FileText size={20} />, label: 'Reports', count: null }
@@ -454,6 +714,17 @@ const AgencyDashboard = () => {
                 <PlusCircle size={20} />
               </motion.button>
 
+              {/* Refresh Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition shadow-lg border border-gray-200 disabled:opacity-50"
+              >
+                <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+              </motion.button>
+
               {/* Notification Bell */}
               <div className="relative">
                 <motion.button
@@ -477,7 +748,7 @@ const AgencyDashboard = () => {
                     >
                       <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
                         <h3 className="font-semibold">Notifications</h3>
-                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">5 new</span>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{recentActivities.length} new</span>
                       </div>
                       <div className="max-h-96 overflow-auto">
                         {recentActivities.map((activity, i) => (
@@ -596,10 +867,12 @@ const AgencyDashboard = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="px-4 py-2 bg-white/20 backdrop-blur rounded-xl text-white border border-white/30 hover:bg-white/30 transition flex items-center gap-2 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} />
-                  Sync Data
+                  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                  {refreshing ? 'Syncing...' : 'Sync Data'}
                 </motion.button>
               </div>
             </div>
@@ -612,51 +885,62 @@ const AgencyDashboard = () => {
             transition={{ delay: 0.2 }}
             className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
           >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                whileHover={{ y: -5, scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="relative group"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 blur-xl`} />
-                <div className="relative bg-white/90 backdrop-blur rounded-2xl p-6 shadow-xl border border-white/50 overflow-hidden">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
-                      <div className="flex items-end gap-1">
-                        <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
-                        {stat.suffix && (
-                          <p className="text-sm text-gray-500 mb-1">{stat.suffix}</p>
-                        )}
+            {stats.map((stat, index) => {
+              const IconComponent = 
+                index === 0 ? AlertTriangle :
+                index === 1 ? Car :
+                index === 2 ? Clock : CheckCircle;
+              
+              return (
+                <motion.div
+                  key={index}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative group"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 blur-xl`} />
+                  <div className="relative bg-white/90 backdrop-blur rounded-2xl p-6 shadow-xl border border-white/50 overflow-hidden">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
+                        <div className="flex items-end gap-1">
+                          <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
+                          {stat.suffix && (
+                            <p className="text-sm text-gray-500 mb-1">{stat.suffix}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center text-2xl`}>
+                        <IconComponent className={`w-6 h-6 ${
+                          index === 0 ? 'text-red-500' :
+                          index === 1 ? 'text-blue-500' :
+                          index === 2 ? 'text-green-500' : 'text-purple-500'
+                        }`} />
                       </div>
                     </div>
-                    <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center text-2xl`}>
-                      {stat.icon}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {stat.trend === 'up' ? (
-                        <ArrowUpRight size={16} className="text-green-500" />
-                      ) : (
-                        <ArrowDownRight size={16} className="text-red-500" />
-                      )}
-                      <span className={`text-xs font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                        {stat.change}
-                      </span>
-                      <span className="text-xs text-gray-400 ml-1">vs yesterday</span>
-                    </div>
                     
-                    {/* Mini Chart */}
-                    <MiniChart data={stat.chart} color={stat.color} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {stat.trend === 'up' ? (
+                          <ArrowUpRight size={16} className="text-green-500" />
+                        ) : (
+                          <ArrowDownRight size={16} className="text-red-500" />
+                        )}
+                        <span className={`text-xs font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                          {stat.change}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-1">vs yesterday</span>
+                      </div>
+                      
+                      {/* Mini Chart */}
+                      <MiniChart data={stat.chart} color={stat.color} />
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           {/* Two Column Layout */}
@@ -701,8 +985,18 @@ const AgencyDashboard = () => {
                   >
                     <span className="text-sm text-blue-700">{selectedIncidents.length} incidents selected</span>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Dispatch Unit</button>
-                      <button className="px-3 py-1 text-xs bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Update Status</button>
+                      <button 
+                        onClick={() => handleDispatchUnit('selected', 'bulk')}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Dispatch Unit
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateIncidentStatus('selected', 'updating')}
+                        className="px-3 py-1 text-xs bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                      >
+                        Update Status
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -723,7 +1017,7 @@ const AgencyDashboard = () => {
                               setSelectedIncidents([]);
                             }
                           }}
-                          checked={selectedIncidents.length === incidents.length}
+                          checked={selectedIncidents.length === incidents.length && incidents.length > 0}
                         />
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
@@ -805,21 +1099,10 @@ const AgencyDashboard = () => {
 
               {/* Pagination */}
               <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-                <p className="text-sm text-gray-500">Showing 1-4 of 12 incidents</p>
+                <p className="text-sm text-gray-500">Showing 1-{incidents.length} of {incidents.length} incidents</p>
                 <div className="flex gap-2">
                   <button className="px-3 py-1 rounded-lg text-sm hover:bg-gray-200 transition">Previous</button>
-                  {[1,2,3].map((page) => (
-                    <button
-                      key={page}
-                      className={`w-8 h-8 rounded-lg text-sm ${
-                        page === 1 
-                          ? 'bg-blue-600 text-white' 
-                          : 'hover:bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  <button className="px-3 py-1 rounded-lg text-sm bg-blue-600 text-white">1</button>
                   <button className="px-3 py-1 rounded-lg text-sm hover:bg-gray-200 transition">Next</button>
                 </div>
               </div>
@@ -881,7 +1164,10 @@ const AgencyDashboard = () => {
                         )}
                       </div>
                       <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 flex-1">
+                        <button 
+                          onClick={() => handleDispatchUnit(unit.id, 'new-incident')}
+                          className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 flex-1"
+                        >
                           Dispatch
                         </button>
                         <button className="text-xs border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50">
@@ -903,17 +1189,18 @@ const AgencyDashboard = () => {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { icon: <Car />, label: 'Dispatch Unit', color: 'from-blue-500 to-cyan-500' },
-                    { icon: <Radio />, label: 'Broadcast', color: 'from-purple-500 to-pink-500' },
-                    { icon: <FileText />, label: 'New Report', color: 'from-green-500 to-emerald-500' },
-                    { icon: <Users />, label: 'Team Status', color: 'from-orange-500 to-red-500' },
-                    { icon: <MapPin />, label: 'Patrol Routes', color: 'from-indigo-500 to-purple-500' },
-                    { icon: <Shield />, label: 'Backup Request', color: 'from-red-500 to-pink-500' }
+                    { icon: <Car />, label: 'Dispatch Unit', color: 'from-blue-500 to-cyan-500', onClick: () => console.log('Dispatch') },
+                    { icon: <Radio />, label: 'Broadcast', color: 'from-purple-500 to-pink-500', onClick: () => console.log('Broadcast') },
+                    { icon: <FileText />, label: 'New Report', color: 'from-green-500 to-emerald-500', onClick: () => console.log('Report') },
+                    { icon: <Users />, label: 'Team Status', color: 'from-orange-500 to-red-500', onClick: () => console.log('Team') },
+                    { icon: <MapPin />, label: 'Patrol Routes', color: 'from-indigo-500 to-purple-500', onClick: () => console.log('Routes') },
+                    { icon: <Shield />, label: 'Backup Request', color: 'from-red-500 to-pink-500', onClick: () => console.log('Backup') }
                   ].map((action, index) => (
                     <motion.button
                       key={index}
                       whileHover={{ scale: 1.05, y: -2 }}
                       whileTap={{ scale: 0.95 }}
+                      onClick={action.onClick}
                       className={`p-4 bg-gradient-to-br ${action.color} text-white rounded-xl hover:shadow-lg transition-all flex flex-col items-center gap-2`}
                     >
                       {action.icon}
@@ -927,13 +1214,7 @@ const AgencyDashboard = () => {
               <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-white/50 p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">System Status</h2>
                 <div className="space-y-3">
-                  {[
-                    { label: 'Radio Network', status: 'Operational', icon: <Radio size={14} />, color: 'bg-green-500' },
-                    { label: 'GPS Tracking', status: 'Active', icon: <MapPin size={14} />, color: 'bg-green-500' },
-                    { label: 'Database Sync', status: 'Real-time', icon: <Wifi size={14} />, color: 'bg-green-500' },
-                    { label: 'Emergency Channel', status: 'Standby', icon: <Zap size={14} />, color: 'bg-yellow-500' },
-                    { label: 'Response Network', status: '124ms', icon: <Signal size={14} />, color: 'bg-blue-500' }
-                  ].map((item, idx) => (
+                  {systemStatus.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                       <div className="flex items-center gap-2">
                         <span className="text-gray-500">{item.icon}</span>
