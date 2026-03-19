@@ -1,28 +1,26 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Pages
 import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
-import ServicesPage from "./pages/ServicesPage";
-import AboutPage from "./pages/AboutPage";
-import ContactPage from "./pages/ContactPage";
-
-// Dashboard Pages
-import AdminDashboard from "./pages/Dashboards/AdminDashboard";
-import AgencyDashboard from "./pages/Dashboards/AgencyDashboard";
-import ResponderDashboard from "./pages/Dashboards/ResponderDashboard";
+import AdminDashboard from "./pages/dashboards/admin/admindashboard";
 
 // Components
 import Navbar from "./components/home/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Layout component to conditionally render Navbar
+// Layout component
 const AppLayout = ({ children }) => {
   const location = useLocation();
-  const isDashboard = location.pathname.includes('/dashboard');
-  
+  const isDashboard = location.pathname.includes("/dashboard");
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {!isDashboard && <Navbar />}
@@ -41,12 +39,9 @@ const AppLayout = ({ children }) => {
   );
 };
 
-// Main App Component
 const App = () => {
-  // Check for saved theme preference
   useEffect(() => {
-    // You can add theme initialization here if needed
-    document.documentElement.classList.add('scroll-smooth');
+    document.documentElement.classList.add("scroll-smooth");
   }, []);
 
   return (
@@ -56,28 +51,16 @@ const App = () => {
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/contact" element={<ContactPage />} />
 
-          {/* Protected Dashboard Routes */}
-          <Route path="/dashboard/admin" element={
-            <ProtectedRoute role="Administrator">
-              <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard/agency" element={
-            <ProtectedRoute role="Agency Officer">
-              <AgencyDashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard/responder" element={
-            <ProtectedRoute role="Emergency Responder">
-              <ResponderDashboard />
-            </ProtectedRoute>
-          } />
+          {/* Admin Dashboard */}
+          <Route
+            path="/dashboard/admin"
+            element={
+              <ProtectedRoute role="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 Fallback */}
           <Route
@@ -93,7 +76,9 @@ const App = () => {
                   >
                     404
                   </motion.div>
-                  <h2 className="text-3xl font-bold text-gray-800 mb-4">Page Not Found</h2>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                    Page Not Found
+                  </h2>
                   <p className="text-gray-600 mb-8">
                     The page you're looking for doesn't exist or has been moved.
                   </p>
