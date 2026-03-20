@@ -10,7 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // Pages
 import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
-import AdminDashboard from "./pages/dashboards/admin/admindashboard";
+import AdminDashboard from "./pages/Dashboards/admin/AdminDashboard";
+import AgencyDashboard from "./pages/Dashboards/agent/AgencyDashboard";
 
 // Components
 import Navbar from "./components/home/Navbar";
@@ -58,6 +59,16 @@ const App = () => {
             element={
               <ProtectedRoute role="admin">
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Agency Dashboard */}
+          <Route
+            path="/dashboard/agency"
+            element={
+              <ProtectedRoute role="agency">
+                <AgencyDashboard />
               </ProtectedRoute>
             }
           />

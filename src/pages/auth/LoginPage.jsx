@@ -6,20 +6,12 @@ import axios from "axios";
 const LoginPage = () => {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,38 +19,49 @@ const LoginPage = () => {
     setError("");
 
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/users/login",
-        form,
-      );
+      let response;
 
-      const { user, accessToken, mustChangePassword } = res.data;
+      try {
+        // Admin login
+        response = await axios.post(
+          "http://localhost:5000/api/users/login",
+          form,
+        );
+        const { user, accessToken, mustChangePassword } = response.data;
 
-      if (!accessToken) {
-        throw new Error("Login failed: No token received");
-      }
+        if (!accessToken) throw new Error("No token received");
 
-      // ✅ Store auth data
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", accessToken);
+        localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem("token", accessToken);
 
-      // ✅ Force password change (temporary password case)
-      if (mustChangePassword) {
-        navigate("/change-password");
-        return;
-      }
+        if (mustChangePassword) {
+          navigate("/change-password");
+          return;
+        }
 
-      // ✅ Role-based navigation
-      if (user.role === "admin") {
         navigate("/dashboard/admin");
-      } else {
-        navigate("/dashboard");
+        return;
+      } catch {
+        // Agency login fallback
+        response = await axios.post(
+          "http://localhost:5000/api/agency/agent-login",
+          form,
+        );
+        const { agency, token } = response.data;
+
+        if (!token) throw new Error("No token received");
+
+        localStorage.setItem("agency", JSON.stringify(agency));
+        localStorage.setItem("token", token);
+
+        navigate("/dashboard/agency");
       }
     } catch (err) {
       console.error("Login error:", err);
-
       setError(
-        err.response?.data?.error || err.message || "Invalid email or password",
+        err.response?.data?.message ||
+          err.message ||
+          "Invalid email or password",
       );
     } finally {
       setLoading(false);
@@ -66,64 +69,80 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 overflow-hidden px-4">
+      {/* Floating background shapes */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-400 rounded-full opacity-20 blur-3xl animate-pulse-slow"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-indigo-400 rounded-full opacity-20 blur-3xl animate-pulse-slower"></div>
+
+      {/* Login Card */}
       <motion.div
-        initial={{ opacity: 0, y: 25 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        className="relative w-full max-w-md bg-white/80 backdrop-blur-md border border-gray-200/50 rounded-3xl shadow-2xl p-8 z-10"
       >
-        <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
-          {/* Logo / Header */}
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md">
-              <span className="text-white font-bold text-xl">BL</span>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800">BahirLink</h2>
-            <p className="text-sm text-gray-500">
-              Emergency Command Center Login
-            </p>
+        {/* Logo */}
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-xl hover:scale-105 transition-transform">
+            <span className="text-white font-bold text-xl">BL</span>
           </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-100 text-red-600 text-sm p-2 rounded-md mb-4 text-center">
-              {error}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="email"
-              name="email"
-              placeholder="Email address"
-              value={form.email}
-              onChange={handleChange}
-              required
-              disabled={loading}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-            />
-
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              disabled={loading}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-lg transition disabled:opacity-50"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+          <h2 className="text-2xl font-bold text-gray-800">BahirLink</h2>
+          <p className="text-sm text-gray-600">
+            Emergency Command Center Login
+          </p>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-100 text-red-600 text-sm p-2 rounded-md mb-4 text-center font-medium"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            name="email"
+            placeholder="Email address"
+            value={form.email}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className="w-full px-4 py-2 rounded-xl border border-gray-300/50 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 transition"
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className="w-full px-4 py-2 rounded-xl border border-gray-300/50 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 transition"
+          />
+          <motion.button
+            type="submit"
+            disabled={loading}
+            whileHover={{
+              scale: 1.02,
+              boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)",
+            }}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:shadow-lg transition disabled:opacity-50"
+          >
+            {loading ? "Signing in..." : "Sign In"}
+          </motion.button>
+        </form>
+
+        {/* Footer */}
+        <p className="mt-4 text-xs text-gray-500 text-center">
+          © {new Date().getFullYear()} BahirLink. All rights reserved.
+        </p>
       </motion.div>
     </div>
   );
