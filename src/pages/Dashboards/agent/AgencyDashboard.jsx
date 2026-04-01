@@ -8,7 +8,8 @@ const AgencyDashboard = () => {
   const [active, setActive] = useState("dashboard");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
+      {/* Sidebar */}
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -16,14 +17,21 @@ const AgencyDashboard = () => {
         setActive={setActive}
       />
 
-      <div className="flex-1 flex flex-col">
-        <Header
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          active={active}
-        />
+      {/* Main Section */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex-shrink-0">
+          <Header
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            active={active}
+          />
+        </div>
 
-        <MainContent active={active} />
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-auto p-6 bg-slate-50">
+          <MainContent active={active} />
+        </div>
       </div>
     </div>
   );

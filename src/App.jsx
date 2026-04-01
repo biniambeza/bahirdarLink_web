@@ -13,6 +13,7 @@ import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import AdminDashboard from "./pages/Dashboards/admin/AdminDashboard";
 import AgencyDashboard from "./pages/Dashboards/agent/AgencyDashboard";
+import ResponderDashboard from "./pages/Dashboards/responder/ResponderDashboard";
 import IncidentsPage from "./pages/Dashboards/agent/pages/IncidentsPage";
 import IncidentDetailPage from "./pages/Dashboards/agent/pages/IncidentDetailPage";
 
@@ -118,7 +119,17 @@ const App = () => {
             }
           />
 
-          {/* ✅ NEW: Incidents */}
+          {/* ========= Responder ========= */}
+          <Route
+            path="/dashboard/responder"
+            element={
+              <ProtectedRoute role="responder">
+                <ResponderDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ========= Agency Incidents ========= */}
           <Route
             path="/incidents"
             element={
@@ -128,7 +139,6 @@ const App = () => {
             }
           />
 
-          {/* ✅ NEW: Incident Details */}
           <Route
             path="/incidents/:id"
             element={

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import Sidebar from "./components/Sidebar"; // Your Sidebar
-import Header from "./components/Header"; // Your existing Header component
+import Sidebar from "./components/Sidebar"; // Sidebar component
+import Header from "./components/Header"; // Header component
 
+// Pages
 import DashboardPage from "./pages/DashboardPage";
 import UsersPage from "./pages/UsersPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -10,9 +11,8 @@ import SettingsPage from "./pages/SettingsPage";
 
 const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedPage, setSelectedPage] = useState("dashboard"); // default page
+  const [selectedPage, setSelectedPage] = useState("dashboard");
 
-  // Render the main content based on selected page
   const renderContent = () => {
     switch (selectedPage) {
       case "dashboard":
@@ -31,7 +31,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen font-sans">
+    <div className="flex h-screen overflow-hidden font-sans">
       {/* Sidebar */}
       <Sidebar
         sidebarOpen={sidebarOpen}
@@ -40,17 +40,19 @@ const AdminDashboard = () => {
         setSelectedCategory={setSelectedPage}
       />
 
-      {/* Main Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Section */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <Header
-          selectedPage={selectedPage} // pass page info to Header if needed
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
+        <div className="flex-shrink-0">
+          <Header
+            selectedPage={selectedPage}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+          />
+        </div>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 bg-[#F0F5FF] overflow-y-auto">
+        {/* Scrollable Main Content */}
+        <main className="flex-1 overflow-auto p-6 bg-[#F0F5FF]">
           {renderContent()}
         </main>
       </div>
