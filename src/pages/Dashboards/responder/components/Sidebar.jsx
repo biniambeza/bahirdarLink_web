@@ -43,6 +43,7 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
           onClick={() => setActive("incidents")}
         />
 
+        {/* ✅ Cases now behaves like others */}
         <NavItem
           icon={<FileText />}
           label="Cases"

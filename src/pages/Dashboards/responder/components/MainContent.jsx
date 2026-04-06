@@ -1,5 +1,7 @@
 import ResponderDashboardPage from "../pages/ResponderDashboardPage";
 import ResponderIncidentsPage from "../pages/ResponderIncidentsPage";
+import ResponderCasesPage from "../pages/CasesPage"; // ✅ already added
+import ResponderSettingsPage from "../pages/SettingsPage"; // ✅ new import
 
 const ResponderMainContent = ({ active }) => {
   const renderContent = () => {
@@ -10,11 +12,11 @@ const ResponderMainContent = ({ active }) => {
       case "incidents":
         return <ResponderIncidentsPage />;
 
-      case "dispatch":
-        return <ResponderDispatchPage />;
+      case "cases":
+        return <ResponderCasesPage />; // ✅ existing
 
-      case "profile":
-        return <ResponderProfilePage />;
+      case "settings":
+        return <ResponderSettingsPage />; // ✅ new
 
       default:
         return <ResponderDashboardPage />;

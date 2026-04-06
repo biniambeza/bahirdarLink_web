@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { PlusCircle, Users } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Users } from "lucide-react";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -9,7 +8,7 @@ const UsersPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // --- Fetch users from backend ---
+  // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -42,7 +41,7 @@ const UsersPage = () => {
     fetchUsers();
   }, []);
 
-  // --- Filter users by search query ---
+  // Filter users by search query
   const filteredUsers = useMemo(() => {
     return users.filter(
       (user) =>
@@ -52,34 +51,26 @@ const UsersPage = () => {
   }, [searchQuery, users]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0052CC]">User Management</h1>
-          <p className="text-sm text-slate-500">View all registered users.</p>
-        </div>
-        <button
-          disabled={loading}
-          className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-white shadow-lg transition-all ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-[#0052CC] hover:bg-blue-700"
-          }`}
-        >
-          <PlusCircle size={18} />
-          Add User
-        </button>
+      <div className="bg-white p-6 rounded-2xl shadow-md">
+        <h1 className="text-2xl font-bold text-[#0052CC]">User Management</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Manage and view all registered users
+        </p>
+        <p className="text-sm text-blue-600 font-semibold mt-2">
+          Total Users: {filteredUsers.length}
+        </p>
       </div>
 
       {/* Search Input */}
       <div className="relative w-full max-w-sm">
         <input
           type="text"
-          placeholder="Search users..."
+          placeholder="Search by name or email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full border border-slate-200 rounded-full px-4 py-2 pl-10 text-sm outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all"
+          className="w-full bg-white shadow-md rounded-full px-4 py-3 pl-10 text-sm outline-none focus:ring-2 focus:ring-[#0052CC]"
         />
         <Users
           size={18}
@@ -87,39 +78,90 @@ const UsersPage = () => {
         />
       </div>
 
-      {/* Users List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Users Table */}
+      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
         {loading ? (
-          <p className="text-slate-500 col-span-full">Loading users...</p>
+          <p className="p-6 text-slate-500">Loading users...</p>
         ) : error ? (
-          <p className="text-red-500 col-span-full">{error}</p>
+          <p className="p-6 text-red-500">{error}</p>
         ) : filteredUsers.length === 0 ? (
-          <p className="text-slate-500 col-span-full">No users found.</p>
+          <p className="p-6 text-slate-500">No users found.</p>
         ) : (
-          <AnimatePresence>
-            {filteredUsers.map((user, idx) => (
-              <motion.div
-                key={user.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-lg flex flex-col gap-2"
-              >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800">{user.fullName}</h4>
-                  <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-blue-50 text-blue-600">
-                    {user.role || "User"}
-                  </span>
-                </div>
-                <p className="text-slate-500 text-sm">{user.email}</p>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                  Status: {user.isEmailVerified ? "Verified" : "Pending"}
-                </p>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              {/* Table Header */}
+              <thead className="bg-gradient-to-r from-[#0052CC] to-blue-600 text-white">
+                <tr>
+                  <th className="p-4 text-left text-sm">#</th>
+                  <th className="p-4 text-left text-sm">User</th>
+                  <th className="p-4 text-left text-sm">Email</th>
+                  <th className="p-4 text-left text-sm">Role</th>
+                  <th className="p-4 text-left text-sm">Status</th>
+                </tr>
+              </thead>
+
+              {/* Table Body */}
+              <tbody>
+                {filteredUsers.map((user, index) => {
+                  const initials = user.fullName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase();
+
+                  return (
+                    <tr
+                      key={user.id}
+                      className={`transition duration-200 hover:bg-blue-50 ${
+                        index % 2 === 0 ? "bg-white" : "bg-slate-50"
+                      }`}
+                    >
+                      <td className="p-4 text-slate-600">{index + 1}</td>
+
+                      {/* User with Avatar */}
+                      <td className="p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#0052CC] to-blue-600 text-white flex items-center justify-center font-bold">
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">
+                            {user.fullName}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Registered User
+                          </p>
+                        </div>
+                      </td>
+
+                      {/* Email */}
+                      <td className="p-4 text-slate-600">{user.email}</td>
+
+                      {/* Role */}
+                      <td className="p-4">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                          {user.role || "User"}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-4">
+                        <span
+                          className={`flex items-center gap-2 px-3 py-1 w-fit rounded-full text-xs font-semibold ${
+                            user.isEmailVerified
+                              ? "bg-green-100 text-green-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          <span className="w-2 h-2 rounded-full bg-current"></span>
+                          {user.isEmailVerified ? "Verified" : "Pending"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

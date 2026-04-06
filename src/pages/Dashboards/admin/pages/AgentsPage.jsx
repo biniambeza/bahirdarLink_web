@@ -1,19 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { PlusCircle, Users, Trash2 } from "lucide-react";
+import { PlusCircle, Users, Edit2 } from "lucide-react"; // use Edit2 icon
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import AddAgentPanel from "./AddAgentPanel";
 
 const AgentsPage = () => {
+  const navigate = useNavigate();
+
   const [agents, setAgents] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAddPanel, setShowAddPanel] = useState(false);
-
-  // ✅ NEW STATES FOR MODAL
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState(null);
 
   // Fetch agents
   const fetchAgents = async () => {
@@ -36,30 +35,7 @@ const AgentsPage = () => {
     fetchAgents();
   }, []);
 
-  // ✅ DELETE FUNCTION (NO confirm)
-  const handleDelete = async () => {
-    if (!selectedAgent) return;
-
-    try {
-      const token = localStorage.getItem("token");
-
-      await axios.delete(
-        `http://localhost:5000/api/agency/${selectedAgent.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      setShowDeleteModal(false);
-      setSelectedAgent(null);
-      fetchAgents();
-    } catch (err) {
-      console.error("Delete error:", err);
-      alert(err.response?.data?.message || "Failed to delete agent");
-    }
-  };
-
-  // Filter
+  // Filter agents
   const filteredAgents = useMemo(
     () =>
       agents.filter(
@@ -127,19 +103,9 @@ const AgentsPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ delay: idx * 0.05 }}
-                className="relative bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-lg flex flex-col gap-3 transition-all hover:scale-105"
+                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-lg flex flex-col gap-3 transition-all hover:scale-105 cursor-pointer"
+                onClick={() => navigate(`/edit-agent/${agent.id}`)}
               >
-                {/* 🗑 DELETE BUTTON */}
-                <button
-                  onClick={() => {
-                    setSelectedAgent(agent);
-                    setShowDeleteModal(true);
-                  }}
-                  className="absolute top-3 right-3 p-2 rounded-full bg-red-50 hover:bg-red-100 transition"
-                >
-                  <Trash2 size={18} className="text-red-500" />
-                </button>
-
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-lg text-slate-800">
                     {agent.name}
@@ -167,61 +133,6 @@ const AgentsPage = () => {
           </AnimatePresence>
         )}
       </div>
-
-      {/* ✅ DELETE MODAL */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              initial={{ scale: 0.8, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.8, y: 50 }}
-              transition={{ type: "spring", stiffness: 200 }}
-              className="bg-white w-[90%] max-w-md rounded-3xl shadow-2xl p-6 text-center space-y-4"
-            >
-              <div className="w-16 h-16 mx-auto flex items-center justify-center rounded-full bg-blue-100">
-                <Trash2 className="text-blue-600" size={28} />
-              </div>
-
-              <h2 className="text-xl font-bold text-slate-800">
-                Delete Agent?
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Are you sure you want to delete{" "}
-                <span className="font-semibold text-blue-600">
-                  {selectedAgent?.name}
-                </span>
-                ? This action cannot be undone.
-              </p>
-
-              <div className="flex gap-3 justify-center pt-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setSelectedAgent(null);
-                  }}
-                  className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleDelete}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:scale-105 transition"
-                >
-                  Yes, Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Add Agent Panel */}
       <AnimatePresence>

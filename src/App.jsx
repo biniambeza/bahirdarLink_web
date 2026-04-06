@@ -22,7 +22,7 @@ import Navbar from "./components/home/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 /* =========================
-   Layout
+   Layout Component
 ========================= */
 const AppLayout = ({ children }) => {
   const location = useLocation();
@@ -30,8 +30,10 @@ const AppLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      {/* Show Navbar only on non-dashboard pages */}
       {!isDashboard && <Navbar />}
 
+      {/* Animate route transitions */}
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
@@ -48,7 +50,7 @@ const AppLayout = ({ children }) => {
 };
 
 /* =========================
-   404 Page
+   404 Page Component
 ========================= */
 const NotFound = () => {
   const navigate = useNavigate();
@@ -84,9 +86,10 @@ const NotFound = () => {
 };
 
 /* =========================
-   App
+   Main App Component
 ========================= */
 const App = () => {
+  // Smooth scrolling for the entire app
   useEffect(() => {
     document.documentElement.classList.add("scroll-smooth");
   }, []);
@@ -99,7 +102,7 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* ========= Admin ========= */}
+          {/* ========= Admin Dashboard ========= */}
           <Route
             path="/dashboard/admin"
             element={
@@ -109,7 +112,7 @@ const App = () => {
             }
           />
 
-          {/* ========= Agency ========= */}
+          {/* ========= Agency Dashboard ========= */}
           <Route
             path="/dashboard/agency"
             element={
@@ -119,7 +122,7 @@ const App = () => {
             }
           />
 
-          {/* ========= Responder ========= */}
+          {/* ========= Responder Dashboard ========= */}
           <Route
             path="/dashboard/responder"
             element={
@@ -138,7 +141,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/incidents/:id"
             element={
@@ -148,7 +150,7 @@ const App = () => {
             }
           />
 
-          {/* ========= 404 ========= */}
+          {/* ========= 404 Not Found ========= */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>
