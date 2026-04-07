@@ -1,4 +1,4 @@
-import { BarChart2, AlertTriangle, Car, MapPin } from "lucide-react";
+import { BarChart2, AlertTriangle, Car } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Sidebar = ({ sidebarOpen, active, setActive }) => {
@@ -42,15 +42,6 @@ const Sidebar = ({ sidebarOpen, active, setActive }) => {
           active={active === "units"}
           open={sidebarOpen}
           onClick={() => setActive("units")}
-        />
-
-        {/* New Kebele Item */}
-        <NavItem
-          icon={<MapPin />}
-          label="Kebele"
-          active={active === "kebele"}
-          open={sidebarOpen}
-          onClick={() => setActive("kebele")}
         />
       </nav>
     </motion.aside>

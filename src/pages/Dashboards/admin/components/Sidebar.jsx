@@ -1,4 +1,13 @@
-import { LogOut, Home, Users, FileText, Settings, Zap } from "lucide-react";
+import {
+  LogOut,
+  Home,
+  Users,
+  FileText,
+  Settings,
+  Zap,
+  MapPin,
+  Tag,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const Sidebar = ({
@@ -21,6 +30,7 @@ const Sidebar = ({
             className="w-8 h-8 object-contain"
           />
         </div>
+
         {sidebarOpen && (
           <span className="font-black text-white text-2xl tracking-tighter">
             Bahir<span className="font-light">Link</span>
@@ -28,7 +38,7 @@ const Sidebar = ({
         )}
       </div>
 
-      {/* Navigation Links */}
+      {/* Navigation */}
       <nav className="flex-1 px-4 space-y-2 mt-8">
         <SidebarLink
           active={selectedCategory === "dashboard"}
@@ -37,6 +47,7 @@ const Sidebar = ({
           open={sidebarOpen}
           onClick={() => setSelectedCategory("dashboard")}
         />
+
         <SidebarLink
           active={selectedCategory === "users"}
           icon={<Users />}
@@ -44,6 +55,7 @@ const Sidebar = ({
           open={sidebarOpen}
           onClick={() => setSelectedCategory("users")}
         />
+
         <SidebarLink
           active={selectedCategory === "reports"}
           icon={<FileText />}
@@ -51,6 +63,7 @@ const Sidebar = ({
           open={sidebarOpen}
           onClick={() => setSelectedCategory("reports")}
         />
+
         <SidebarLink
           active={selectedCategory === "agents"}
           icon={<Zap />}
@@ -58,6 +71,25 @@ const Sidebar = ({
           open={sidebarOpen}
           onClick={() => setSelectedCategory("agents")}
         />
+
+        {/* New Kebele */}
+        <SidebarLink
+          active={selectedCategory === "kebele"}
+          icon={<MapPin />}
+          label="Kebele"
+          open={sidebarOpen}
+          onClick={() => setSelectedCategory("kebele")}
+        />
+
+        {/* New Category */}
+        <SidebarLink
+          active={selectedCategory === "category"}
+          icon={<Tag />}
+          label="Category"
+          open={sidebarOpen}
+          onClick={() => setSelectedCategory("category")}
+        />
+
         <SidebarLink
           active={selectedCategory === "settings"}
           icon={<Settings />}
@@ -92,6 +124,7 @@ const SidebarLink = ({ active, icon, label, open, onClick }) => (
     }`}
   >
     <span>{icon}</span>
+
     {open && (
       <span className="text-sm font-bold uppercase tracking-widest">
         {label}

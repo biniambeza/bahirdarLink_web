@@ -1,6 +1,6 @@
 import { useState } from "react";
-import Sidebar from "./components/Sidebar"; // Sidebar component
-import Header from "./components/Header"; // Header component
+import Sidebar from "./components/Sidebar";
+import Header from "./components/Header";
 
 // Pages
 import DashboardPage from "./pages/DashboardPage";
@@ -8,6 +8,8 @@ import UsersPage from "./pages/UsersPage";
 import ReportsPage from "./pages/ReportsPage";
 import AgentsPage from "./pages/AgentsPage";
 import SettingsPage from "./pages/SettingsPage";
+import KebelePage from "./pages/KebelePage";
+import CategoryPage from "./pages/CategoryPage";
 
 const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -23,6 +25,10 @@ const AdminDashboard = () => {
         return <ReportsPage />;
       case "agents":
         return <AgentsPage />;
+      case "kebele":
+        return <KebelePage />;
+      case "category": // <-- new case
+        return <CategoryPage />;
       case "settings":
         return <SettingsPage />;
       default:
