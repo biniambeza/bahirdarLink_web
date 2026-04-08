@@ -12,6 +12,7 @@ import {
   Layers,
   ChevronRight,
   Database,
+  Settings2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -61,190 +62,193 @@ const SettingsPage = () => {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8 font-sans selection:bg-blue-100">
-      {/* 1. Dynamic Header */}
-      <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-slate-200">
-            <Layers size={26} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
-              Case Architecture
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em]">
-                Active Dispatch Protocols
-              </p>
+    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans selection:bg-indigo-100">
+      <div className="max-w-7xl mx-auto space-y-10">
+        {/* --- 1. PRO-TIER HEADER --- */}
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-white shadow-2xl shadow-slate-300 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+              <Settings2 size={32} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tightest">
+                System <span className="text-indigo-600">Config</span>
+              </h1>
+              <div className="flex items-center gap-3 mt-1.5">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  Database Protocol: Active
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-80 group">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Search category matrix..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-500 transition-all shadow-sm"
-            />
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-96 group">
+              <Search
+                className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Search case matrix..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-100 rounded-[1.25rem] text-sm font-bold focus:outline-none focus:ring-0 focus:border-indigo-500 transition-all shadow-sm placeholder:text-slate-300"
+              />
+            </div>
           </div>
-          <button className="p-3.5 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all shadow-sm">
-            <Filter size={20} />
-          </button>
-        </div>
-      </header>
+        </header>
 
-      {/* 2. Main Body */}
-      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Registration Sidebar */}
-        <aside className="lg:col-span-4 xl:col-span-3 space-y-6">
-          <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm relative overflow-hidden">
-            <div className="relative z-10">
-              <h2 className="text-xl font-black text-slate-900 mb-2">
-                Initialize Type
-              </h2>
-              <p className="text-slate-500 text-xs font-medium mb-8 leading-relaxed">
-                Add a new classification to the central dispatch database.
-              </p>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Title Designation
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Rapid Response"
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-bold placeholder:text-slate-300"
-                  />
+        {/* --- 2. DUAL-PANE LAYOUT --- */}
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          {/* SIDEBAR: ACTION CENTER */}
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-6">
+            <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    Add Category
+                  </h2>
+                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mt-1">
+                    New Data Entry
+                  </p>
                 </div>
 
-                <button
-                  disabled={loading || !name.trim()}
-                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none"
-                >
-                  {loading ? (
-                    <Loader2 className="animate-spin" size={20} />
-                  ) : (
-                    <>
-                      Deploy Category <Plus size={18} strokeWidth={3} />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 p-4 bg-rose-50 text-rose-600 rounded-2xl flex gap-3 items-center border border-rose-100"
-                >
-                  <AlertCircle size={18} className="shrink-0" />
-                  <p className="text-[11px] font-bold uppercase tracking-tight leading-tight">
-                    {error}
-                  </p>
-                </motion.div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-slate-900 rounded-[2rem] p-6 text-white overflow-hidden relative group">
-            <Database
-              className="absolute -right-4 -bottom-4 text-white/10 group-hover:scale-110 transition-transform duration-700"
-              size={120}
-            />
-            <div className="relative z-10">
-              <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">
-                Storage Status
-              </p>
-              <h4 className="text-lg font-bold">System Load</h4>
-              <p className="text-xs text-slate-400 mt-1 font-medium italic">
-                All nodes synchronized.
-              </p>
-            </div>
-          </div>
-        </aside>
-
-        {/* Content Grid */}
-        <section className="lg:col-span-8 xl:col-span-9">
-          {fetchLoading ? (
-            <div className="h-[60vh] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-slate-100 shadow-inner">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-blue-50 rounded-full border-t-blue-600 animate-spin" />
-                <Layers
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600"
-                  size={20}
-                />
-              </div>
-              <p className="mt-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">
-                Fetching Data Matrix
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              <AnimatePresence mode="popLayout">
-                {filteredTypes.map((type, idx) => (
-                  <motion.div
-                    layout
-                    key={type.id || idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="group bg-white p-6 rounded-[2.5rem] border border-slate-200 hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500 relative flex flex-col justify-between min-h-[180px]"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 shadow-sm">
-                        <Hash size={18} strokeWidth={2.5} />
-                      </div>
-                      <button className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-
-                    <div className="mt-8">
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 group-hover:text-blue-400 transition-colors">
-                        Node Cluster #{type.id?.toString().slice(-4) || "N/A"}
-                      </p>
-                      <h3 className="text-xl font-black text-slate-800 tracking-tight group-hover:text-slate-900">
-                        {type.name}
-                      </h3>
-                    </div>
-
-                    <div className="absolute right-6 bottom-6 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-500">
-                      <ChevronRight className="text-blue-600" size={20} />
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {filteredTypes.length === 0 && !fetchLoading && (
-                <div className="col-span-full h-96 bg-white border-2 border-dashed border-slate-100 rounded-[3rem] flex flex-col items-center justify-center text-slate-400">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <FileText
-                      size={32}
-                      strokeWidth={1}
-                      className="opacity-20"
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g., Emergency"
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-[1.1rem] text-sm focus:bg-white focus:border-indigo-500 transition-all font-bold"
                     />
                   </div>
-                  <p className="font-black text-[11px] uppercase tracking-widest text-slate-300">
-                    No results found in current scope
-                  </p>
-                </div>
-              )}
+
+                  <button
+                    disabled={loading || !name.trim()}
+                    className="w-full py-4 bg-indigo-600 text-white rounded-[1.1rem] font-black text-sm hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:grayscale"
+                  >
+                    {loading ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <>
+                        <Plus size={20} strokeWidth={3} /> Deploy Type
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {error && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
+                    <AlertCircle size={18} />
+                    <p className="text-[10px] font-black uppercase tracking-tight">
+                      {error}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </section>
-      </main>
+
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+              <Database
+                className="absolute -right-6 -bottom-6 text-white/5 group-hover:text-indigo-500/20 transition-colors duration-700"
+                size={140}
+              />
+              <div className="relative z-10">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">
+                  Sync Engine
+                </p>
+                <h4 className="text-2xl font-black tracking-tighter">
+                  Operational
+                </h4>
+                <div className="mt-4 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    animate={{ x: ["-100%", "100%"] }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 2,
+                      ease: "linear",
+                    }}
+                    className="h-full w-1/3 bg-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* MAIN CONTENT: DATA GRID */}
+          <section className="lg:col-span-8 xl:col-span-9">
+            {fetchLoading ? (
+              <div className="h-[400px] flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[3rem]">
+                <Loader2
+                  className="animate-spin text-indigo-600 mb-4"
+                  size={40}
+                />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                  Downloading Schema
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <AnimatePresence mode="popLayout">
+                  {filteredTypes.map((type, idx) => (
+                    <motion.div
+                      layout
+                      key={type.id || idx}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="group bg-white p-7 rounded-[2.2rem] border-2 border-slate-100 hover:border-indigo-500 transition-all duration-300 relative"
+                    >
+                      <div className="flex justify-between items-center mb-10">
+                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white group-hover:rotate-12 transition-all duration-300">
+                          <Hash size={20} strokeWidth={3} />
+                        </div>
+                        <button className="p-2.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 group-hover:text-indigo-400">
+                          Cluster ID: {type.id || "N/A"}
+                        </p>
+                        <h3 className="text-2xl font-black text-slate-800 tracking-tight italic">
+                          {type.name}
+                        </h3>
+                      </div>
+
+                      <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          Status: Read_Only
+                        </span>
+                        <ChevronRight
+                          size={18}
+                          className="text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                {filteredTypes.length === 0 && (
+                  <div className="col-span-full py-20 text-center bg-white border-2 border-dashed border-slate-200 rounded-[3rem]">
+                    <FileText
+                      size={48}
+                      className="mx-auto text-slate-100 mb-4"
+                    />
+                    <p className="font-black text-slate-300 uppercase tracking-widest text-xs">
+                      No Categories Detected
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   );
 };
