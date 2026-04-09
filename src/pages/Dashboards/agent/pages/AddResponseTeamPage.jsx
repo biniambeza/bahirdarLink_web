@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Edit2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   X,
@@ -22,13 +24,14 @@ import {
 const API = "http://localhost:5000/api";
 
 const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     username: "",
     email: "",
     password: "",
     phone: "",
-    status: "active",
+    status: "active", // ✅ default active
     kebeles: [],
     agencyId: agencyId || "",
   });
@@ -36,6 +39,7 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
   const [allKebeles, setAllKebeles] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(""); // For showing backend errors
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, agencyId }));
@@ -94,12 +98,17 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
 
     try {
       setSubmitting(true);
+      setError(""); // clear previous errors
       const res = await axios.post(`${API}/responderTeam`, formData);
       onSave(res.data.data || res.data);
       resetForm();
       onClose();
     } catch (err) {
-      console.error(err);
+      if (err.response?.data?.message) {
+        setError(err.response.data.message); // show backend message
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -108,6 +117,10 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
   const filteredKebeles = allKebeles.filter((k) =>
     k.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const handleEditClick = (teamId) => {
+    navigate(`/responder-team/edit/${teamId}`);
+  };
 
   return (
     <AnimatePresence>
@@ -152,6 +165,12 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+              {/* Show backend error if exists */}
+              {error && (
+                <div className="p-3 bg-red-100 text-red-700 text-sm rounded-md mb-4">
+                  {error}
+                </div>
+              )}
               <div className="p-8 space-y-10">
                 {/* Account Credentials */}
                 <section className="space-y-5">
@@ -211,7 +230,64 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
                   />
                 </section>
 
-                {/* Assignment Section - SMALLER BOXES HERE */}
+                {/* ✅ STATUS SECTION (NEW — MATCHES STYLE) */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                      Team Status
+                    </h4>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase
+                        ${
+                          formData.status === "active"
+                            ? "bg-blue-50 text-blue-600"
+                            : "bg-red-50 text-red-600"
+                        }`}
+                    >
+                      {formData.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          status: "active",
+                        }))
+                      }
+                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all
+                        ${
+                          formData.status === "active"
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-50"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-blue-300"
+                        }`}
+                    >
+                      Active
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          status: "inactive",
+                        }))
+                      }
+                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all
+                        ${
+                          formData.status === "inactive"
+                            ? "bg-red-500 border-red-500 text-white shadow-md shadow-red-50"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-red-300"
+                        }`}
+                    >
+                      Inactive
+                    </button>
+                  </div>
+                </section>
+
+                {/* Geographic Assignment */}
                 <section className="space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-50 pb-3">
                     <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">
@@ -235,43 +311,39 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
                     />
                   </div>
 
-                  {/* Grid changed to 3 columns, smaller padding/font */}
                   <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
                     {filteredKebeles.map((k) => {
                       const isSelected = formData.kebeles.includes(k.id);
-                      const isTaken = k.responderTeamId !== null && !isSelected;
 
                       return (
                         <button
                           key={k.id}
                           type="button"
-                          disabled={isTaken}
                           onClick={() => toggleKebele(k.id)}
                           className={`group p-2.5 rounded-lg border text-left transition-all flex items-center gap-2
                             ${
                               isSelected
                                 ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-50"
-                                : isTaken
-                                  ? "bg-slate-50 border-slate-50 text-slate-300 opacity-50 cursor-not-allowed"
-                                  : "bg-white border-slate-200 hover:border-blue-300 text-slate-600"
+                                : "bg-white border-slate-200 hover:border-blue-300 text-slate-600"
                             }`}
                         >
                           <div className="flex-1 min-w-0">
                             <p
-                              className={`text-[11px] font-bold truncate ${isSelected ? "text-white" : "text-slate-700"}`}
+                              className={`text-[11px] font-bold truncate ${
+                                isSelected ? "text-white" : "text-slate-700"
+                              }`}
                             >
                               {k.name}
                             </p>
                           </div>
+
                           {isSelected ? (
                             <CheckCircle2
                               size={12}
                               className="text-white shrink-0"
                             />
                           ) : (
-                            <div
-                              className={`w-2.5 h-2.5 rounded-full border ${isTaken ? "border-slate-200" : "border-slate-300 group-hover:border-blue-400"} shrink-0`}
-                            />
+                            <div className="w-2.5 h-2.5 rounded-full border border-slate-300 group-hover:border-blue-400 shrink-0" />
                           )}
                         </button>
                       );

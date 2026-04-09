@@ -101,7 +101,6 @@ const App = () => {
           {/* ========= Public Routes ========= */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-
           {/* ========= Admin Dashboard ========= */}
           <Route
             path="/dashboard/admin"
@@ -111,7 +110,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           {/* ========= Agency Dashboard ========= */}
           <Route
             path="/dashboard/agency"
@@ -131,7 +129,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           {/* ========= Agency Incidents ========= */}
           <Route
             path="/incidents"
@@ -149,7 +146,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           {/* ========= 404 Not Found ========= */}
           <Route path="*" element={<NotFound />} />
         </Routes>
