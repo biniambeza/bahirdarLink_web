@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Edit2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   X,
@@ -24,7 +23,6 @@ import {
 const API = "http://localhost:5000/api";
 
 const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -118,9 +116,7 @@ const AddResponseTeamDrawer = ({ isOpen, onClose, onSave, agencyId }) => {
     k.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const handleEditClick = (teamId) => {
-    navigate(`/responder-team/edit/${teamId}`);
-  };
+ 
 
   return (
     <AnimatePresence>

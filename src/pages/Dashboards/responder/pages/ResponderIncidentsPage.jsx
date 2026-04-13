@@ -1,5 +1,4 @@
-// ResponderIncidentsPage.jsx
-import { jwtDecode } from "jwt-decode"; // Use named import
+import { jwtDecode } from "jwt-decode";
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
@@ -13,11 +12,11 @@ const ResponderIncidentsPage = () => {
         const token = localStorage.getItem("responderToken");
         if (!token) return;
 
-        const decoded = jwtDecode(token); // decode the token
-        const responderTeamId = decoded.id; // assuming your token has { id, email, ... }
+        const decoded = jwtDecode(token);
+        const responderTeamId = decoded.id;
 
         const response = await axios.get(
-          `http://localhost:5000/api/responder-teams/${responderTeamId}/emergencies`,
+          `http://localhost:5000/api/emergencies/responder-team/${responderTeamId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
