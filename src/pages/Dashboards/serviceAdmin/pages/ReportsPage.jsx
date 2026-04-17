@@ -8,7 +8,7 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch all emergencies for admin
+  // Fetch all service emergencies (admin)
   useEffect(() => {
     const fetchReports = async () => {
       setLoading(true);
@@ -20,16 +20,17 @@ const ReportsPage = () => {
 
         const { data } = await axios.get(
           "http://localhost:5000/api/emergencies/admin/all",
-          { headers: { Authorization: `Bearer ${token}` } },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
         );
 
         if (data.success) {
           setReports(data.data || []);
         } else {
-          throw new Error(data.error || "Failed to fetch emergencies");
+          throw new Error(data.error || "Failed to fetch reports");
         }
       } catch (err) {
-        console.error("Fetch emergencies error:", err);
         setError(err.response?.data?.error || err.message);
       } finally {
         setLoading(false);
@@ -39,7 +40,7 @@ const ReportsPage = () => {
     fetchReports();
   }, []);
 
-  // Filtered reports (by reporter type + search query)
+  // Filter reports (service-based system)
   const filteredReports = useMemo(() => {
     const query = searchQuery.toLowerCase();
 
@@ -51,24 +52,25 @@ const ReportsPage = () => {
       })
       .filter((report) =>
         [
-          report.emergencyType,
-          report.category,
+          report.serviceType?.name,
+          report.serviceCategory?.name,
           report.kebele,
           report.subdivision,
           report.street,
+          report.description,
         ]
           .filter(Boolean)
           .some((field) => field.toLowerCase().includes(query)),
       );
-  }, [filter, searchQuery, reports]);
+  }, [reports, filter, searchQuery]);
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#0052CC] mb-2">Reports</h1>
+        <h1 className="text-2xl font-bold text-[#0052CC]">Service Reports</h1>
         <p className="text-sm text-slate-500">
-          View all reported emergencies (Registered & Guest users)
+          Monitor all service-based emergency reports
         </p>
       </div>
 
@@ -77,12 +79,12 @@ const ReportsPage = () => {
         {["all", "registered", "guest"].map((type) => (
           <button
             key={type}
-            className={`px-4 py-2 rounded-full text-sm font-bold ${
+            onClick={() => setFilter(type)}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${
               filter === type
                 ? "bg-[#0052CC] text-white"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
-            onClick={() => setFilter(type)}
           >
             {type.toUpperCase()}
           </button>
@@ -93,7 +95,7 @@ const ReportsPage = () => {
       <div className="relative w-full max-w-sm">
         <input
           type="text"
-          placeholder="Search by type, category, or address..."
+          placeholder="Search service, category, or location..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-white shadow-sm rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0052CC]"
@@ -113,52 +115,58 @@ const ReportsPage = () => {
             <table className="w-full text-sm">
               <thead className="bg-gradient-to-r from-[#0052CC] to-blue-600 text-white">
                 <tr>
-                  <th className="p-4 text-left font-semibold">#</th>
-                  <th className="p-4 text-left font-semibold">Type</th>
-                  <th className="p-4 text-left font-semibold">Category</th>
-                  <th className="p-4 text-left font-semibold">Address</th>
-                  <th className="p-4 text-left font-semibold">Reporter</th>
-                  <th className="p-4 text-left font-semibold">Date</th>
-                  <th className="p-4 text-left font-semibold">Status</th>
+                  <th className="p-4 text-left">#</th>
+                  <th className="p-4 text-left">Service Type</th>
+                  <th className="p-4 text-left">Category</th>
+                  <th className="p-4 text-left">Location</th>
+                  <th className="p-4 text-left">Reporter</th>
+                  <th className="p-4 text-left">Date</th>
+                  <th className="p-4 text-left">Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredReports.map((report, index) => {
-                  const statusLower = report.status?.toLowerCase();
-                  const statusClasses =
-                    statusLower === "resolved"
+                  const status = report.status?.toLowerCase();
+
+                  const statusStyle =
+                    status === "resolved"
                       ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700";
+                      : status === "in-progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-yellow-100 text-yellow-700";
 
                   return (
-                    <tr
-                      key={report.id}
-                      className="hover:bg-blue-50 transition duration-200"
-                    >
+                    <tr key={report.id} className="hover:bg-blue-50 transition">
                       <td className="p-4 text-slate-600">{index + 1}</td>
+
                       <td className="p-4 text-slate-500">
-                        {report.emergencyType || "-"}
+                        {report.serviceType?.name || "-"}
                       </td>
 
                       <td className="p-4 text-slate-500">
-                        {report.category || "-"}
+                        {report.serviceCategory?.name || "-"}
                       </td>
+
                       <td className="p-4 text-slate-500">
                         {[report.kebele, report.subdivision, report.street]
                           .filter(Boolean)
                           .join(", ")}
                       </td>
-                      <td className="p-4 text-slate-500 font-bold">
+
+                      <td className="p-4 font-bold text-slate-600">
                         {report.reporterName || "Unknown"}
                       </td>
+
                       <td className="p-4 text-slate-500">
                         {report.createdAt
                           ? new Date(report.createdAt).toLocaleDateString()
                           : "-"}
                       </td>
+
                       <td className="p-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${statusClasses}`}
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${statusStyle}`}
                         >
                           {report.status || "-"}
                         </span>

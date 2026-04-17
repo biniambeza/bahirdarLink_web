@@ -16,6 +16,7 @@ import AgencyDashboard from "./pages/Dashboards/agent/AgencyDashboard";
 import ResponderDashboard from "./pages/Dashboards/responder/ResponderDashboard";
 import IncidentsPage from "./pages/Dashboards/agent/pages/IncidentsPage";
 import IncidentDetailPage from "./pages/Dashboards/agent/pages/IncidentDetailPage";
+import ServiceAdminDashboard from "./pages/Dashboards/serviceAdmin/pages/ServiceAdminDashboard";
 
 // Components
 import Navbar from "./components/home/Navbar";
@@ -107,6 +108,14 @@ const App = () => {
             element={
               <ProtectedRoute role="admin">
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/service-admin"
+            element={
+              <ProtectedRoute role="serviceadmin">
+                <ServiceAdminDashboard />
               </ProtectedRoute>
             }
           />
