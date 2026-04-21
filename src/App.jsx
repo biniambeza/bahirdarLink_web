@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -5,7 +6,6 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Pages
@@ -18,30 +18,43 @@ import IncidentsPage from "./pages/Dashboards/agent/pages/IncidentsPage";
 import IncidentDetailPage from "./pages/Dashboards/agent/pages/IncidentDetailPage";
 import ServiceAdminDashboard from "./pages/Dashboards/serviceAdmin/pages/ServiceAdminDashboard";
 
+// Responder Specific Pages
+import ResponderIncidentsPage from "./pages/Dashboards/responder/pages/ResponderIncidentsPage";
+import ResponderIncidentDetail from "./pages/Dashboards/responder/pages/EmergencyDetailDrawer";
+import CaseDetailPage from "./pages/Dashboards/responder/pages/CaseDetailPage";
+
 // Components
 import Navbar from "./components/home/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 /* =========================
-   Layout Component
+    Layout Component
 ========================= */
 const AppLayout = ({ children }) => {
   const location = useLocation();
-  const isDashboard = location.pathname.startsWith("/dashboard");
+
+  // Determine if we are in a dashboard/incident view to hide main navbar
+  const isDashboardBase = location.pathname.startsWith("/dashboard");
+  const isIncidentDetail = location.pathname.includes("/incident/");
+  const isCaseDetail = location.pathname.includes("/cases/");
+  const isResponderPortal = location.pathname.startsWith(
+    "/responder/incidents",
+  );
+
+  const hideNavbar =
+    isDashboardBase || isIncidentDetail || isCaseDetail || isResponderPortal;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      {/* Show Navbar only on non-dashboard pages */}
-      {!isDashboard && <Navbar />}
+    <div className="min-h-screen bg-white">
+      {!hideNavbar && <Navbar />}
 
-      {/* Animate route transitions */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -15 }}
-          transition={{ duration: 0.25 }}
+          key={location.pathname.split("/")[1]}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
         >
           {children}
         </motion.div>
@@ -51,35 +64,22 @@ const AppLayout = ({ children }) => {
 };
 
 /* =========================
-   404 Page Component
+    404 Page Component
 ========================= */
 const NotFound = () => {
   const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
+    <div className="min-h-screen flex items-center justify-center px-6 bg-white">
       <div className="text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-8xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4"
-        >
-          404
-        </motion.div>
-
-        <h2 className="text-2xl font-bold text-gray-800 mb-3">
-          Page Not Found
-        </h2>
-
-        <p className="text-gray-600 mb-6">
-          The page you’re looking for doesn’t exist.
-        </p>
-
+        <h2 className="text-9xl font-black text-slate-100 mb-[-2rem]">404</h2>
+        <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900 mb-4">
+          Route Terminated
+        </h3>
         <button
           onClick={() => navigate("/")}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition"
+          className="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
         >
-          Go Home
+          Return to Base
         </button>
       </div>
     </div>
@@ -87,10 +87,9 @@ const NotFound = () => {
 };
 
 /* =========================
-   Main App Component
+    Main App Component
 ========================= */
 const App = () => {
-  // Smooth scrolling for the entire app
   useEffect(() => {
     document.documentElement.classList.add("scroll-smooth");
   }, []);
@@ -99,10 +98,10 @@ const App = () => {
     <Router>
       <AppLayout>
         <Routes>
-          {/* ========= Public Routes ========= */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          {/* ========= Admin Dashboard ========= */}
+
+          {/* Admin & Service Admin */}
           <Route
             path="/dashboard/admin"
             element={
@@ -119,7 +118,8 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          {/* ========= Agency Dashboard ========= */}
+
+          {/* Agency Flow */}
           <Route
             path="/dashboard/agency"
             element={
@@ -128,17 +128,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
-          {/* ========= Responder Dashboard ========= */}
-          <Route
-            path="/dashboard/responder"
-            element={
-              <ProtectedRoute role="responder">
-                <ResponderDashboard />
-              </ProtectedRoute>
-            }
-          />
-          {/* ========= Agency Incidents ========= */}
           <Route
             path="/incidents"
             element={
@@ -155,7 +144,40 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          {/* ========= 404 Not Found ========= */}
+
+          {/* FLATTENED RESPONDER FLOW (Mirrors Agency Look) */}
+          <Route
+            path="/dashboard/responder"
+            element={
+              <ProtectedRoute role="responder">
+                <ResponderDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Responder Incident Portal with Slide-In Detail */}
+          <Route
+            path="/responder/incidents"
+            element={
+              <ProtectedRoute role="responder">
+                <ResponderIncidentsPage />
+              </ProtectedRoute>
+            }
+          >
+            {/* The child route that renders via <Outlet /> in ResponderIncidentsPage */}
+            <Route path=":id" element={<ResponderIncidentDetail />} />
+          </Route>
+
+          <Route
+            path="/cases/:id"
+            element={
+              <ProtectedRoute role="responder">
+                <CaseDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>
