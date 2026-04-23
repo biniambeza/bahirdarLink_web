@@ -8,7 +8,6 @@ import {
   Clock,
   User,
   ExternalLink,
-  AlertCircle,
   FileText,
   Shield,
   Activity,
@@ -44,7 +43,7 @@ const ImageViewer = ({ src, onClose }) => (
       animate={{ scale: 1, opacity: 1 }}
       src={src}
       alt="Enlarged evidence"
-      className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+      className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
     />
     <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
       <X size={32} />
@@ -56,13 +55,13 @@ const DetailSection = ({ title, children, icon: Icon, customIdx }) => (
   <motion.div
     variants={itemVariants}
     custom={customIdx}
-    className="bg-white rounded-2xl p-6 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.04)] border border-slate-100"
+    className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
   >
     <div className="flex items-center gap-2 mb-5">
       <div className="p-2 bg-slate-50 rounded-lg">
         {Icon && <Icon size={18} className="text-blue-600" />}
       </div>
-      <h3 className="font-bold text-slate-800 text-sm uppercase tracking-widest">
+      <h3 className="font-bold text-slate-800 text-[11px] uppercase tracking-widest">
         {title}
       </h3>
     </div>
@@ -99,9 +98,7 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
         const token = localStorage.getItem("token");
         const res = await axios.get(
           `http://localhost:5000/api/users/${incident.citizenId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         setReporter(res.data.user);
       } catch (error) {
@@ -111,51 +108,30 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
     fetchReporter();
   }, [incident]);
 
-  if (!incident) return null;
+  // Safety check: if incident is null or missing ID, don't render
+  if (!incident || (!incident._id && !incident.id)) return null;
 
-  const locationStr =
-    [incident.kebele, incident.subdivision, incident.street]
-      .filter(Boolean)
-      .join(", ") || "No address provided";
-  const mediaSrc = incident.mediaUrl
-    ? `http://localhost:5000${incident.mediaUrl}`
-    : null;
+  // Fix 1: Kebele Display Logic (Handles Object or String)
+  const kebeleName = incident.kebele?.name || incident.kebele;
+  const locationStr = [kebeleName, incident.subdivision, incident.street]
+    .filter(Boolean)
+    .join(" • ") || incident.lastSeenLocation || "No address provided";
+
+  // Fix 2: Category Lookup
+  const resolvedCategory = Array.isArray(categories) 
+    ? categories.find(c => (c.id || c._id) === incident.categoryId)?.name 
+    : categories?.[incident.categoryId] || "General";
+
+  const mediaSrc = incident.mediaUrl ? `http://localhost:5000${incident.mediaUrl}` : null;
 
   const getStatusConfig = (status) => {
     const configs = {
-      reported: {
-        bg: "bg-rose-50",
-        text: "text-rose-600",
-        border: "border-rose-100",
-        label: "Urgent: Reported",
-      },
-      assigned: {
-        bg: "bg-blue-50",
-        text: "text-blue-600",
-        border: "border-blue-100",
-        label: "Dispatched",
-      },
-      in_progress: {
-        bg: "bg-amber-50",
-        text: "text-amber-600",
-        border: "border-amber-100",
-        label: "On Scene",
-      },
-      resolved: {
-        bg: "bg-emerald-50",
-        text: "text-emerald-600",
-        border: "border-emerald-100",
-        label: "Case Closed",
-      },
+      reported: { bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-100", label: "Urgent: Reported" },
+      assigned: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-100", label: "Dispatched" },
+      in_progress: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-100", label: "On Scene" },
+      resolved: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", label: "Case Closed" },
     };
-    return (
-      configs[status] || {
-        bg: "bg-slate-50",
-        text: "text-slate-600",
-        border: "border-slate-100",
-        label: status,
-      }
-    );
+    return configs[status] || { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-100", label: status };
   };
 
   const status = getStatusConfig(incident.status);
@@ -172,7 +148,7 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
         />
 
         <motion.div
-          className="fixed top-0 right-0 h-full w-full max-w-xl bg-[#F8FAFC] shadow-[-20px_0_50px_rgba(0,0,0,0.1)] z-[60] overflow-hidden flex flex-col"
+          className="fixed top-0 right-0 h-full w-full max-w-xl bg-[#F8FAFC] shadow-2xl z-[60] overflow-hidden flex flex-col"
           variants={panelVariants}
           initial="hidden"
           animate="visible"
@@ -180,59 +156,38 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
           transition={{ type: "spring", damping: 30, stiffness: 250 }}
         >
           {/* Action Header */}
-          <div className="bg-white/80 backdrop-blur-md px-6 py-5 flex justify-between items-center border-b border-slate-200 sticky top-0 z-10">
+          <div className="bg-white px-6 py-5 flex justify-between items-center border-b border-slate-200 sticky top-0 z-10">
             <div className="flex items-center gap-4">
-              <div
-                className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${status.bg} ${status.text} ${status.border}`}
-              >
+              <div className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${status.bg} ${status.text} ${status.border}`}>
                 {status.label}
               </div>
               <div className="flex items-center gap-1.5 text-slate-400">
                 <Hash size={14} />
-                <span className="text-xs font-mono font-medium truncate w-24">
-                  {incident._id}
+                <span className="text-xs font-mono font-medium truncate w-24 uppercase">
+                  {/* FIX: Ensure ID is a string before calling .slice() */}
+                  {String(incident._id || incident.id || "").slice(-8)}
                 </span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-all group"
-            >
-              <X
-                size={20}
-                className="text-slate-400 group-hover:text-slate-900 transition-colors"
-              />
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all group">
+              <X size={20} className="text-slate-400 group-hover:text-slate-900 transition-colors" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Classification Card */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailSection title="Event Type" icon={Activity} customIdx={0}>
-                <InfoItem
-                  label="Primary Classification"
-                  value={incident.emergencyType?.name}
-                />
-                <InfoItem
-                  label="Sector"
-                  value={categories[incident.categoryId]}
-                />
+                <InfoItem label="Primary Classification" value={incident.emergencyType?.name || "Incident"} />
+                <InfoItem label="Sector" value={resolvedCategory} />
               </DetailSection>
 
               <DetailSection title="Schedule" icon={Clock} customIdx={1}>
-                <InfoItem
-                  label="Reported Time"
-                  value={incident.time}
-                  icon={Clock}
-                />
-                <InfoItem
-                  label="Log Date"
-                  value={new Date(incident.createdAt).toLocaleDateString(
-                    undefined,
-                    { dateStyle: "long" },
-                  )}
-                  subValue={new Date(incident.createdAt).toLocaleTimeString()}
-                  icon={Calendar}
+                <InfoItem label="Reported Time" value={incident.time} icon={Clock} />
+                <InfoItem 
+                  label="Log Date" 
+                  value={incident.createdAt ? new Date(incident.createdAt).toLocaleDateString(undefined, { dateStyle: "long" }) : "N/A"}
+                  subValue={incident.createdAt ? new Date(incident.createdAt).toLocaleTimeString() : ""}
+                  icon={Calendar} 
                 />
               </DetailSection>
             </div>
@@ -241,19 +196,17 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
             <motion.div
               variants={itemVariants}
               custom={2}
-              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl"
+              className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <Shield size={20} className="text-blue-400" />
-                  <h3 className="font-bold text-xs uppercase tracking-widest opacity-70">
-                    Source Identity
-                  </h3>
+                  <h3 className="font-bold text-[10px] uppercase tracking-widest opacity-60">Source Identity</h3>
                 </div>
                 {!incident.guestId && reporter && (
                   <button
                     onClick={() => navigate(`/users/${reporter._id}`)}
-                    className="text-[10px] font-bold bg-blue-500 hover:bg-blue-400 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                   >
                     VERIFY PROFILE <ExternalLink size={10} />
                   </button>
@@ -261,81 +214,60 @@ const IncidentDetails = ({ incident, onClose, categories }) => {
               </div>
 
               <div className="flex items-center gap-5">
-                <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center text-2xl font-bold border border-white/10">
-                  {incident.guestId
-                    ? "?"
-                    : reporter?.fullName?.charAt(0) || <User />}
+                <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center text-2xl font-bold border border-white/10 uppercase">
+                  {incident.guestId ? "?" : reporter?.fullName?.charAt(0) || <User />}
                 </div>
                 <div>
                   <p className="text-lg font-bold">
-                    {incident.guestId
-                      ? "Anonymous Guest"
-                      : reporter?.fullName || "Registry Participant"}
+                    {incident.guestId ? "Anonymous Guest" : reporter?.fullName || "Registry Participant"}
                   </p>
-                  <p className="text-sm text-blue-200/60 font-medium">
-                    {incident.guestId
-                      ? "Guest User Account"
-                      : reporter?.email || "Retrieving secure data..."}
+                  <p className="text-sm text-slate-400 font-medium">
+                    {incident.guestId ? "Guest User Account" : reporter?.email || "Retrieving secure data..."}
                   </p>
                 </div>
               </div>
             </motion.div>
 
-            {/* Location */}
+            {/* Geographic Data */}
             <DetailSection title="Geographic Data" icon={MapPin} customIdx={3}>
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div className="space-y-4">
                 <InfoItem label="Precise Address" value={locationStr} />
                 {incident.location?.latitude && (
                   <a
-                    href={`https://www.google.com/maps?q=${incident.location.latitude},${incident.location.longitude}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${incident.location.latitude},${incident.location.longitude}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors shrink-0"
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
                   >
-                    <ExternalLink size={14} /> MAP SATELLITE
+                    <ExternalLink size={14} /> VIEW ON SATELLITE MAP
                   </a>
                 )}
               </div>
             </DetailSection>
 
-            {/* Media/Evidence */}
+            {/* Digital Evidence */}
             {mediaSrc && (
-              <motion.div
-                variants={itemVariants}
-                custom={4}
-                className="space-y-4 pb-10"
-              >
+              <motion.div variants={itemVariants} custom={4} className="space-y-4 pb-10">
                 <div className="flex items-center gap-2 px-1">
                   <FileText size={18} className="text-slate-400" />
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-widest">
-                    Digital Evidence
-                  </h3>
+                  <h3 className="font-bold text-slate-800 text-[11px] uppercase tracking-widest">Digital Evidence</h3>
                 </div>
 
-                <div className="relative group rounded-[2rem] overflow-hidden bg-slate-200 aspect-video shadow-2xl border-4 border-white">
+                <div className="relative group rounded-3xl overflow-hidden bg-slate-200 aspect-video shadow-lg border border-slate-200">
                   {incident.mediaType === "photo" ? (
                     <img
                       src={mediaSrc}
                       alt="incident evidence"
                       onClick={() => setShowImage(true)}
-                      className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-700 ease-out"
+                      className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <video
-                      src={mediaSrc}
-                      controls
-                      className="w-full h-full object-cover"
-                    />
+                    <video src={mediaSrc} controls className="w-full h-full object-cover" />
                   )}
                   <div className="absolute top-4 right-4">
-                    <div className="bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">
-                      {incident.mediaType}
+                    <div className="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase">
+                      {incident.mediaType || "Evidence"}
                     </div>
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6 pointer-events-none">
-                    <p className="text-white text-xs font-bold tracking-wide">
-                      CLICK TO VIEW FULL RESOLUTION
-                    </p>
                   </div>
                 </div>
               </motion.div>

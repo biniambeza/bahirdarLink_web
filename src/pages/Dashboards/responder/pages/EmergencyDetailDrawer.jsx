@@ -17,6 +17,7 @@ import {
   Send,
   CheckCircle2,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 
 // --- Sub-components for Tabs ---
@@ -92,7 +93,7 @@ const ChatTab = ({ emergencyId }) => {
   );
 };
 
-const ActionsTab = ({ emergency, onUpdateStatus }) => {
+const ActionsTab = ({ emergency, currentStatus, onUpdateStatus }) => {
   const [report, setReport] = useState("");
   const [isFinalizing, setIsFinalizing] = useState(false);
 
@@ -118,7 +119,7 @@ const ActionsTab = ({ emergency, onUpdateStatus }) => {
                   : onUpdateStatus(s.key)
               }
               className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                emergency.status === s.key
+                currentStatus === s.key
                   ? "bg-blue-50 border-blue-600 text-blue-700"
                   : "bg-white border-slate-100 text-slate-600 hover:border-slate-200"
               }`}
@@ -127,7 +128,7 @@ const ActionsTab = ({ emergency, onUpdateStatus }) => {
                 <s.icon size={18} />
                 <span className="font-bold text-sm">{s.label}</span>
               </div>
-              {emergency.status === s.key && <CheckCircle2 size={18} />}
+              {currentStatus === s.key && <CheckCircle2 size={18} />}
             </button>
           ))}
         </div>
@@ -164,20 +165,7 @@ const ActionsTab = ({ emergency, onUpdateStatus }) => {
   );
 };
 
-// --- Reusable UI components (keep your original variants) ---
-const panelVariants = {
-  hidden: { x: "100%", opacity: 0 },
-  visible: { x: 0, opacity: 1 },
-  exit: { x: "100%", opacity: 0 },
-};
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: (i) => ({
-    y: 0,
-    opacity: 1,
-    transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" },
-  }),
-};
+// --- Helper Components ---
 
 const InfoItem = ({ label, value, subValue, icon: Icon }) => (
   <div className="flex flex-col">
@@ -196,8 +184,8 @@ const InfoItem = ({ label, value, subValue, icon: Icon }) => (
 
 const DetailSection = ({ title, children, icon: Icon, customIdx }) => (
   <motion.div
-    variants={itemVariants}
-    custom={customIdx}
+    initial={{ y: 20, opacity: 0 }}
+    animate={{ y: 0, opacity: 1, transition: { delay: customIdx * 0.1 } }}
     className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
   >
     <div className="flex items-center gap-2 mb-5">
@@ -212,30 +200,14 @@ const DetailSection = ({ title, children, icon: Icon, customIdx }) => (
   </motion.div>
 );
 
-const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
-  const [activeTab, setActiveTab] = useState("details"); // details, chat, action
-  const [reporter, setReporter] = useState(null);
-  const [showImage, setShowImage] = useState(false);
+const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
+  const [activeTab, setActiveTab] = useState("details");
+  const [localStatus, setLocalStatus] = useState(emergency?.status);
 
   useEffect(() => {
-    const fetchReporter = async () => {
-      try {
-        if (!emergency?.citizenId) return;
-        const token =
-          localStorage.getItem("token") ||
-          localStorage.getItem("responderToken");
-        const res = await axios.get(
-          `http://localhost:5000/api/users/${emergency.citizenId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        setReporter(res.data.user);
-      } catch (error) {
-        console.error(error);
-      }
-    };
     if (isOpen) {
-      fetchReporter();
-      setActiveTab("details"); // Reset tab on open
+      setActiveTab("details");
+      setLocalStatus(emergency?.status);
     }
   }, [emergency, isOpen]);
 
@@ -248,8 +220,9 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
         { status: newStatus, report: finalReport },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      // You should trigger a refresh of the parent list here
-      onClose();
+      setLocalStatus(newStatus);
+      if (onRefresh) onRefresh();
+      if (newStatus === "resolved") onClose();
     } catch (err) {
       alert("Failed to update status");
     }
@@ -274,10 +247,10 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
           />
           <motion.div
             className="fixed top-0 right-0 h-full w-full max-w-xl bg-[#F8FAFC] z-[80] overflow-hidden flex flex-col border-l border-slate-200"
-            variants={panelVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
           >
             {/* Header */}
             <div className="bg-white px-6 py-4 flex flex-col border-b-2 border-slate-100">
@@ -305,7 +278,7 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
                 {[
                   { id: "details", label: "Intel", icon: Activity },
                   { id: "chat", label: "Comms", icon: MessageSquare },
-                  { id: "action", label: "Actions", icon: CheckCircle2 },
+                  { id: "action", label: "Actions", icon: ClipboardList },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -336,6 +309,17 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
                         label="Emergency Type"
                         value={emergency.emergencyType?.name}
                       />
+                      <div className="mt-2">
+                        <span
+                          className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                            localStatus === "resolved"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          Status: {localStatus?.replace("_", " ")}
+                        </span>
+                      </div>
                     </DetailSection>
                     <DetailSection title="Timeline" icon={Clock} customIdx={1}>
                       <InfoItem
@@ -374,8 +358,8 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
                       </h3>
                       <img
                         src={mediaSrc}
-                        onClick={() => setShowImage(true)}
-                        className="rounded-3xl border-4 border-white shadow-lg cursor-zoom-in hover:scale-[1.02] transition-transform"
+                        alt="Evidence"
+                        className="rounded-3xl border-4 border-white shadow-lg"
                       />
                     </div>
                   )}
@@ -386,19 +370,26 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency }) => {
               {activeTab === "action" && (
                 <ActionsTab
                   emergency={emergency}
+                  currentStatus={localStatus}
                   onUpdateStatus={handleUpdateStatus}
                 />
               )}
             </div>
 
-            {/* Quick Action Footer only on Details Tab */}
+            {/* NEW FOOTER BUTTONS: Chat & Report (Actions) */}
             {activeTab === "details" && (
-              <div className="p-6 bg-white border-t border-slate-100">
+              <div className="p-4 bg-white border-t border-slate-100 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setActiveTab("chat")}
+                  className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  <MessageSquare size={18} /> Open Comms
+                </button>
                 <button
                   onClick={() => setActiveTab("action")}
-                  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                  className="flex items-center justify-center gap-2 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
                 >
-                  Manage Status <ChevronRight size={18} />
+                  <ClipboardList size={18} /> Update Status
                 </button>
               </div>
             )}
