@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Activity,
   ShieldCheck,
+  LayoutGrid,
 } from "lucide-react";
 import EmergencyDetailDrawer from "./EmergencyDetailDrawer";
 
@@ -33,11 +34,12 @@ const ResponderIncidentsPage = () => {
         const decoded = jwtDecode(token);
         const responderTeamId = decoded.id;
 
-        // Fetch Emergencies and Emergency Types in parallel
         const [emergencyRes, typesRes] = await Promise.all([
           axios.get(
             `http://localhost:5000/api/emergencies/responder-team/${responderTeamId}`,
-            { headers: { Authorization: `Bearer ${token}` } },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
           ),
           axios.get("http://localhost:5000/api/emergencyType", {
             headers: { Authorization: `Bearer ${token}` },
@@ -47,8 +49,6 @@ const ResponderIncidentsPage = () => {
         const incidentData = emergencyRes.data.data || [];
         setEmergencies(incidentData);
 
-        // Logic to find all categories belonging to the team's specific type
-        // We look at the first incident to see what type this team handles
         if (incidentData.length > 0) {
           const teamTypeId = incidentData[0].emergencyTypeId;
           const targetType = typesRes.data.emergencyTypes.find(
@@ -82,124 +82,133 @@ const ResponderIncidentsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] p-6 md:p-10 font-sans">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      <div className="max-w-5xl mx-auto px-6 py-8">
         {/* --- HEADER --- */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-blue-600">
-              <ShieldCheck size={20} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-                Responder Unit
-              </span>
+        <header className="flex items-center justify-between mb-8 border-b border-slate-200 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-xl">
+              <ShieldCheck className="text-white" size={24} />
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-              Assigned <span className="text-blue-600">Tasks</span>
-            </h1>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Assigned Incidents
+              </h1>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-widest">
+                Active Dispatch Feed
+              </p>
+            </div>
           </div>
-
-          <div className="flex items-center gap-4 bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                On Duty
-              </span>
-            </div>
-            <div className="h-4 w-[1px] bg-slate-200" />
-            <Activity size={16} className="text-blue-500" />
+          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
+            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span className="text-[10px] font-bold text-blue-700 uppercase">
+              Live Sync
+            </span>
           </div>
         </header>
 
-        {/* --- CONTROLS --- */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="relative flex-grow">
+        {/* --- CONTROLS AREA --- */}
+        <div className="space-y-6 mb-10">
+          {/* 1. Search at the Top */}
+          <div className="relative">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              size={18}
+              size={20}
             />
             <input
-              className="w-full bg-white border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 pl-12 pr-4 py-3.5 rounded-2xl transition-all outline-none text-sm font-medium"
-              placeholder="Search by location..."
+              type="text"
+              placeholder="Search by location, kebele, or street..."
+              className="w-full bg-white border border-slate-200 py-4 pl-12 pr-4 rounded-2xl shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all font-medium text-slate-700"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                selectedCategory === null
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
-                  : "bg-white text-slate-500 border border-slate-200 hover:border-blue-200"
-              }`}
-            >
-              All Tasks
-            </button>
-            {categories.map((cat) => (
+          {/* 2. Categories Below Search (Wrapped, No Scrollbar) */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-slate-400 ml-1">
+              <LayoutGrid size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">
+                Filter Category
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button
-                key={cat._id || cat.id}
-                onClick={() => setSelectedCategory(cat._id || cat.id)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  selectedCategory === (cat._id || cat.id)
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
-                    : "bg-white text-slate-500 border border-slate-200 hover:border-blue-200"
+                onClick={() => setSelectedCategory(null)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                  selectedCategory === null
+                    ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-blue-600 hover:text-blue-600"
                 }`}
               >
-                {cat.name}
+                All Emergencies
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat._id || cat.id}
+                  onClick={() => setSelectedCategory(cat._id || cat.id)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                    selectedCategory === (cat._id || cat.id)
+                      ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200"
+                      : "bg-white border-slate-200 text-slate-500 hover:border-blue-600 hover:text-blue-600"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* --- LIST --- */}
-        {isLoading ? (
-          <div className="py-20 text-center text-slate-400">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-xs font-bold uppercase tracking-widest">
-              Syncing Dispatch...
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
+        {/* --- LIST SECTION --- */}
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="py-20 text-center">
+              <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Retrieving Data...
+              </p>
+            </div>
+          ) : (
             <AnimatePresence mode="popLayout">
-              {filteredIncidents.map((incident, index) => (
+              {filteredIncidents.map((incident) => (
                 <motion.div
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ delay: index * 0.02 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   key={incident._id || incident.id}
                   onClick={() => handleOpenDetail(incident)}
-                  className="group bg-white p-5 rounded-2xl border border-slate-100 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/5 transition-all cursor-pointer flex items-center justify-between"
+                  className="group bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between hover:border-blue-600 hover:shadow-xl hover:shadow-blue-900/5 transition-all cursor-pointer"
                 >
-                  <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
-                      <Clock size={20} />
+                  <div className="flex items-center gap-5">
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                      <Clock size={22} />
                     </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                          {incident.category?.name || "Emergency"}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">
+                          {incident.category?.name || "Incident"}
                         </span>
-                        <span className="text-[10px] font-medium text-slate-300 italic">
-                          REF: #
+                        <span className="text-[10px] font-bold text-slate-300">
+                          #
                           {String(incident._id || incident.id)
                             .slice(-5)
                             .toUpperCase()}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-slate-900 leading-tight">
-                        {incident.kebele?.name} • {incident.subdivision}
+                      <h3 className="text-lg font-bold text-slate-900">
+                        {incident.kebele?.name}{" "}
+                        <span className="text-slate-400 font-normal">
+                          / {incident.subdivision}
+                        </span>
                       </h3>
-                      <div className="flex items-center gap-4 text-slate-400">
-                        <div className="flex items-center gap-1 text-[11px] font-medium">
-                          <MapPin size={12} className="text-blue-400" />
-                          View Map Path
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
+                          <MapPin size={12} className="text-blue-500" />
+                          Location Detail
                         </div>
-                        <div className="text-[11px] font-medium">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase">
                           {new Date(incident.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -210,31 +219,32 @@ const ResponderIncidentsPage = () => {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="hidden sm:block text-right">
-                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-0.5">
-                        Urgency
+                    <div className="text-right hidden sm:block">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                        Priority
                       </p>
-                      <p className="text-[11px] font-bold text-blue-600 uppercase italic">
-                        {incident.status || "Active"}
+                      <p className="text-xs font-bold text-blue-600 uppercase italic">
+                        {incident.status || "High"}
                       </p>
                     </div>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
-                      <ChevronRight size={18} />
+                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+                      <ChevronRight size={20} />
                     </div>
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
+          )}
 
-            {!isLoading && filteredIncidents.length === 0 && (
-              <div className="bg-white py-20 rounded-3xl border-2 border-dashed border-slate-100 text-center">
-                <p className="text-sm font-semibold text-slate-400">
-                  No assigned tasks found.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+          {!isLoading && filteredIncidents.length === 0 && (
+            <div className="bg-white border-2 border-dashed border-slate-200 py-16 rounded-2xl text-center">
+              <Activity className="mx-auto text-slate-200 mb-4" size={40} />
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                No matching tasks found
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <EmergencyDetailDrawer
