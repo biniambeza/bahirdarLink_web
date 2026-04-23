@@ -10,6 +10,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // Pages
 import HomePage from "./pages/home/HomePage";
+import AboutPage from "./pages/AboutPage";
+import ServicesPage from "./pages/ServicesPage";
+import ContactPage from "./pages/ContactPage";
 import LoginPage from "./pages/auth/LoginPage";
 import AdminDashboard from "./pages/Dashboards/admin/AdminDashboard";
 import AgencyDashboard from "./pages/Dashboards/agent/AgencyDashboard";
@@ -99,6 +102,9 @@ const App = () => {
       <AppLayout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
 
           {/* Admin & Service Admin */}
