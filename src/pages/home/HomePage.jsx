@@ -3,7 +3,6 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import HeroSection from "../../components/home/HeroSection";
 import CapabilitiesSection from "../../components/home/CapabilitiesSection";
 import StatsSection from "../../components/home/StatsSection";
-import CTASection from "../../components/home/CTASection";
 import Footer from "../../components/home/Footer";
 
 const HomePage = () => {
@@ -94,7 +93,7 @@ const HomePage = () => {
           viewport={{ once: true, margin: "-100px" }}
           variants={sectionVariants}
         >
-          <CTASection />
+
         </motion.div>
 
         <Footer />
