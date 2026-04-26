@@ -6,9 +6,11 @@ import {
   Lock,
   Loader2,
   ShieldCheck,
-  ArrowRight,
-  Activity,
+  ChevronRight,
   AlertCircle,
+  ArrowLeftCircle,
+  Eye,      // Imported for showing password
+  EyeOff    // Imported for hiding password
 } from "lucide-react";
 import axios from "axios";
 
@@ -17,6 +19,9 @@ const LoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // 1. STATE FOR VISIBILITY
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -27,241 +32,168 @@ const LoginPage = () => {
     setError("");
 
     try {
-      // Clear existing session
       localStorage.clear();
 
-      // ================= 1. ATTEMPT ADMIN / SERVICE ADMIN LOGIN =================
-      try {
-        const adminRes = await axios.post(
-          "http://localhost:5000/api/users/login",
-          form,
-        );
-        if (adminRes.data.accessToken) {
-          const { user, accessToken, mustChangePassword } = adminRes.data;
-          localStorage.setItem("token", accessToken);
-          localStorage.setItem("user", JSON.stringify(user));
-          localStorage.setItem("role", user.role);
+      const endpoints = [
+        { url: "http://localhost:5000/api/users/login", role: "admin" },
+        { url: "http://localhost:5000/api/agency/agent-login", role: "agency" },
+        { url: "http://localhost:5000/api/responderTeam/login", role: "responder" }
+      ];
 
-          if (user.role === "admin") {
-            return navigate(
-              mustChangePassword ? "/change-password" : "/dashboard/admin",
-            );
+      for (const ep of endpoints) {
+        try {
+          const res = await axios.post(ep.url, form);
+          const token = res.data.token || res.data.accessToken;
+
+          if (token) {
+            const userData = res.data.user || res.data.agency || res.data.agent || res.data[ep.role];
+            localStorage.setItem("token", token);
+            localStorage.setItem("role", ep.role);
+            localStorage.setItem("user", JSON.stringify(userData));
+            
+            if (ep.role === "agency") localStorage.setItem("agency", JSON.stringify(userData));
+            if (ep.role === "responder") localStorage.setItem("responder", JSON.stringify(userData));
+
+            if (res.data.mustChangePassword) return navigate("/change-password");
+
+            const targetRole = userData?.role === "serviceadmin" ? "service-admin" : ep.role;
+            return navigate(`/dashboard/${targetRole}`);
           }
-          if (user.role === "serviceadmin") {
-            return navigate("/dashboard/service-admin");
-          }
-        }
-      } catch (err) {
-        /* Silent fail to try next endpoint */
+        } catch (err) { continue; }
       }
-
-      // ================= 2. ATTEMPT AGENCY LOGIN =================
-      try {
-        const agencyRes = await axios.post(
-          "http://localhost:5000/api/agency/agent-login",
-          form,
-        );
-        if (agencyRes.data.token) {
-          const { agency, token } = agencyRes.data;
-          localStorage.setItem("token", token);
-          localStorage.setItem("role", "agency");
-          localStorage.setItem("agency", JSON.stringify(agency));
-          localStorage.setItem("user", JSON.stringify(agency));
-          return navigate("/dashboard/agency");
-        }
-      } catch (err) {
-        /* Silent fail */
-      }
-
-      // ================= 3. ATTEMPT RESPONDER LOGIN =================
-      try {
-        const responderRes = await axios.post(
-          "http://localhost:5000/api/responderTeam/login",
-          form,
-        );
-        if (responderRes.data.token) {
-          const { responder, token } = responderRes.data;
-          const userData = {
-            ...responder,
-            responderTeamId: responder.id || responder.responderTeamId,
-          };
-          localStorage.setItem("token", token);
-          localStorage.setItem("role", "responder");
-          localStorage.setItem("user", JSON.stringify(userData));
-          localStorage.setItem("responder", JSON.stringify(userData));
-          return navigate("/dashboard/responder");
-        }
-      } catch (err) {
-        /* Silent fail */
-      }
-
-      // If all three fails
-      throw new Error("Invalid email or password. Access Denied.");
+      throw new Error("Invalid Personnel Credentials.");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Login failed. Please try again.",
-      );
+      setError(err.response?.data?.message || err.message || "Authentication failed.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 font-sans">
-      {/* LEFT SIDE: Info Panel */}
-      <div className="hidden lg:flex w-1/2 bg-blue-700 items-center justify-center p-16 relative overflow-hidden">
-        {/* Subtle decorative background pattern */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <svg width="100%" height="100%">
-            <pattern
-              id="grid"
-              width="50"
-              height="50"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 50 0 L 0 0 0 50"
-                fill="none"
-                stroke="white"
-                strokeWidth="1"
-              />
-            </pattern>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="relative z-10 text-white"
-        >
-          <div className="flex items-center gap-3 mb-10">
-            <div className="bg-white p-2.5 rounded-xl shadow-lg">
-              <Activity className="text-blue-700 w-10 h-10" />
-            </div>
-            <span className="text-4xl font-black tracking-tighter">
-              BahirLink
-            </span>
-          </div>
-          <h2 className="text-6xl font-extrabold mb-8 leading-tight">
-            Emergency <br />
-            Response <br />
-            Command.
-          </h2>
-          <div className="space-y-6 text-blue-50 max-w-md">
-            <p className="text-xl font-light leading-relaxed">
-              Real-time synchronization for dispatchers, medical teams, and
-              agency administrators.
-            </p>
-            <div className="flex gap-4 items-center pt-4">
-              <div className="h-[2px] w-12 bg-blue-400"></div>
-              <span className="text-sm font-bold uppercase tracking-widest text-blue-300">
-                Secure Access Point
-              </span>
-            </div>
-          </div>
-        </motion.div>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-blue-600 font-['Inter'] selection:bg-white/30 overflow-hidden relative">
+      <style>
+        {`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap');`}
+      </style>
+      
+      {/* Background Lighting */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-400/30 blur-[160px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] bg-blue-800/40 blur-[160px] rounded-full" />
       </div>
 
-      {/* RIGHT SIDE: Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md"
-        >
-          {/* Mobile Header Only */}
-          <div className="lg:hidden flex flex-col items-center mb-10 text-center">
-            <ShieldCheck className="text-blue-600 w-12 h-12 mb-2" />
-            <h1 className="text-3xl font-black text-slate-800 tracking-tighter">
-              BahirLink
-            </h1>
-          </div>
+      <motion.button 
+        whileHover={{ x: -4, opacity: 1 }}
+        onClick={() => navigate('/')}
+        className="absolute top-10 left-10 flex items-center gap-3 text-white/70 transition-all z-50 group font-['Plus_Jakarta_Sans']"
+      >
+        <ArrowLeftCircle size={28} strokeWidth={1.5} />
+        <span className="text-[10px] font-bold uppercase tracking-[0.3em]">System Portal</span>
+      </motion.button>
 
-          <div className="mb-10">
-            <h3 className="text-3xl font-bold text-slate-900">Portal Login</h3>
-            <p className="text-slate-500 mt-2 font-medium">
-              Please enter your authorized credentials.
-            </p>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 w-full max-w-[440px] px-6"
+      >
+        <div className="flex justify-center items-center gap-5 mb-10 font-['Plus_Jakarta_Sans']">
+          <div className="flex flex-col">
+            <h1 className="text-3xl font-extrabold text-white tracking-tighter leading-none text-center">BAHIRLINK</h1>
+            <span className="text-[9px] opacity-60 font-bold tracking-[0.5em] uppercase mt-2 text-center">Secure Terminal</span>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-2xl border border-white/20 p-10 rounded-[2.5rem] shadow-[0_40px_80px_rgba(30,58,138,0.3)]">
+          <div className="mb-8 font-['Plus_Jakarta_Sans']">
+            <h2 className="text-lg font-bold text-white tracking-tight">Sign In</h2>
+            <p className="text-[11px] text-white/50 font-medium mt-1 uppercase tracking-wider">Infrastructure Access</p>
           </div>
 
           <AnimatePresence mode="wait">
             {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-8 flex items-center gap-3"
-              >
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm font-semibold">{error}</p>
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-red-500/20 border border-red-500/30 p-3 rounded-xl mb-6 flex items-center gap-3">
+                <AlertCircle className="w-4 h-4 text-white" />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white">{error}</p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="group">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
-                Official Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold ml-1">Personnel Email</label>
+              <div className="relative group">
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-white transition-colors" />
                 <input
                   type="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="e.g. john.doe@agency.gov"
-                  className="w-full bg-white border-2 border-slate-100 rounded-2xl px-12 py-4 text-slate-900 focus:ring-0 focus:border-blue-600 outline-none transition-all placeholder:text-slate-300"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-12 py-4 text-[14px] text-white focus:bg-white/10 focus:border-white/40 outline-none transition-all placeholder:text-white/20"
+                  placeholder="name@agency.gov.et"
                   required
                 />
               </div>
             </div>
 
-            <div className="group">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/70 font-bold ml-1">Access Key</label>
+              <div className="relative group">
+                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-white transition-colors" />
+                
+                {/* 2. DYNAMIC INPUT TYPE */}
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={form.password}
                   onChange={handleChange}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-12 py-4 text-[14px] text-white focus:bg-white/10 focus:border-white/40 outline-none transition-all placeholder:text-white/20"
                   placeholder="••••••••••••"
-                  className="w-full bg-white border-2 border-slate-100 rounded-2xl px-12 py-4 text-slate-900 focus:ring-0 focus:border-blue-600 outline-none transition-all placeholder:text-slate-300"
                   required
                 />
+
+                {/* 3. SHOW/HIDE TOGGLE BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-all p-1 rounded-md active:scale-90"
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} strokeWidth={2} />
+                  ) : (
+                    <Eye size={18} strokeWidth={2} />
+                  )}
+                </button>
               </div>
             </div>
 
-            <button
+            <motion.button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transform active:scale-[0.99] transition-all disabled:opacity-50"
+              whileHover={{ y: -2, backgroundColor: "white" }}
+              whileTap={{ y: 0 }}
+              className="w-full bg-white text-blue-600 py-4 rounded-xl font-bold text-[13px] shadow-lg flex items-center justify-center transition-all disabled:opacity-50 mt-4 uppercase tracking-widest"
             >
-              {loading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
-              ) : (
-                <>
-                  <span>Authenticate Access</span>
-                  <ArrowRight className="w-5 h-5" />
-                </>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <div className="flex items-center gap-2">
+                  <span>Enter Terminal</span>
+                  <ChevronRight size={16} />
+                </div>
               )}
-            </button>
+            </motion.button>
           </form>
+        </div>
 
-          <div className="mt-12 pt-8 border-t border-slate-100">
-            <div className="flex justify-between items-center text-slate-400 text-xs font-medium">
-              <span>SYSTEM ID: BL-2026-HQ</span>
-              <span>ENCRYPTED CONNECTION</span>
-            </div>
+        <div className="mt-10 flex justify-center items-center gap-6 text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-white/80 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+            <span>Encrypted Connection</span>
           </div>
-        </motion.div>
-      </div>
+          <span>•</span>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={14} strokeWidth={2.5} />
+            <span>Secure Access</span>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
