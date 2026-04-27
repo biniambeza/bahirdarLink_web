@@ -35,8 +35,24 @@ import ProtectedRoute from "./components/ProtectedRoute";
 ========================= */
 const AppLayout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Determine if we are in a dashboard/incident view to hide main navbar
+  // --- STALE SESSION GUARD ---
+  // If the backend throws a "User Not Found" error, we force a logout
+  useEffect(() => {
+    const handleGlobalError = (event) => {
+      if (event.detail?.message === "USER_NOT_FOUND_IN_DB") {
+        console.warn("⚠️ Stale session detected. Clearing local storage...");
+        localStorage.clear();
+        navigate("/login", { replace: true });
+      }
+    };
+
+    window.addEventListener("bahirlink-auth-error", handleGlobalError);
+    return () =>
+      window.removeEventListener("bahirlink-auth-error", handleGlobalError);
+  }, [navigate]);
+
   const isDashboardBase = location.pathname.startsWith("/dashboard");
   const isIncidentDetail = location.pathname.includes("/incident/");
   const isCaseDetail = location.pathname.includes("/cases/");
@@ -151,7 +167,7 @@ const App = () => {
             }
           />
 
-          {/* FLATTENED RESPONDER FLOW (Mirrors Agency Look) */}
+          {/* Responder Flow */}
           <Route
             path="/dashboard/responder"
             element={
@@ -161,7 +177,6 @@ const App = () => {
             }
           />
 
-          {/* Responder Incident Portal with Slide-In Detail */}
           <Route
             path="/responder/incidents"
             element={
@@ -170,7 +185,6 @@ const App = () => {
               </ProtectedRoute>
             }
           >
-            {/* The child route that renders via <Outlet /> in ResponderIncidentsPage */}
             <Route path=":id" element={<ResponderIncidentDetail />} />
           </Route>
 
@@ -183,7 +197,6 @@ const App = () => {
             }
           />
 
-          {/* Catch-all 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>
