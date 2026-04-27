@@ -59,9 +59,12 @@ const AppLayout = ({ children }) => {
   const isResponderPortal = location.pathname.startsWith(
     "/responder/incidents",
   );
+  
+  // Added check for the Login / Command Center terminal page
+  const isLoginPage = location.pathname === "/login";
 
   const hideNavbar =
-    isDashboardBase || isIncidentDetail || isCaseDetail || isResponderPortal;
+    isLoginPage || isDashboardBase || isIncidentDetail || isCaseDetail || isResponderPortal;
 
   return (
     <div className="min-h-screen bg-white">

@@ -1,196 +1,157 @@
 import { useState } from "react";
 import { 
-  FaFacebookF, 
-  FaTwitter, 
-  FaLinkedinIn, 
-  FaEnvelope, 
-  FaPhoneAlt,
-  FaMapMarkerAlt,
-  FaHeart 
+  FaFacebookF, FaTwitter, FaLinkedinIn, 
+  FaEnvelope, FaPhoneAlt, FaMapMarkerAlt,
+  FaArrowRight, FaShieldAlt
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 
 const Footer = () => {
   const [email, setEmail] = useState("");
 
-  const handleSubscribe = (e) => {
-    e.preventDefault();
-    // Handle newsletter subscription
-    setEmail("");
-    alert("Thanks for subscribing!");
-  };
-
   return (
-    <footer className="relative bg-gradient-to-b from-gray-900 to-gray-950 text-white overflow-hidden">
-      {/* Background pattern - using CSS gradient instead of SVG */}
-      <div className="absolute inset-0 opacity-5">
-        <div 
-          className="absolute inset-0"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)',
-            backgroundSize: '40px 40px'
-          }}
-        />
+    <footer className="relative w-full bg-white border-t border-slate-100 overflow-hidden font-sans">
+      
+      {/* ARCHITECTURAL BACKGROUND */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.15]" />
+        {/* Subtle Blue Glow to match button energy */}
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-50/60 blur-[120px] rounded-full -ml-48 -mb-48 opacity-70" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-12">
-        {/* Main footer content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Brand column */}
-          <div className="lg:col-span-4 space-y-6">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-3 cursor-pointer"
+      <div className="relative z-10 max-w-[1200px] mx-auto px-8 pt-24 pb-10">
+        
+        {/* TOP LEVEL: SYSTEM IDENTITY & SUBSCRIPTION */}
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-16 mb-24">
+          
+          <div className="max-w-xl">
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-4 mb-8"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                B
+              <div className="w-14 h-14 bg-blue-600 flex items-center justify-center text-white rounded-[1.25rem] shadow-xl shadow-blue-200">
+                <span className="text-2xl font-bold tracking-tighter">B</span>
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                BahirLink
-              </span>
+              <div>
+                <h2 className="text-2xl font-normal tracking-tight text-slate-900 leading-none">
+                  BahirLink <span className="text-slate-400 font-light italic ml-1 text-xl">Core</span>
+                </h2>
+                <p className="text-[10px] uppercase tracking-[0.5em] text-blue-600 font-bold mt-1.5">
+                  Infrastructure Agency
+                </p>
+              </div>
             </motion.div>
             
-            <p className="text-gray-400 leading-relaxed">
-              Centralized emergency response platform connecting agencies and 
-              responders for faster, smarter, and coordinated action.
+            <p className="text-slate-500 text-[15px] font-light leading-relaxed">
+              The standardized protocol for emergency dispatch and inter-agency coordination. 
+              Delivering high-integrity digital infrastructure to the heart of Ethiopia.
             </p>
-            
-            {/* Newsletter */}
-            <form onSubmit={handleSubscribe} className="space-y-3">
-              <label className="text-sm font-semibold text-gray-300">
-                Subscribe to our newsletter
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
-                  required
-                />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  type="submit"
-                  className="px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-semibold shadow-lg whitespace-nowrap"
-                >
-                  Subscribe
-                </motion.button>
-              </div>
-            </form>
           </div>
 
-          {/* Quick Links */}
-          <div className="lg:col-span-2">
-            <h3 className="text-lg font-semibold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Quick Links
-            </h3>
+          {/* ATTRACTIVE NEWSLETTER BOX */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            className="w-full lg:w-[400px] bg-slate-50 border border-slate-100 p-8 rounded-[2.5rem] relative"
+          >
+            <h4 className="text-xs uppercase tracking-[0.2em] text-slate-400 font-bold mb-5 flex items-center gap-2">
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              Network Updates
+            </h4>
+            <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-2 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50 transition-all">
+              <input 
+                type="email" 
+                placeholder="system@access.et" 
+                className="bg-transparent border-none text-sm w-full focus:ring-0 px-4 placeholder:text-slate-300 font-light"
+              />
+              <button className="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                <FaArrowRight size={14} />
+              </button>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* MIDDLE LEVEL: GRID DIRECTORY */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-12 pb-20">
+          <div>
+            <h5 className="text-[10px] uppercase tracking-[0.3em] text-slate-900 font-bold mb-8">System Directory</h5>
             <ul className="space-y-4">
-              {["Home", "About", "Services", "Contact"].map((item, idx) => (
-                <motion.li
-                  key={item}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <a 
-                    href="#" 
-                    className="text-gray-400 hover:text-white transition-colors group flex items-center gap-2"
-                  >
-                    <span className="w-1 h-1 bg-blue-500 rounded-full group-hover:w-2 transition-all" />
+              {["Central Command", "Agency Portal", "Network Map", "Status Log"].map(item => (
+                <li key={item}>
+                  <a href="#" className="text-sm text-slate-400 hover:text-blue-600 transition-all font-light hover:translate-x-1 inline-block">
                     {item}
                   </a>
-                </motion.li>
+                </li>
               ))}
             </ul>
           </div>
 
-          {/* Contact Info */}
-          <div className="lg:col-span-3">
-            <h3 className="text-lg font-semibold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Contact Us
-            </h3>
+          <div>
+            <h5 className="text-[10px] uppercase tracking-[0.3em] text-slate-900 font-bold mb-8">Documentation</h5>
             <ul className="space-y-4">
-              {[
-                { icon: <FaEnvelope />, text: "support@bahirlink.com", delay: 0 },
-                { icon: <FaPhoneAlt />, text: "+251 123 456 789", delay: 0.1 },
-                { icon: <FaMapMarkerAlt />, text: "Addis Ababa, Ethiopia", delay: 0.2 }
-              ].map((item, idx) => (
-                <motion.li
-                  key={idx}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ delay: item.delay }}
-                  viewport={{ once: true }}
-                  className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group"
-                >
-                  <span className="text-blue-500 group-hover:scale-110 transition-transform">
-                    {item.icon}
-                  </span>
-                  {item.text}
-                </motion.li>
+              {["API Integration", "Safety Protocols", "Deployment Guide", "Legal Hub"].map(item => (
+                <li key={item}>
+                  <a href="#" className="text-sm text-slate-400 hover:text-blue-600 transition-all font-light hover:translate-x-1 inline-block">
+                    {item}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
 
-          {/* Social Links */}
-          <div className="lg:col-span-3">
-            <h3 className="text-lg font-semibold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Connect With Us
-            </h3>
-            <div className="flex gap-4">
-              {[
-                { icon: <FaFacebookF />, color: "from-blue-600 to-blue-700", label: "Facebook" },
-                { icon: <FaTwitter />, color: "from-sky-500 to-sky-600", label: "Twitter" },
-                { icon: <FaLinkedinIn />, color: "from-blue-700 to-blue-800", label: "LinkedIn" }
-              ].map((social, idx) => (
-                <motion.a
-                  key={idx}
-                  href="#"
-                  whileHover={{ y: -5 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`w-12 h-12 bg-gradient-to-br ${social.color} rounded-xl flex items-center justify-center text-white shadow-lg hover:shadow-2xl transition-all relative group`}
-                  aria-label={social.label}
-                >
-                  {social.icon}
-                  <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    {social.label}
-                  </span>
-                </motion.a>
-              ))}
-            </div>
-            
-            {/* Trust badges */}
-            <div className="mt-8 p-4 bg-gray-800/30 rounded-xl border border-gray-800">
-              <p className="text-sm text-gray-400 mb-2">Security & Compliance</p>
-              <div className="flex gap-3 flex-wrap">
-                <span className="px-3 py-1 bg-gray-800 rounded-lg text-xs text-gray-300">ISO 27001</span>
-                <span className="px-3 py-1 bg-gray-800 rounded-lg text-xs text-gray-300">GDPR</span>
-                <span className="px-3 py-1 bg-gray-800 rounded-lg text-xs text-gray-300">SOC 2</span>
+          <div className="col-span-2 space-y-8">
+            <h5 className="text-[10px] uppercase tracking-[0.3em] text-slate-900 font-bold mb-8">Operational HQ</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Location</p>
+                <p className="text-sm text-slate-700 font-light leading-relaxed">
+                  Bole District, Sub-City 03 <br />
+                  Addis Ababa, Ethiopia
+                </p>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Communication</p>
+                <p className="text-sm text-slate-700 font-light leading-relaxed">
+                  terminal@bahirlink.com <br />
+                  +251 900 00 00 00
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-16 pt-8 border-t border-gray-800">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-500 text-sm flex items-center gap-2">
-              © {new Date().getFullYear()} BahirLink. All rights reserved.
-              <span className="flex items-center gap-1 text-gray-600">
-                Made with <FaHeart className="text-red-500 text-xs" /> in Ethiopia
-              </span>
-            </p>
-            
-            <div className="flex gap-6 text-sm text-gray-500">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
+        {/* BOTTOM LEVEL: COMPLIANCE & SOCIAL */}
+        <div className="pt-10 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-8">
+            <div className="flex gap-2">
+              {[<FaFacebookF />, <FaTwitter />, <FaLinkedinIn />].map((icon, i) => (
+                <a key={i} href="#" className="w-9 h-9 rounded-lg border border-slate-100 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all">
+                  <span className="text-xs">{icon}</span>
+                </a>
+              ))}
             </div>
+            <div className="h-4 w-[1px] bg-slate-200 hidden md:block" />
+            <p className="text-[10px] text-slate-400 uppercase tracking-[0.3em] font-bold">
+              Protocol Sync: 2026.04
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex gap-6 text-[10px] uppercase tracking-widest font-bold text-slate-400">
+              <a href="#" className="hover:text-blue-600 transition-colors">Privacy</a>
+              <a href="#" className="hover:text-blue-600 transition-colors">Compliance</a>
+            </div>
+            <motion.div 
+              whileHover={{ scale: 1.05, backgroundColor: "#1d4ed8" }}
+              className="flex items-center gap-2.5 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-100 cursor-pointer transition-colors"
+            >
+              <FaShieldAlt className="text-white opacity-80" size={10} />
+              <span className="text-[10px] uppercase tracking-[0.2em] font-bold">System Secure</span>
+            </motion.div>
           </div>
         </div>
+
       </div>
     </footer>
   );

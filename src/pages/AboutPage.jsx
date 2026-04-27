@@ -1,112 +1,137 @@
-import { Users, Globe, Activity, Info } from "lucide-react";
+import React from "react";
+import { Users, Globe, Activity, Info, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const features = [
-  {
-    title: "Our Mission",
-    description:
-      "To connect emergency services and public safety agencies through a unified digital platform, reducing response time and saving lives.",
-    icon: Activity,
-    color: "from-blue-500 to-blue-700",
+  { 
+    title: "Our Mission", 
+    desc: "Connecting emergency services through a unified digital pulse.", 
+    icon: Activity, 
+    gradient: "from-blue-600 to-blue-400" 
   },
-  {
-    title: "Global Vision",
-    description:
-      "We aim to implement scalable emergency response solutions across cities, regions, and nations using cutting-edge technology.",
-    icon: Globe,
-    color: "from-purple-500 to-purple-700",
+  { 
+    title: "Global Vision", 
+    desc: "Scaling response technology across cities and borders.", 
+    icon: Globe, 
+    gradient: "from-slate-800 to-slate-600" 
   },
-  {
-    title: "Community Focus",
-    description:
-      "We prioritize community awareness and engagement, ensuring every citizen can access help when it matters most.",
-    icon: Users,
-    color: "from-green-500 to-green-700",
+  { 
+    title: "Community", 
+    desc: "Citizen-first engagement for critical safety moments.", 
+    icon: Users, 
+    gradient: "from-blue-600 to-indigo-500" 
   },
-  {
-    title: "Trusted & Transparent",
-    description:
-      "BahirLink operates with complete transparency, providing accurate reporting and reliable coordination across services.",
-    icon: Info,
-    color: "from-red-500 to-red-700",
+  { 
+    title: "Reliability", 
+    desc: "Transparent, accurate, and military-grade coordination.", 
+    icon: Info, 
+    gradient: "from-slate-900 to-blue-900" 
   },
+];
+
+const capabilities = [
+  "Real-time Incident Tracking",
+  "Multi-Agency Interoperability",
+  "AI-Driven Dispatch Optimization",
+  "Encrypted Data Frameworks"
 ];
 
 const AboutPage = () => {
   return (
-    <div className="bg-gradient-to-b from-blue-50 via-white to-blue-100">
-      {/* HERO SECTION */}
-      <section className="pt-32 pb-20 px-6 text-center">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl font-extrabold text-blue-900 leading-tight">
-            About <span className="text-blue-600">BahirLink</span>
-          </h1>
-          <p className="mt-6 text-lg text-blue-700">
-            BahirLink is a unified emergency response platform designed to
-            connect police, fire, and medical services with the community for
-            faster, smarter, and safer coordination.
-          </p>
+    <div className="relative w-full min-h-screen lg:h-screen bg-white text-slate-900 overflow-hidden flex flex-col">
+      
+      {/* Background Decor */}
+      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
+      <div className="absolute top-[-10%] right-[-5%] w-[50%] lg:w-[30%] h-[40%] lg:h-[50%] bg-blue-50 blur-[100px] rounded-full opacity-50" />
+
+      <div className="relative z-10 flex flex-col h-full max-w-[1200px] mx-auto px-6 lg:px-8 pt-24 lg:pt-32 pb-8 lg:pb-12">
+        
+        {/* HEADER SECTION */}
+        <div className="mb-10 lg:mb-14">
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 mb-6"
+          >
+            <span className="h-px w-10 bg-blue-600" />
+            <span className="text-blue-600 font-medium uppercase text-[10px] tracking-[0.4em]">
+              The Core Architecture
+            </span>
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="text-3xl md:text-4xl lg:text-5xl tracking-tight leading-[1.1] font-normal text-slate-900"
+          >
+            <span className="block mb-1">
+              Advancing emergency response
+            </span>
+            <span className="block italic text-slate-500">
+              through integrated technology.
+            </span>
+          </motion.h1>
         </div>
-      </section>
 
-      {/* FEATURES / INFO SECTIONS */}
-      <section className="max-w-7xl mx-auto px-6 space-y-24">
-        {features.map((feature, index) => {
-          const Icon = feature.icon;
-          const reverse = index % 2 !== 0;
-
-          return (
+        {/* FEATURES GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-10 lg:mb-12">
+          {features.map((f, i) => (
             <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
-              className={`flex flex-col ${
-                reverse ? "lg:flex-row-reverse" : "lg:flex-row"
-              } items-center gap-12`}
+              key={i}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-6 flex flex-col transition-all duration-500 hover:bg-white hover:shadow-2xl hover:shadow-blue-900/5 hover:border-blue-100/50"
             >
-              {/* Icon */}
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className={`w-28 h-28 rounded-3xl bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-2xl`}
-              >
-                <Icon className="h-14 w-14 text-white drop-shadow-lg" />
-              </motion.div>
-
-              {/* Content */}
-              <motion.div
-                whileHover={{ y: -5 }}
-                className="bg-white/70 backdrop-blur-xl border border-blue-200 rounded-3xl p-8 shadow-xl w-full lg:max-w-xl transition-all"
-              >
-                <h3 className="text-3xl font-bold text-blue-900 mb-4">
-                  {feature.title}
-                </h3>
-                <p className="text-blue-700 text-lg leading-relaxed">
-                  {feature.description}
-                </p>
-              </motion.div>
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${f.gradient} flex items-center justify-center mb-6 shadow-md shadow-blue-900/10`}>
+                <f.icon className="text-white h-5 w-5" />
+              </div>
+              {/* Title: Slate-900 and Not Bold */}
+              <h3 className="text-lg font-normal text-slate-900 mb-2 tracking-tight">{f.title}</h3>
+              <p className="text-slate-500 leading-relaxed text-xs lg:text-[13px]">{f.desc}</p>
             </motion.div>
-          );
-        })}
-      </section>
-
-      {/* CTA SECTION */}
-      <section className="mt-28 bg-gradient-to-r from-blue-700 to-blue-900 py-24 px-6">
-        <div className="max-w-5xl mx-auto text-center text-white">
-          <h2 className="text-4xl font-extrabold mb-6">
-            Join us in transforming emergency response
-          </h2>
-          <p className="text-blue-100 mb-8 text-lg">
-            BahirLink empowers responders, agencies, and communities with a
-            unified platform to save lives faster and more efficiently.
-          </p>
-
-          <button className="bg-white text-blue-800 px-8 py-4 rounded-3xl font-bold shadow-2xl hover:bg-blue-100 transition transform hover:-translate-y-1 hover:scale-105">
-            Access Command Center
-          </button>
+          ))}
         </div>
-      </section>
+
+        {/* CAPABILITIES SECTION */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="flex-grow"
+        >
+          <div className="flex items-center gap-4 mb-6">
+             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">Core Capabilities</p>
+             <div className="h-px flex-grow bg-slate-100" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {capabilities.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-3 group">
+                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center">
+                  <CheckCircle2 className="h-3 w-3 text-blue-600" />
+                </div>
+                <span className="text-sm text-slate-600 font-normal tracking-tight">{item}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* FOOTER */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="flex flex-col sm:flex-row justify-between items-center border-t border-slate-100 pt-8 text-[10px] text-slate-400 font-medium uppercase tracking-[0.2em] gap-4"
+        >
+          <div className="flex items-center gap-4">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span>Systems Online // 2026</span>
+          </div>
+          <span className="opacity-50">v2.4.0 Deployment</span>
+        </motion.div>
+
+      </div>
     </div>
   );
 };
