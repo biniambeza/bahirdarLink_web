@@ -9,9 +9,8 @@ import {
   Send,
   ShieldAlert,
   RefreshCcw,
-  Mic,
-  FileAudio,
   Lock,
+  MessageSquareQuote,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import axios from "axios";
@@ -19,27 +18,22 @@ import axios from "axios";
 const API_BASE = "http://localhost:5000";
 
 const ChatTab = ({ emergencyId }) => {
-  // --- State Management ---
   const [messages, setMessages] = useState([]);
-  const [chatId, setChatId] = useState(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
   const [errorStatus, setErrorStatus] = useState(null);
   const [isPeerTyping, setIsPeerTyping] = useState(false);
+  const [citizenId, setCitizenId] = useState(null);
 
-  // --- Refs ---
   const socketRef = useRef();
   const scrollRef = useRef();
-  const fileInputRef = useRef();
   const typingTimeoutRef = useRef();
 
-  // --- 1. Auth Context Extraction ---
+  // --- 1. Identity & Token Management ---
   const { token, user } = useMemo(() => {
     let rawToken = localStorage.getItem("token");
     const rawUser = localStorage.getItem("user");
 
-    // Strip "Bearer " for Socket Handshake compatibility
     if (rawToken?.startsWith("Bearer ")) {
       rawToken = rawToken.slice(7);
     }
@@ -50,7 +44,6 @@ const ChatTab = ({ emergencyId }) => {
     };
   }, []);
 
-  // --- 2. Auto-Scroll Logic ---
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -59,145 +52,113 @@ const ChatTab = ({ emergencyId }) => {
     scrollToBottom();
   }, [messages, isPeerTyping, scrollToBottom]);
 
-  // --- 3. Chat Session Initialization ---
+  // --- 2. Fetch History & Emergency Details ---
   useEffect(() => {
-    const initChat = async () => {
+    const initChatData = async () => {
       if (!emergencyId || !token) return;
-
       try {
         setIsLoading(true);
-        // GET or CREATE chat for this emergency
-        const chatRes = await axios.get(
-          `${API_BASE}/api/chats/emergency/${emergencyId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
+        // Fetching history and extracting citizenId from the response
+        const res = await axios.get(`${API_BASE}/api/message/${emergencyId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        const activeChatId = chatRes.data.data.id;
-        setChatId(activeChatId);
+        setMessages(res.data?.data || []);
 
-        // Fetch existing message history
-        const msgRes = await axios.get(
-          `${API_BASE}/api/messages/chat/${activeChatId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        setMessages(msgRes.data?.data || []);
+        // Ensure we know who the reporter is for logic checks
+        if (res.data?.emergency) {
+          setCitizenId(res.data.emergency.citizenId);
+        }
       } catch (err) {
-        console.error("Chat Init Error:", err);
+        console.error("Initialization Error:", err);
         setErrorStatus(err.response?.status === 401 ? "auth" : "server");
       } finally {
         setIsLoading(false);
       }
     };
-
-    initChat();
+    initChatData();
   }, [emergencyId, token]);
 
-  // --- 4. Socket.io Real-time Engine ---
+  // --- 3. Socket Engine (Responder Context) ---
   useEffect(() => {
-    if (!token || !chatId) return;
+    if (!token || !emergencyId) return;
+
+    // Clear any previous error on retry
+    setErrorStatus(null);
 
     socketRef.current = io(API_BASE, {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
+      reconnectionAttempts: 5,
     });
 
     const socket = socketRef.current;
 
     socket.on("connect", () => {
-      console.log("📡 Connected to Emergency Mesh:", socket.id);
-      socket.emit("joinChat", chatId);
+      console.log("Responder Link Established:", socket.id);
+      socket.emit("join_emergency", emergencyId);
     });
 
-    socket.on("newMessage", (msg) => {
+    socket.on("receive_message", (msg) => {
       setMessages((prev) => {
         const exists = prev.find((m) => m.id === msg.id);
         return exists ? prev : [...prev, msg];
       });
     });
 
-    socket.on("userTyping", (data) => {
-      // Logic: Only show typing for the OTHER person
-      if (Number(data.userId) !== Number(user?.id)) {
-        setIsPeerTyping(data.isTyping);
+    socket.on("typing_indicator", (data) => {
+      // Only show typing if it's NOT the current logged-in user
+      if (Number(data.senderId) !== Number(user?.id)) {
+        setIsPeerTyping(true);
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(
+          () => setIsPeerTyping(false),
+          3000,
+        );
       }
     });
 
-    return () => socket.disconnect();
-  }, [token, chatId, user?.id]);
+    socket.on("connect_error", (err) => {
+      console.error("Connection Error:", err.message);
+      // "User not found" often triggers here if the JWT is stale/invalid
+      if (err.message.includes("User not found")) {
+        setErrorStatus("auth");
+      }
+    });
 
-  // --- 5. Message Transmitters ---
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [token, emergencyId, user?.id]);
+
+  // --- 4. Transmitters ---
   const handleSend = () => {
-    if (!input.trim() || !chatId) return;
+    if (!input.trim() || !socketRef.current) return;
 
     const payload = {
-      chatId,
-      emergencyId, // Essential for DB NOT NULL constraint
-      message: input.trim(),
-      senderId: user?.id,
-      senderRole: user?.role,
-      type: "text",
+      emergencyId,
+      text: input.trim(),
     };
 
-    socketRef.current.emit("sendMessage", payload);
-    socketRef.current.emit("typing", { chatId, isTyping: false });
+    socketRef.current.emit("send_message", payload);
     setInput("");
   };
 
-  const handleAudioUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !chatId) return;
-
-    const formData = new FormData();
-    formData.append("attachment", file);
-    formData.append("chatId", chatId);
-    formData.append("type", "audio");
-
-    try {
-      setIsUploading(true);
-      const res = await axios.post(`${API_BASE}/api/messages`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      // Once uploaded, broadcast to the room via socket
-      socketRef.current.emit("sendMessage", res.data.data);
-    } catch (err) {
-      alert("Encryption/Upload failure. Retry transmission.");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  // --- 6. Typing Feedback Logic ---
   const onInputChange = (e) => {
     setInput(e.target.value);
-
     if (socketRef.current) {
-      socketRef.current.emit("typing", { chatId, isTyping: true });
-
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => {
-        socketRef.current.emit("typing", { chatId, isTyping: false });
-      }, 2000);
+      socketRef.current.emit("typing", emergencyId);
     }
   };
 
-  // --- Render States ---
   if (isLoading) return <LoadingScreen />;
   if (errorStatus === "auth") return <ErrorScreen type="auth" />;
   if (errorStatus === "server") return <ErrorScreen type="server" />;
 
   return (
     <div className="flex flex-col h-full bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl">
-      {/* Mesh Header */}
+      {/* Header */}
       <div className="px-6 py-4 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -206,18 +167,26 @@ const ChatTab = ({ emergencyId }) => {
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] font-mono tracking-widest text-emerald-500 uppercase">
-              Secure Link
+              Responder Dispatch Link
             </span>
             <span className="text-xs font-bold opacity-70">
-              INCIDENT_ID: {emergencyId}
+              CASE_ID: {emergencyId}
             </span>
           </div>
         </div>
         <Lock size={14} className="text-slate-500" />
       </div>
 
-      {/* Messaging Area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full opacity-20 grayscale">
+            <MessageSquareQuote size={48} />
+            <p className="text-xs mt-4 font-bold">
+              AWAITING CONNECTION TO CITIZEN
+            </p>
+          </div>
+        )}
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}
@@ -226,48 +195,28 @@ const ChatTab = ({ emergencyId }) => {
           />
         ))}
         {isPeerTyping && (
-          <div className="flex justify-start animate-in fade-in slide-in-from-left-2">
-            <div className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-2xl rounded-bl-none text-[11px] font-medium shadow-sm">
-              Responder is typing updates...
+          <div className="flex justify-start animate-pulse">
+            <div className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-2xl rounded-bl-none text-[11px] font-medium">
+              Citizen is typing...
             </div>
           </div>
         )}
         <div ref={scrollRef} />
       </div>
 
-      {/* Input Surface */}
+      {/* Input Area */}
       <div className="p-5 bg-white border-t border-slate-100">
         <div className="flex items-center gap-3 bg-slate-100 p-2 rounded-2xl border border-slate-200 focus-within:ring-2 focus-within:ring-slate-900 focus-within:bg-white transition-all">
-          <input
-            type="file"
-            accept="audio/*"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleAudioUpload}
-          />
-          <button
-            disabled={isUploading}
-            onClick={() => fileInputRef.current.click()}
-            className="p-3 text-slate-500 hover:text-slate-900 hover:bg-white rounded-xl transition-all"
-          >
-            {isUploading ? (
-              <RefreshCcw size={20} className="animate-spin" />
-            ) : (
-              <Mic size={20} />
-            )}
-          </button>
-
           <input
             value={input}
             onChange={onInputChange}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Type status report..."
-            className="flex-1 bg-transparent px-2 text-sm outline-none text-slate-800 placeholder:text-slate-400 font-medium"
+            placeholder="Type status update to citizen..."
+            className="flex-1 bg-transparent px-2 text-sm outline-none text-slate-800 font-medium"
           />
-
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isUploading}
+            disabled={!input.trim()}
             className="bg-slate-900 text-white p-3 rounded-xl hover:bg-black transition-all shadow-lg disabled:opacity-30"
           >
             <Send size={20} />
@@ -278,66 +227,35 @@ const ChatTab = ({ emergencyId }) => {
   );
 };
 
-// --- Sub-Components ---
-
-const MessageBubble = ({ msg, isMe }) => {
-  // Normalize Audio URL for Windows/Linux server paths
-  const audioUrl = msg.attachmentUrl
-    ? msg.attachmentUrl.startsWith("http")
-      ? msg.attachmentUrl
-      : `${API_BASE}/${msg.attachmentUrl.replace(/\\/g, "/")}`
-    : null;
-
-  return (
-    <div className={`flex ${isMe ? "justify-end" : "justify-start"} group`}>
+const MessageBubble = ({ msg, isMe }) => (
+  <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`max-w-[85%] px-4 py-3 rounded-2xl shadow-sm ${
+        isMe
+          ? "bg-slate-900 text-white rounded-br-none"
+          : "bg-white border border-slate-200 text-slate-900 rounded-bl-none"
+      }`}
+    >
+      <p className="text-[13px] leading-relaxed font-medium">
+        {msg.text || msg.message}
+      </p>
       <div
-        className={`max-w-[85%] px-4 py-3 rounded-2xl shadow-sm relative transition-all ${
-          isMe
-            ? "bg-slate-900 text-white rounded-br-none"
-            : "bg-white border border-slate-200 text-slate-900 rounded-bl-none"
-        }`}
+        className={`text-[9px] mt-2 font-mono opacity-40 font-bold uppercase ${isMe ? "text-right" : "text-left"}`}
       >
-        {msg.type === "audio" ? (
-          <div className="flex flex-col gap-3 min-w-[200px]">
-            <div className="flex items-center gap-2 opacity-70">
-              <FileAudio size={16} />
-              <span className="text-[10px] font-mono font-bold tracking-tighter">
-                VOICE_TRANSMISSION
-              </span>
-            </div>
-            <audio controls className="h-10 w-full filter grayscale invert">
-              <source src={audioUrl} type="audio/mpeg" />
-            </audio>
-          </div>
-        ) : (
-          <p className="text-[13px] leading-relaxed font-medium">
-            {msg.message}
-          </p>
-        )}
-
-        <div
-          className={`text-[9px] mt-2 font-mono opacity-40 font-bold uppercase ${isMe ? "text-right" : "text-left"}`}
-        >
-          {new Date(msg.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-          {isMe && " // SENT"}
-        </div>
+        {new Date(msg.createdAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 const LoadingScreen = () => (
-  <div className="flex flex-col items-center justify-center h-full bg-slate-50 rounded-3xl border border-slate-200 p-10">
-    <RefreshCcw
-      className="animate-spin text-slate-900 mb-6"
-      size={40}
-      strokeWidth={1}
-    />
+  <div className="flex flex-col items-center justify-center h-full bg-slate-50 rounded-3xl p-10">
+    <RefreshCcw className="animate-spin text-slate-900 mb-6" size={40} />
     <span className="text-[10px] font-mono text-slate-400 tracking-[0.4em] uppercase">
-      Encrypting Channel...
+      Encrypting Link...
     </span>
   </div>
 );
@@ -347,15 +265,14 @@ const ErrorScreen = ({ type }) => (
     <ShieldAlert
       size={50}
       className={type === "auth" ? "text-amber-500" : "text-red-500"}
-      strokeWidth={1.5}
     />
     <h2 className="mt-4 font-mono text-sm font-bold tracking-tighter uppercase">
-      {type === "auth" ? "Authorization Failed" : "System Link Down"}
+      {type === "auth" ? "Session Expired" : "Link Interrupted"}
     </h2>
-    <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-[220px]">
+    <p className="text-[10px] mt-2 opacity-50 uppercase tracking-widest">
       {type === "auth"
-        ? "Your credentials have expired. Please re-sign into the mesh."
-        : "The remote server rejected the connection. Verification required."}
+        ? "Please relogin to your responder dashboard"
+        : "Check server status"}
     </p>
   </div>
 );
