@@ -2,16 +2,10 @@ import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Search,
-  MapPin,
-  Clock,
-  ChevronRight,
-  Activity,
-  ShieldCheck,
-  LayoutGrid,
-} from "lucide-react";
+import { Search, Clock, ChevronRight, ShieldCheck } from "lucide-react";
 import EmergencyDetailDrawer from "./EmergencyDetailDrawer";
+
+const API_BASE = "http://localhost:5000";
 
 const ResponderIncidentsPage = () => {
   const [emergencies, setEmergencies] = useState([]);
@@ -21,42 +15,34 @@ const ResponderIncidentsPage = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-
   const [selectedForMerge, setSelectedForMerge] = useState([]);
 
-  // =========================
-  // FETCH DATA (FIXED CATEGORY + EMERGED SUPPORT)
-  // =========================
   const fetchData = async () => {
     try {
       setIsLoading(true);
 
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("responderToken");
-
+      const token = localStorage.getItem("token");
       if (!token) return;
 
       const decoded = jwtDecode(token);
       const responderTeamId = decoded.id;
 
       const [emergencyRes, typesRes] = await Promise.all([
-        axios.get(
-          `http://localhost:5000/api/emergencies/responder-team/${responderTeamId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        ),
-        axios.get("http://localhost:5000/api/emergencyType", {
+        axios.get(`${API_BASE}/api/emergencies/responder-team/${responderTeamId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API_BASE}/api/emergencyType`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
 
-      const incidentData = emergencyRes.data.data || [];
-
+      const incidentData = emergencyRes.data?.data || [];
       setEmergencies(incidentData);
 
-      // ✅ FIX: always load categories safely
       const teamTypeId = incidentData[0]?.emergencyTypeId;
+      const emergencyTypes = typesRes.data?.emergencyTypes || [];
 
-      const targetType = typesRes.data.emergencyTypes.find(
+      const targetType = emergencyTypes.find(
         (t) => t._id === teamTypeId || t.id === teamTypeId,
       );
 
@@ -72,18 +58,14 @@ const ResponderIncidentsPage = () => {
     fetchData();
   }, []);
 
-  // =========================
-  // MERGE SELECT
-  // =========================
-  const handleSelectMerge = (id) => {
+  const handleSelectMerge = (incidentId) => {
     setSelectedForMerge((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+      prev.includes(incidentId)
+        ? prev.filter((i) => i !== incidentId)
+        : [...prev, incidentId],
     );
   };
 
-  // =========================
-  // MERGE FUNCTION (NO RELOAD)
-  // =========================
   const handleMerge = async () => {
     if (selectedForMerge.length < 2) {
       alert("Select at least 2 emergencies to merge");
@@ -91,25 +73,18 @@ const ResponderIncidentsPage = () => {
     }
 
     try {
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("responderToken");
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Missing token");
 
       const mainId = selectedForMerge[0];
 
       await axios.post(
-        "http://localhost:5000/api/emerged/merge",
-        {
-          mainId,
-          mergeIds: selectedForMerge,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        `${API_BASE}/api/emerged/merge`,
+        { mainId, mergeIds: selectedForMerge },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      // 🔥 REFRESH DATA AFTER MERGE (IMPORTANT FIX)
       await fetchData();
-
       setSelectedForMerge([]);
       alert("Merged successfully");
     } catch (err) {
@@ -118,45 +93,33 @@ const ResponderIncidentsPage = () => {
     }
   };
 
-  // =========================
-  // GROUP EMERGED + SINGLE VIEW LOGIC
-  // =========================
   const groupedEmergencies = useMemo(() => {
     const map = new Map();
 
     emergencies.forEach((item) => {
-      const key = item.emergedId ? item.emergedId : item.id;
+      const itemId = item._id || item.id;
+      const key = item.emergedId ? item.emergedId : itemId;
 
       if (!map.has(key)) {
-        map.set(key, {
-          ...item,
-          mergedCount: item.emergedId ? 1 : 1,
-        });
+        map.set(key, { ...item, mergedCount: 1 });
       } else {
         const existing = map.get(key);
-        map.set(key, {
-          ...existing,
-          mergedCount: existing.mergedCount + 1,
-        });
+        map.set(key, { ...existing, mergedCount: existing.mergedCount + 1 });
       }
     });
 
     return Array.from(map.values());
   }, [emergencies]);
 
-  // =========================
-  // FILTER (FIXED)
-  // =========================
   const filteredIncidents = useMemo(() => {
     return groupedEmergencies.filter((incident) => {
       const matchesCategory =
         !selectedCategory || incident.categoryId === selectedCategory;
 
       const query = searchQuery.toLowerCase();
-      const location =
-        `${incident.kebele?.name} ${incident.subdivision}`.toLowerCase();
+      const location = `${incident.kebele?.name || ""} ${incident.subdivision || ""}`.toLowerCase();
 
-      return location.includes(query) && matchesCategory;
+      return matchesCategory && location.includes(query);
     });
   }, [groupedEmergencies, selectedCategory, searchQuery]);
 
@@ -168,13 +131,11 @@ const ResponderIncidentsPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* HEADER */}
         <header className="flex items-center justify-between mb-8 border-b border-slate-200 pb-6">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-xl">
               <ShieldCheck className="text-white" size={24} />
             </div>
-
             <div>
               <h1 className="text-2xl font-bold tracking-tight">
                 Assigned Incidents
@@ -185,7 +146,6 @@ const ResponderIncidentsPage = () => {
             </div>
           </div>
 
-          {/* MERGE BUTTON */}
           <button
             onClick={handleMerge}
             className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold"
@@ -194,7 +154,6 @@ const ResponderIncidentsPage = () => {
           </button>
         </header>
 
-        {/* SEARCH */}
         <div className="space-y-6 mb-10">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -207,7 +166,6 @@ const ResponderIncidentsPage = () => {
             />
           </div>
 
-          {/* CATEGORIES */}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedCategory(null)}
@@ -222,7 +180,6 @@ const ResponderIncidentsPage = () => {
 
             {categories.map((cat) => {
               const id = cat._id || cat.id;
-
               return (
                 <button
                   key={id}
@@ -240,55 +197,52 @@ const ResponderIncidentsPage = () => {
           </div>
         </div>
 
-        {/* LIST */}
         <div className="space-y-4">
           {isLoading ? (
             <p>Loading...</p>
           ) : (
             <AnimatePresence>
-              {filteredIncidents.map((incident) => (
-                <motion.div
-                  key={incident._id || incident.id}
-                  className="bg-white p-5 rounded-2xl flex items-center justify-between border"
-                >
-                  {/* CHECKBOX */}
-                  <input
-                    type="checkbox"
-                    checked={selectedForMerge.includes(incident.id)}
-                    onChange={() => handleSelectMerge(incident.id)}
-                    className="mr-3"
-                  />
-
-                  {/* MAIN UI */}
-                  <div
-                    className="flex items-center gap-5 flex-1 cursor-pointer"
-                    onClick={() => handleOpenDetail(incident)}
+              {filteredIncidents.map((incident) => {
+                const incidentId = incident._id || incident.id;
+                return (
+                  <motion.div
+                    key={incidentId}
+                    className="bg-white p-5 rounded-2xl flex items-center justify-between border"
                   >
-                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                      <Clock size={20} />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedForMerge.includes(incidentId)}
+                      onChange={() => handleSelectMerge(incidentId)}
+                      className="mr-3"
+                    />
 
-                    <div>
-                      <h3 className="font-bold">
-                        {incident.kebele?.name} / {incident.subdivision}
-                      </h3>
+                    <div
+                      className="flex items-center gap-5 flex-1 cursor-pointer"
+                      onClick={() => handleOpenDetail(incident)}
+                    >
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+                        <Clock size={20} />
+                      </div>
 
-                      <p className="text-xs text-slate-500">
-                        {incident.category?.name}
-                      </p>
-
-                      {/* MERGED LABEL */}
-                      {incident.mergedCount > 1 && (
-                        <p className="text-[10px] font-bold text-green-600">
-                          Merged ({incident.mergedCount})
+                      <div>
+                        <h3 className="font-bold">
+                          {incident.kebele?.name} / {incident.subdivision}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {incident.category?.name}
                         </p>
-                      )}
+                        {incident.mergedCount > 1 && (
+                          <p className="text-[10px] font-bold text-green-600">
+                            Merged ({incident.mergedCount})
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <ChevronRight />
-                </motion.div>
-              ))}
+                    <ChevronRight />
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           )}
         </div>
@@ -298,6 +252,7 @@ const ResponderIncidentsPage = () => {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         emergency={selectedIncident}
+        onRefresh={fetchData}
       />
     </div>
   );
