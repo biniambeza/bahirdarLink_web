@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Save } from "lucide-react";
+import { X, Save, Loader2 } from "lucide-react"; // Added Loader2
 import { useNavigate, useParams } from "react-router-dom";
 
 const EditAgentPage = () => {
@@ -22,11 +22,9 @@ const EditAgentPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // fetch agent
   const fetchAgent = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const res = await axios.get(`http://localhost:5000/api/agency/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -49,20 +47,15 @@ const EditAgentPage = () => {
     }
   };
 
-  // fetch agency types
   const fetchAgencyTypes = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const res = await axios.get("http://localhost:5000/api/agency-types", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (res.data.success) {
-        setAgencyTypes(res.data.data);
-      }
+      if (res.data.success) setAgencyTypes(res.data.data);
     } catch (err) {
-      console.log(err);
+      console.error("Type fetch error:", err);
     }
   };
 
@@ -71,30 +64,22 @@ const EditAgentPage = () => {
     fetchAgencyTypes();
   }, [id]);
 
-  // handle change
   const handleChange = (e) => {
     setAgent({ ...agent, [e.target.name]: e.target.value });
   };
 
-  // update agent
   const handleUpdate = async (e) => {
     e.preventDefault();
-
     try {
       setSaving(true);
       const token = localStorage.getItem("token");
-
-      const res = await axios.put(
-        `http://localhost:5000/api/agency/${id}`,
-        agent,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await axios.put(`http://localhost:5000/api/agency/${id}`, agent, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (res.data.success) {
-        alert("Agent updated successfully");
-        navigate("/agents");
+        // Option: Replace alert with a toast library later
+        navigate("/dashboard/agency"); // Navigate back to the list
       }
     } catch (err) {
       alert(err.response?.data?.message || "Update failed");
@@ -103,134 +88,110 @@ const EditAgentPage = () => {
     }
   };
 
+  // Helper for input styling to keep JSX clean
+  const inputStyles = "w-full border border-slate-200 rounded-xl px-4 py-2 mt-1 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50/50";
+
   return (
-    <AnimatePresence>
+    <div className="fixed inset-0 z-[100] flex justify-end">
+      {/* Backdrop */}
       <motion.div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-end z-50"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={() => navigate("/dashboard/agency")}
+      />
+
+      {/* Side Panel */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 20, stiffness: 150 }}
+        className="relative w-full max-w-lg h-full bg-white shadow-2xl flex flex-col"
       >
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{ type: "spring", stiffness: 120 }}
-          className="w-full md:w-1/2 h-full bg-white shadow-2xl p-6 overflow-y-auto"
-        >
-          {/* header */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Edit Agent</h2>
-
-            <button
-              onClick={() => navigate("/agents")}
-              className="p-2 rounded-full hover:bg-slate-100"
-            >
-              <X size={22} />
-            </button>
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Edit Agent</h2>
+            <p className="text-xs text-slate-500">Update agent credentials and status</p>
           </div>
+          <button
+            onClick={() => navigate("/dashboard/agency")}
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-slate-500">Loading agent...</p>
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="animate-spin" />
+              <p className="text-sm">Retrieving agent data...</p>
+            </div>
           ) : error ? (
-            <p className="text-red-500">{error}</p>
+            <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm">{error}</div>
           ) : (
-            <form onSubmit={handleUpdate} className="space-y-4">
-              {/* name */}
-              <div>
-                <label className="text-sm text-slate-600">Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={agent.name}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
-                  required
-                />
+            <form onSubmit={handleUpdate} className="space-y-5">
+              <div className="grid grid-cols-1 gap-5">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Full Name</label>
+                  <input type="text" name="name" value={agent.name} onChange={handleChange} className={inputStyles} required />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Email Address</label>
+                  <input type="email" name="email" value={agent.email} onChange={handleChange} className={inputStyles} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Phone</label>
+                    <input type="text" name="phone" value={agent.phone} onChange={handleChange} className={inputStyles} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Status</label>
+                    <select name="status" value={agent.status} onChange={handleChange} className={inputStyles}>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Location / Zone</label>
+                  <input type="text" name="location" value={agent.location} onChange={handleChange} className={inputStyles} />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Agency Assignment</label>
+                  <select name="agencyTypeId" value={agent.agencyTypeId} onChange={handleChange} className={inputStyles}>
+                    <option value="">Select type</option>
+                    {agencyTypes.map((type) => (
+                      <option key={type.id} value={type.id}>{type.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* email */}
-              <div>
-                <label className="text-sm text-slate-600">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={agent.email}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
-                />
-              </div>
-
-              {/* phone */}
-              <div>
-                <label className="text-sm text-slate-600">Phone</label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={agent.phone}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
-                />
-              </div>
-
-              {/* location */}
-              <div>
-                <label className="text-sm text-slate-600">Location</label>
-                <input
-                  type="text"
-                  name="location"
-                  value={agent.location}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
-                />
-              </div>
-
-              {/* status */}
-              <div>
-                <label className="text-sm text-slate-600">Status</label>
-                <select
-                  name="status"
-                  value={agent.status}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
+              {/* Action Footer */}
+              <div className="pt-6 mt-6 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3.5 rounded-xl font-bold hover:bg-blue-600 transition-all shadow-lg active:scale-95 disabled:opacity-50"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  {saving ? "Saving Changes..." : "Save Agent Details"}
+                </button>
               </div>
-
-              {/* agency type */}
-              <div>
-                <label className="text-sm text-slate-600">Agency Type</label>
-                <select
-                  name="agencyTypeId"
-                  value={agent.agencyTypeId}
-                  onChange={handleChange}
-                  className="w-full border rounded-xl px-4 py-2 mt-1"
-                >
-                  <option value="">Select type</option>
-                  {agencyTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* save button */}
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl mt-6 hover:scale-105 transition"
-              >
-                <Save size={18} />
-                {saving ? "Updating..." : "Update Agent"}
-              </button>
             </form>
           )}
-        </motion.div>
+        </div>
       </motion.div>
-    </AnimatePresence>
+    </div>
   );
 };
 

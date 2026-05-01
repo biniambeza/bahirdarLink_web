@@ -1,199 +1,212 @@
+import React, { useState, useEffect, useMemo } from "react";
+import axios from "axios";
+import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Flame,
-  Droplets,
-  Skull,
-  Ambulance,
-  Map,
-  PlusCircle,
-  Radio,
-  Users,
+  Flame, Droplets, Skull, Ambulance, Radio, 
+  Search, Clock, User, UserX, MapPin, 
+  ChevronRight, Activity, AlertTriangle
 } from "lucide-react";
 
-// Mock incidents and stats for dashboard
-const incidents = [
-  {
-    id: "FIR-021",
-    category: "fire",
-    title: "Residential Fire",
-    location: "Kebele 11, Abay Mado",
-    severity: "critical",
-    status: "pending",
-    time: "1m ago",
-    reporter: "Guest_4421",
-    icon: <Flame size={20} />,
-    color: "text-red-500",
-    bg: "bg-red-50",
-  },
-  {
-    id: "CRM-109",
-    category: "crime",
-    title: "Street Robbery",
-    location: "Grand Resort Area",
-    severity: "high",
-    status: "responding",
-    time: "5m ago",
-    reporter: "Dawit M. (Verified)",
-    icon: <Skull size={20} />,
-    color: "text-purple-500",
-    bg: "bg-purple-50",
-  },
-  {
-    id: "MED-332",
-    category: "medical",
-    title: "Emergency Childbirth",
-    location: "Kebele 14",
-    severity: "critical",
-    status: "on-route",
-    time: "8m ago",
-    reporter: "Guest_1102",
-    icon: <Ambulance size={20} />,
-    color: "text-pink-500",
-    bg: "bg-pink-50",
-  },
-  {
-    id: "FLD-004",
-    category: "flood",
-    title: "Lake Overrun",
-    location: "Tana Shore",
-    severity: "moderate",
-    status: "pending",
-    time: "15m ago",
-    reporter: "Kidus H. (Verified)",
-    icon: <Droplets size={20} />,
-    color: "text-blue-500",
-    bg: "bg-blue-50",
-  },
-];
+// Import your new Detail component
+import IncidentDetail from "./IncidentDetail"; 
 
-const stats = [
-  { label: "Fire Response Efficiency", value: 82, color: "bg-red-500" },
-  { label: "Medical Unit Availability", value: 45, color: "bg-pink-500" },
-  { label: "Police Coverage", value: 91, color: "bg-[#0052CC]" },
-];
+const CATEGORY_STYLE = {
+  fire: { icon: <Flame size={16} />, color: "text-orange-600", bg: "bg-orange-50" },
+  crime: { icon: <Skull size={16} />, color: "text-purple-600", bg: "bg-purple-50" },
+  medical: { icon: <Ambulance size={16} />, color: "text-rose-600", bg: "bg-rose-50" },
+  flood: { icon: <Droplets size={16} />, color: "text-cyan-600", bg: "bg-cyan-50" },
+  default: { icon: <Radio size={16} />, color: "text-slate-600", bg: "bg-slate-50" },
+};
 
 const DashboardPage = () => {
+  const [reports, setReports] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  
+  // Slide Panel States
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const fetchReports = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const { data } = await axios.get("http://localhost:5000/api/emergencies/admin/all", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data.success) setReports(data.data || []);
+    } catch (err) {
+      console.error("Sync Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+    const interval = setInterval(fetchReports, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredReports = useMemo(() => {
+    return reports
+      .filter((r) => {
+        if (filter === "registered") return r.reporterType === "user";
+        if (filter === "guest") return r.reporterType === "guest";
+        return true;
+      })
+      .filter((r) => {
+        const pool = `${r.emergencyType} ${r.category} ${r.reporterName} ${r.kebele}`.toLowerCase();
+        return pool.includes(searchQuery.toLowerCase());
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [filter, searchQuery, reports]);
+
+  // Drawer Control Logic
+  const handleOpenDetail = (report) => {
+    setSelectedReport(report);
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDrawerOpen(false);
+    // Timeout prevents content from disappearing mid-slide
+    setTimeout(() => setSelectedReport(null), 300);
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h2 className="text-2xl font-black text-[#0052CC]">
-          Dashboard Overview
-        </h2>
-        <p className="text-sm text-slate-500">
-          Monitor system stats, alerts, and quick summaries.
-        </p>
-      </div>
+    <div className="relative min-h-screen bg-[#FAFAFA] overflow-x-hidden">
+      {/* Background Dimmer Overlay */}
+      <AnimatePresence>
+        {isDrawerOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleCloseDetail}
+            className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] z-40"
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Priority Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-black text-slate-700 uppercase text-sm tracking-wider mb-2">
-            Priority Alerts
-          </h3>
-          <AnimatePresence mode="popLayout">
-            {incidents.map((em, idx) => (
-              <IncidentCard key={em.id} em={em} index={idx} />
-            ))}
-          </AnimatePresence>
-        </div>
+      <div className="p-4 lg:p-8">
+        <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-end gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">Incident <span className="text-blue-600">Control</span></h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time Response Dashboard</p>
+          </div>
+          
+          <div className="flex gap-3">
+              <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                      type="text" 
+                      placeholder="Search..." 
+                      className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-600/10 transition-all"
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+              </div>
+              <div className="flex bg-slate-200/50 p-1 rounded-xl">
+                  {["all", "registered", "guest"].map(t => (
+                      <button key={t} onClick={() => setFilter(t)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${filter === t ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>{t}</button>
+                  ))}
+              </div>
+          </div>
+        </header>
 
-        {/* Stats & Quick Actions */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-            <h4 className="font-black text-slate-400 text-[10px] uppercase tracking-widest mb-6">
-              Real-time Stats
-            </h4>
-            <div className="space-y-4">
-              {stats.map((s, idx) => (
-                <ProgressStat
-                  key={idx}
-                  label={s.label}
-                  val={s.value}
-                  color={s.color}
+        <main className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
+          <div className="col-span-12 lg:col-span-3 space-y-4">
+              <SmallStat label="Pending" val={reports.filter(r => r.status !== 'resolved').length} color="text-orange-600" />
+              <SmallStat label="Total" val={reports.length} color="text-blue-600" />
+          </div>
+
+          <div className="col-span-12 lg:col-span-9 space-y-2">
+            <AnimatePresence mode="popLayout">
+              {filteredReports.map((report) => (
+                <CompactIncidentCard 
+                  key={report.id} 
+                  report={report} 
+                  onClick={() => handleOpenDetail(report)} 
                 />
               ))}
-            </div>
+            </AnimatePresence>
           </div>
-
-          <div className="bg-[#0052CC] rounded-2xl p-6 text-white shadow-xl shadow-blue-500/30">
-            <h4 className="font-black text-xs uppercase tracking-widest text-blue-200 mb-4">
-              Coordination Tools
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <ActionBtn icon={<PlusCircle />} label="New Report" />
-              <ActionBtn icon={<Map />} label="Map View" />
-              <ActionBtn icon={<Radio />} label="Dispatch" />
-              <ActionBtn icon={<Users />} label="Officers" />
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
+
+      {/* The Slide-from-Right Detail Panel */}
+      <IncidentDetail 
+        report={selectedReport} 
+        isOpen={isDrawerOpen} 
+        onClose={handleCloseDetail} 
+      />
     </div>
   );
 };
 
-// --- Helper Components ---
-const IncidentCard = ({ em, index }) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ delay: index * 0.1 }}
-    className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl flex justify-between items-center"
-  >
-    <div className="flex items-center gap-4">
-      <div
-        className={`w-12 h-12 ${em.bg} ${em.color} rounded-xl flex items-center justify-center`}
-      >
-        {em.icon}
+/* --- COMPACT INCIDENT CARD --- */
+const CompactIncidentCard = ({ report, onClick }) => {
+  const style = CATEGORY_STYLE[report.category?.toLowerCase()] || CATEGORY_STYLE.default;
+  const isRegistered = report.reporterType === "user";
+  
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ x: 4 }}
+      onClick={onClick}
+      className="group bg-white border border-slate-200 hover:border-blue-400 p-2 pr-4 rounded-xl cursor-pointer transition-all flex items-center gap-4 shadow-sm"
+    >
+      <div className={`w-10 h-10 shrink-0 rounded-lg ${style.bg} ${style.color} flex items-center justify-center`}>
+        {style.icon}
       </div>
-      <div>
-        <h5 className="font-black text-slate-800 text-sm">{em.title}</h5>
-        <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
-          {em.location} • {em.time}
-        </p>
-        <p className="text-[10px] font-bold text-slate-400 mt-1">
-          Reporter: <span className="text-slate-600">{em.reporter}</span>
-        </p>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <h3 className="text-xs font-black text-slate-800 truncate uppercase tracking-tight">
+            {report.emergencyType || report.category}
+          </h3>
+          <div className="h-1 w-1 rounded-full bg-slate-300" />
+          <span className="text-[10px] font-bold text-slate-400 truncate">
+            {report.kebele || "Location Pending"}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-slate-400">
+                {isRegistered ? <User size={10} className="text-blue-500" /> : <UserX size={10} />}
+                <span className="text-[9px] font-bold truncate max-w-[100px]">
+                    {report.reporterName || "Guest"}
+                </span>
+            </div>
+            <div className="flex items-center gap-1 text-slate-400">
+                <Clock size={10} />
+                <span className="text-[9px] font-bold">
+                    {formatDistanceToNow(new Date(report.createdAt), { addSuffix: true })}
+                </span>
+            </div>
+        </div>
       </div>
-    </div>
-    <div className="flex flex-col items-end gap-2">
-      <span
-        className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${em.severity === "critical" ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"}`}
-      >
-        {em.severity}
-      </span>
-      <button className="px-3 py-1 bg-[#0052CC] text-white text-[10px] font-black uppercase rounded-lg hover:scale-105 transition-all">
-        Assign
-      </button>
-    </div>
-  </motion.div>
-);
 
-const ProgressStat = ({ label, val, color }) => (
-  <div className="space-y-1">
-    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-      <span>{label}</span>
-      <span className="text-slate-800">{val}%</span>
-    </div>
-    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: `${val}%` }}
-        className={`h-full ${color}`}
-      />
-    </div>
-  </div>
-);
+      <div className="flex items-center gap-4 shrink-0">
+        <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${
+            report.status === 'resolved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100'
+        }`}>
+            {report.status || 'Active'}
+        </span>
+        <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-600 transition-colors" />
+      </div>
+    </motion.div>
+  );
+};
 
-const ActionBtn = ({ icon, label }) => (
-  <button className="flex flex-col items-center justify-center p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all border border-white/10 group">
-    <span className="text-white mb-1">{icon}</span>
-    <span className="text-[9px] font-black uppercase tracking-widest">
-      {label}
-    </span>
-  </button>
+const SmallStat = ({ label, val, color }) => (
+    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        <p className={`text-xl font-black ${color}`}>{val}</p>
+    </div>
 );
 
 export default DashboardPage;

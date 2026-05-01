@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { PlusCircle, Users, Edit2 } from "lucide-react"; // use Edit2 icon
+// Added Edit2 to imports
+import { PlusCircle, Users, Edit2 } from "lucide-react"; 
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import AddAgentPanel from "./AddAgentPanel";
@@ -103,31 +104,49 @@ const AgentsPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ delay: idx * 0.05 }}
-                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-lg flex flex-col gap-3 transition-all hover:scale-105 cursor-pointer"
+                className="group bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-lg flex flex-col gap-3 transition-all hover:scale-[1.02] cursor-pointer relative"
                 onClick={() => navigate(`/edit-agent/${agent.id}`)}
               >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-lg text-slate-800">
-                    {agent.name}
-                  </h4>
-                  <span
-                    className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
-                      agent.status === "active"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-red-100 text-red-600"
-                    }`}
+                {/* Header with Status and Edit Icon */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-lg text-slate-800 leading-tight">
+                      {agent.name}
+                    </h4>
+                    <span
+                      className={`text-[10px] inline-block font-black uppercase px-2 py-0.5 rounded-md ${
+                        agent.status === "active"
+                          ? "bg-green-100 text-green-600"
+                          : "bg-red-100 text-red-600"
+                      }`}
+                    >
+                      {agent.status}
+                    </span>
+                  </div>
+                  
+                  {/* Dedicated Edit Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevents double navigation
+                      navigate(`/edit-agent/${agent.id}`);
+                    }}
+                    className="p-2 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors"
                   >
-                    {agent.status}
-                  </span>
+                    <Edit2 size={16} />
+                  </button>
                 </div>
 
-                <p className="text-slate-500 text-sm">{agent.email}</p>
-                <p className="text-slate-500 text-sm">{agent.phone}</p>
-                <p className="text-slate-500 text-sm">{agent.location}</p>
+                <div className="space-y-1 mt-2">
+                  <p className="text-slate-500 text-sm flex items-center gap-2">{agent.email}</p>
+                  <p className="text-slate-500 text-sm">{agent.phone}</p>
+                  <p className="text-slate-400 text-xs italic">{agent.location}</p>
+                </div>
 
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                  Type: {agent.AgencyType?.name || "N/A"}
-                </p>
+                <div className="mt-auto pt-3 border-t border-slate-50">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                    Type: <span className="text-blue-600">{agent.AgencyType?.name || "N/A"}</span>
+                  </p>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>
