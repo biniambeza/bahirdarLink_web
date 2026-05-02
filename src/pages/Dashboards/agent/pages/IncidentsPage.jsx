@@ -1,19 +1,13 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Search,
-  MapPin,
-  Clock,
-  ChevronRight,
-  Activity,
-  ShieldCheck,
-} from "lucide-react";
+import { Search, ChevronRight, ShieldCheck } from "lucide-react";
 import IncidentDetails from "./IncidentDetailPage";
 
 const IncidentsPage = () => {
   const [emergencies, setEmergencies] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [crimeType, setCrimeType] = useState(null);
+
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +19,7 @@ const IncidentsPage = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
+
       const token = localStorage.getItem("token");
       const agency = JSON.parse(localStorage.getItem("agency") || "{}");
 
@@ -37,12 +32,14 @@ const IncidentsPage = () => {
       ]);
 
       setEmergencies(emergenciesRes?.data?.data || []);
-      const targetType = typesRes.data.emergencyTypes.find(
-        (t) => t.name === "Crime" || t.name === "Service",
+
+      const crime = (typesRes?.data?.data || []).find(
+        (t) => t.name.toLowerCase() === "crime",
       );
-      setCategories(targetType?.categories || []);
+
+      setCrimeType(crime || null);
     } catch (err) {
-      console.error("Data fetch failed:", err);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -53,175 +50,157 @@ const IncidentsPage = () => {
   }, []);
 
   // =========================
-  // GROUPING LOGIC
+  // GROUPING
   // =========================
   const groupedEmergencies = useMemo(() => {
     const map = new Map();
+
     emergencies.forEach((item) => {
-      const key = item.emergedId ? item.emergedId : (item._id || item.id);
+      const key = item.emergedId || item._id || item.id;
+
       if (!map.has(key)) {
         map.set(key, { ...item, mergedCount: 1 });
       } else {
         const existing = map.get(key);
-        map.set(key, { ...existing, mergedCount: existing.mergedCount + 1 });
+        map.set(key, {
+          ...existing,
+          mergedCount: existing.mergedCount + 1,
+        });
       }
     });
+
     return Array.from(map.values());
   }, [emergencies]);
 
   // =========================
-  // FILTERING LOGIC
+  // FILTERING
   // =========================
   const filteredIncidents = useMemo(() => {
-    return groupedEmergencies.filter((incident) => {
-      const matchesCategory = !selectedCategory || incident.categoryId === selectedCategory;
-      const query = searchQuery.toLowerCase();
-      
-      const locationLabel = incident.kebele?.name || incident.kebele || incident.lastSeenLocation || "";
-      const searchableString = `${locationLabel} ${incident.subdivision || ""} ${incident.street || ""}`.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
 
-      return searchableString.includes(query) && matchesCategory;
+    return groupedEmergencies.filter((incident) => {
+      const matchCategory =
+        !selectedCategory || incident.categoryId === selectedCategory.id;
+
+      const location =
+        incident.kebele?.name ||
+        incident.kebele ||
+        incident.lastSeenLocation ||
+        "";
+
+      const searchable = `${location} ${incident.street || ""}`.toLowerCase();
+
+      return searchable.includes(query) && matchCategory;
     });
   }, [groupedEmergencies, selectedCategory, searchQuery]);
 
+  // =========================
+  // UI
+  // =========================
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        
-        {/* --- HEADER --- */}
-        <header className="flex items-center justify-between mb-8 border-b border-slate-200 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-200">
-              <ShieldCheck className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Incident Logs</h1>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Agency Management Portal</p>
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">System Live</span>
-            <Activity size={14} className="text-blue-500 ml-1" />
-          </div>
-        </header>
-
-        {/* --- CONTROLS AREA --- */}
-        <div className="space-y-6 mb-10">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
-            <input
-              type="text"
-              placeholder="Search by location, kebele, or street..."
-              className="w-full bg-white border border-slate-200 py-4 pl-12 pr-4 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                selectedCategory === null ? "bg-blue-600 border-blue-600 text-white shadow-lg" : "bg-white border-slate-200 text-slate-500"
-              }`}
-            >
-              All Records
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id || cat._id}
-                onClick={() => setSelectedCategory(cat.id || cat._id)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                  selectedCategory === (cat.id || cat._id) ? "bg-blue-600 border-blue-600 text-white shadow-lg" : "bg-white border-slate-200 text-slate-500"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* =========================
+          LEFT SIDEBAR (CATEGORIES)
+      ========================= */}
+      <div className="w-72 bg-white border-r border-slate-200 p-4">
+        <div className="flex items-center gap-2 mb-6">
+          <ShieldCheck className="text-blue-600" />
+          <h2 className="font-bold text-lg">Crime Categories</h2>
         </div>
 
-        {/* --- LIST SECTION --- */}
+        <button
+          onClick={() => setSelectedCategory(null)}
+          className={`w-full text-left px-3 py-2 rounded-lg mb-2 text-sm font-semibold ${
+            !selectedCategory
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          All Categories
+        </button>
+
+        {(crimeType?.categories || []).map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCategory(cat)}
+            className={`w-full text-left px-3 py-2 rounded-lg mb-2 text-sm ${
+              selectedCategory?.id === cat.id
+                ? "bg-green-600 text-white"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* =========================
+          MAIN CONTENT
+      ========================= */}
+      <div className="flex-1 p-6">
+        {/* HEADER */}
+        <div className="flex items-center gap-2 mb-6">
+          <ShieldCheck className="text-blue-600" />
+          <h1 className="text-2xl font-bold">Crime Incidents</h1>
+        </div>
+
+        {/* SEARCH */}
+        <div className="mb-4 flex items-center border rounded-lg p-2 bg-white">
+          <Search className="text-gray-400 mr-2" />
+          <input
+            className="w-full outline-none"
+            placeholder="Search incidents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* LIST */}
         <div className="space-y-3">
           {isLoading ? (
-            <div className="py-24 text-center">
-              <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Accessing Secure Database...</p>
-            </div>
+            <p>Loading...</p>
           ) : (
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {filteredIncidents.map((incident) => (
                 <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  key={incident._id || incident.id}
+                  key={incident.id || incident._id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   onClick={() => setSelectedIncident(incident)}
-                  className="group bg-white border border-slate-100 p-5 rounded-2xl flex items-center justify-between hover:border-blue-500 hover:shadow-xl transition-all cursor-pointer"
+                  className="bg-white p-4 rounded-lg flex justify-between cursor-pointer hover:shadow"
                 >
-                  <div className="flex items-center gap-5 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                      <Clock size={22} />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[9px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded uppercase">
-                          {categories.find((c) => (c.id || c._id) === incident.categoryId)?.name || "General"}
-                        </span>
-                      </div>
-
-                      <h3 className="text-base font-bold text-slate-900 leading-tight">
-                        {incident.kebele?.name || incident.kebele 
-                          ? `${incident.kebele?.name || incident.kebele}${incident.subdivision ? ` • ${incident.subdivision}` : ""}`
-                          : incident.lastSeenLocation || "Unknown Location"}
-                      </h3>
-
-                      <div className="flex items-center gap-4 mt-1.5">
-                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
-                          <MapPin size={12} className="text-blue-500" />
-                          {incident.street || "Zone Undefined"}
-                        </div>
-                        {incident.mergedCount > 1 && (
-                          <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase tracking-tighter">
-                            Merged ({incident.mergedCount})
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  <div>
+                    <h3 className="font-bold">
+                      {incident.kebele?.name || incident.kebele || "Unknown"}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {incident.street || "-"}
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-5">
-                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-hover:translate-x-1 transition-all">
-                      <ChevronRight size={20} />
-                    </div>
-                  </div>
+                  {incident.mergedCount > 1 && (
+                    <span className="text-xs bg-green-100 px-2 py-1 rounded">
+                      {incident.mergedCount} merged
+                    </span>
+                  )}
+
+                  <ChevronRight />
                 </motion.div>
               ))}
             </AnimatePresence>
           )}
-
-          {!isLoading && filteredIncidents.length === 0 && (
-            <div className="bg-white border-2 border-dashed border-slate-200 py-20 rounded-[2rem] text-center">
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No matching records</p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* --- DETAIL OVERLAY --- */}
-      <AnimatePresence>
-        {selectedIncident && (
-          <IncidentDetails
-            incident={selectedIncident}
-            onClose={() => setSelectedIncident(null)}
-            categories={categories}
-          />
-        )}
-      </AnimatePresence>
+      {/* DETAILS MODAL */}
+      {selectedIncident && (
+        <IncidentDetails
+          incident={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
+          categories={crimeType?.categories || []}
+        />
+      )}
     </div>
   );
 };

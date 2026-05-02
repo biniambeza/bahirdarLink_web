@@ -8,7 +8,9 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch all emergencies for admin
+  // =========================
+  // FETCH ALL EMERGENCIES (ADMIN)
+  // =========================
   useEffect(() => {
     const fetchReports = async () => {
       setLoading(true);
@@ -16,6 +18,7 @@ const ReportsPage = () => {
 
       try {
         const token = localStorage.getItem("token");
+
         if (!token) throw new Error("User not logged in");
 
         const { data } = await axios.get(
@@ -122,6 +125,7 @@ const ReportsPage = () => {
                   <th className="p-4 text-left font-semibold">Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredReports.map((report, index) => {
                   const statusLower = report.status?.toLowerCase();
@@ -139,7 +143,6 @@ const ReportsPage = () => {
                       <td className="p-4 text-slate-500">
                         {report.emergencyType || "-"}
                       </td>
-
                       <td className="p-4 text-slate-500">
                         {report.category || "-"}
                       </td>
