@@ -14,10 +14,23 @@ import {
   Paperclip,
   X,
   Video,
-  PhoneOff
+  PhoneOff,
 } from "lucide-react";
 
-export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://localhost:5000" }) {
+/**
+ * Responder dashboard chat + WebRTC video (offerer).
+ *
+ * Backend (BahirLink-Backend/socket/videoCallSocket.js):
+ * 1. Emit `call:initiate` { emergencyId } → server notifies reporter via `call:incoming` (identity_user_<citizenId>).
+ * 2. Emit `call:join` { emergencyId } → join emergency_<id> signaling room (idempotent if initiate already joined).
+ * 3. When reporter’s app calls `call:join`, this socket receives `call:peer-joined` with their socketId → send `call:offer`.
+ * 4. ICE/answer: use `toSocketId` from peer; optional `toIdentity: { senderType: "user", id: reporterUserId }` for hangup.
+ */
+export default function ChatTab({
+  emergencyId,
+  token,
+  apiBaseUrl = "http://localhost:5000",
+}) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
@@ -27,10 +40,10 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [playingKey, setPlayingKey] = useState(null);
 
-  // --- Video call state ---
   const [isCallOpen, setIsCallOpen] = useState(false);
-  const [callStatus, setCallStatus] = useState("idle"); // idle | starting | ringing | connecting | in-call | ended
+  const [callStatus, setCallStatus] = useState("idle");
   const [peerSocketId, setPeerSocketId] = useState(null);
+  const [reporterUserId, setReporterUserId] = useState(null);
 
   const socketRef = useRef(null);
   const listRef = useRef(null);
@@ -38,13 +51,20 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
   const mediaRecorderRef = useRef(null);
   const recordTimerRef = useRef(null);
 
-  // --- WebRTC refs ---
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const isInitiatorRef = useRef(false);
+  const peerSocketIdRef = useRef(null);
+  const reporterUserIdRef = useRef(null);
+  const offerSentRef = useRef(false);
+  const emergencyIdRef = useRef(emergencyId);
+
+  useEffect(() => {
+    emergencyIdRef.current = emergencyId;
+  }, [emergencyId]);
 
   const api = useMemo(() => {
     const client = axios.create({ baseURL: apiBaseUrl });
@@ -61,6 +81,11 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
   useEffect(() => {
     let mounted = true;
 
+    const sdpPayload = (desc) =>
+      desc && typeof desc === "object" && "sdp" in desc
+        ? { type: desc.type, sdp: desc.sdp }
+        : desc;
+
     const initChat = async () => {
       if (!emergencyId || !token) return;
       try {
@@ -69,7 +94,10 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
         const history = await api.get(`/api/message/${emergencyId}`);
         if (mounted) setMessages(history.data?.data || []);
 
-        const s = io(apiBaseUrl, { auth: { token: `Bearer ${token}` }, transports: ["websocket"] });
+        const s = io(apiBaseUrl, {
+          auth: { token: token.startsWith("Bearer ") ? token : `Bearer ${token}` },
+          transports: ["websocket"],
+        });
         socketRef.current = s;
 
         s.on("connect", () => {
@@ -79,68 +107,91 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
 
         s.on("chat:new", (msg) => mounted && setMessages((prev) => [...prev, msg]));
 
-        // --- WebRTC signaling listeners ---
-        s.on("call:peer-joined", async ({ socketId }) => {
-          // If responder initiated a call, and the user joins later, send offer directly to them.
-          setPeerSocketId(socketId);
-          if (isInitiatorRef.current && pcRef.current && callStatus !== "in-call") {
-            try {
-              setCallStatus("connecting");
-              const offer = await pcRef.current.createOffer();
-              await pcRef.current.setLocalDescription(offer);
-              s.emit("call:offer", { emergencyId, toSocketId: socketId, sdp: offer });
-            } catch (e) {
-              setError("Failed to create offer");
-            }
+        s.on("call:error", (p) => {
+          if (!mounted) return;
+          setError(p?.message || "Call error");
+          cleanupCallRefsOnly({ skipState: false });
+          setCallStatus("idle");
+          setIsCallOpen(false);
+        });
+
+        s.on("call:initiated", (p) => {
+          if (!mounted) return;
+          const rid = p?.reporterUserId ?? p?.toUserId;
+          if (rid != null) {
+            reporterUserIdRef.current = Number(rid);
+            setReporterUserId(Number(rid));
           }
         });
 
-        s.on("call:offer", async ({ fromSocketId, sdp }) => {
-          try {
-            setPeerSocketId(fromSocketId);
-            setIsCallOpen(true);
+        s.on("call:peer-joined", async (payload) => {
+          if (!mounted || !isInitiatorRef.current || offerSentRef.current) return;
+
+          const { socketId, identity } = payload || {};
+          if (!socketId || !identity) return;
+
+          if (identity.senderType !== "user") return;
+
+          const expected = reporterUserIdRef.current;
+          if (expected != null && Number(identity.id) !== Number(expected)) return;
+
+          peerSocketIdRef.current = socketId;
+          if (mounted) {
+            setPeerSocketId(socketId);
             setCallStatus("connecting");
+          }
 
-            await ensurePeerConnection();
-            await pcRef.current.setRemoteDescription(sdp);
-
-            const answer = await pcRef.current.createAnswer();
-            await pcRef.current.setLocalDescription(answer);
-
-            s.emit("call:answer", { emergencyId, toSocketId: fromSocketId, sdp: answer });
-          } catch (e) {
-            setError("Failed to answer call");
+          try {
+            const pc = await ensurePeerConnection(s);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            offerSentRef.current = true;
+            s.emit("call:offer", {
+              emergencyId: emergencyIdRef.current,
+              toSocketId: socketId,
+              sdp: sdpPayload(offer),
+            });
+          } catch {
+            if (mounted) setError("Failed to create offer");
           }
         });
 
-        s.on("call:answer", async ({ sdp }) => {
+        s.on("call:answer", async (payload) => {
           try {
-            if (!pcRef.current) return;
-            await pcRef.current.setRemoteDescription(sdp);
-            setCallStatus("in-call");
-          } catch (e) {
-            setError("Failed to set remote answer");
+            const pc = pcRef.current;
+            if (!pc || !payload?.sdp) return;
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            if (mounted) setCallStatus("in-call");
+          } catch {
+            if (mounted) setError("Failed to apply answer");
           }
         });
 
-        s.on("call:ice", async ({ candidate }) => {
+        s.on("call:ice", async (payload) => {
           try {
-            if (!pcRef.current) return;
-            await pcRef.current.addIceCandidate(candidate);
-          } catch (e) {
-            // ignore some transient ICE errors
+            const pc = pcRef.current;
+            if (!pc || !payload?.candidate) return;
+            const cand =
+              payload.candidate instanceof RTCIceCandidate
+                ? payload.candidate
+                : new RTCIceCandidate(payload.candidate);
+            await pc.addIceCandidate(cand);
+          } catch {
+            /* transient ICE */
           }
         });
 
         const endFromRemote = () => {
-          cleanupCall();
-          setCallStatus("ended");
-          setTimeout(() => setCallStatus("idle"), 800);
+          cleanupCallRefsOnly({ skipState: false });
+          if (mounted) {
+            setCallStatus("ended");
+            setTimeout(() => setCallStatus("idle"), 800);
+          }
         };
 
         s.on("call:hangup", endFromRemote);
         s.on("call:peer-left", endFromRemote);
-      } catch (e) {
+      } catch {
         if (mounted) {
           setStatus("error");
           setError("Connection failed");
@@ -151,8 +202,9 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
     initChat();
     return () => {
       mounted = false;
-      cleanupCall();
+      cleanupCallRefsOnly({ skipState: true });
       socketRef.current?.disconnect();
+      socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emergencyId, token, apiBaseUrl]);
@@ -184,7 +236,7 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
         setIsRecording(true);
         setRecordMs(0);
         recordTimerRef.current = setInterval(() => setRecordMs((prev) => prev + 1000), 1000);
-      } catch (err) {
+      } catch {
         setError("Microphone access denied");
         setTimeout(() => setError(""), 3000);
       }
@@ -199,48 +251,52 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
     try {
       const res = await api.post("/api/message/audio", formData);
       socketRef.current.emit("chat:send", { emergencyId, audioUrl: res.data.data.audioUrl });
-    } catch (e) {
+    } catch {
       setError("Audio failed to upload");
     }
     setIsUploadingAudio(false);
   };
 
-  // -----------------------------
-  // Video Call helpers
-  // -----------------------------
-  const ensurePeerConnection = async () => {
+  const ensurePeerConnection = async (socket) => {
     if (pcRef.current) return pcRef.current;
 
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
     remoteStreamRef.current = new MediaStream();
 
     pc.ontrack = (event) => {
-      event.streams[0].getTracks().forEach((t) => remoteStreamRef.current.addTrack(t));
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      const rs = remoteStreamRef.current;
+      if (!rs) return;
+      event.streams[0].getTracks().forEach((t) => rs.addTrack(t));
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = rs;
     };
 
     pc.onicecandidate = (event) => {
       if (!event.candidate) return;
-      socketRef.current?.emit("call:ice", {
-        emergencyId,
-        toSocketId: peerSocketId || undefined,
-        candidate: event.candidate
-      });
+      const s = socket || socketRef.current;
+      const target = peerSocketIdRef.current;
+      const rid = reporterUserIdRef.current;
+      const payload = {
+        emergencyId: emergencyIdRef.current,
+        candidate: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate,
+      };
+      if (target) payload.toSocketId = target;
+      else if (rid != null)
+        payload.toIdentity = { senderType: "user", id: Number(rid) };
+      s?.emit("call:ice", payload);
     };
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") setCallStatus("in-call");
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        // let user hang up or auto-clean
-      }
     };
 
-    // Get local media once per call
     if (!localStreamRef.current) {
-      localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
       if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
     }
 
@@ -250,52 +306,29 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
     return pc;
   };
 
-  const startVideoCall = async () => {
-    if (!socketRef.current || status !== "ready") return;
-
-    try {
-      setIsCallOpen(true);
-      setCallStatus("starting");
-      isInitiatorRef.current = true;
-
-      // Join call room on backend
-      socketRef.current.emit("call:join", { emergencyId });
-
-      await ensurePeerConnection();
-
-      // If peer already known, offer immediately; else wait for call:peer-joined
-      setCallStatus(peerSocketId ? "connecting" : "ringing");
-
-      if (peerSocketId) {
-        const offer = await pcRef.current.createOffer();
-        await pcRef.current.setLocalDescription(offer);
-        socketRef.current.emit("call:offer", { emergencyId, toSocketId: peerSocketId, sdp: offer });
-      }
-    } catch (e) {
-      setError("Failed to start video call");
-      setIsCallOpen(false);
-      setCallStatus("idle");
-      cleanupCall();
-    }
-  };
-
-  const hangup = () => {
-    socketRef.current?.emit("call:hangup", { emergencyId, toSocketId: peerSocketId || undefined });
-    cleanupCall();
+  /** Full teardown + UI reset */
+  const cleanupCall = () => {
+    cleanupCallRefsOnly({ skipState: false });
     setCallStatus("ended");
     setTimeout(() => setCallStatus("idle"), 800);
   };
 
-  const cleanupCall = () => {
+  function cleanupCallRefsOnly({ skipState = false } = {}) {
     isInitiatorRef.current = false;
+    offerSentRef.current = false;
+    peerSocketIdRef.current = null;
+    reporterUserIdRef.current = null;
 
     try {
-      pcRef.current?.getSenders?.().forEach((s) => s.track && s.track.stop());
-    } catch {}
+      pcRef.current?.getSenders?.().forEach((x) => x.track && x.track.stop());
+    } catch {
+      /* noop */
+    }
     try {
       pcRef.current?.close?.();
-    } catch {}
-
+    } catch {
+      /* noop */
+    }
     pcRef.current = null;
 
     if (localStreamRef.current) {
@@ -307,22 +340,60 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
-    setPeerSocketId(null);
-    setIsCallOpen(false);
+    if (!skipState) {
+      setPeerSocketId(null);
+      setReporterUserId(null);
+      setIsCallOpen(false);
+    }
+  }
+
+  const startVideoCall = async () => {
+    const s = socketRef.current;
+    if (!s || status !== "ready") return;
+
+    try {
+      setError("");
+      setIsCallOpen(true);
+      setCallStatus("starting");
+      isInitiatorRef.current = true;
+      offerSentRef.current = false;
+      peerSocketIdRef.current = null;
+
+      s.emit("call:initiate", { emergencyId });
+      s.emit("call:join", { emergencyId });
+
+      await ensurePeerConnection(s);
+
+      setCallStatus("ringing");
+    } catch {
+      setError("Failed to start video call");
+      cleanupCallRefsOnly({ skipState: false });
+      setCallStatus("idle");
+      setIsCallOpen(false);
+    }
+  };
+
+  const hangup = () => {
+    const s = socketRef.current;
+    const target = peerSocketIdRef.current;
+    const rid = reporterUserIdRef.current;
+    const payload = { emergencyId };
+    if (target) payload.toSocketId = target;
+    else if (rid != null) payload.toIdentity = { senderType: "user", id: Number(rid) };
+    s?.emit("call:hangup", payload);
+    cleanupCall();
   };
 
   return (
     <div className="flex flex-col h-full w-full bg-[#E6EBF0] overflow-hidden font-sans relative selection:bg-[#24A1DE]/30">
-      {/* BACKGROUND PATTERN */}
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
           backgroundImage: `url('https://www.transparenttextures.com/patterns/p4.png')`,
-          backgroundSize: "400px"
+          backgroundSize: "400px",
         }}
       />
 
-      {/* PRO HEADER */}
       <header className="flex items-center justify-between px-5 py-3 bg-white/80 backdrop-blur-md border-b border-gray-200 z-20 sticky top-0">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -336,19 +407,21 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
             />
           </div>
           <div>
-            <h2 className="text-[15px] font-bold text-gray-800 leading-tight">Case Feed #{emergencyId}</h2>
+            <h2 className="text-[15px] font-bold text-gray-800 leading-tight">
+              Case Feed #{emergencyId}
+            </h2>
             <span className="text-[11px] font-semibold text-[#24A1DE] uppercase tracking-wider">
               Tactical Network
             </span>
           </div>
         </div>
 
-        {/* Right actions */}
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={startVideoCall}
             disabled={status !== "ready"}
-            title="Start video call"
+            title="Ring reporter’s app (video)"
             className={`p-2.5 rounded-full transition-all ${
               status !== "ready"
                 ? "text-gray-300 cursor-not-allowed"
@@ -359,6 +432,7 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
           </button>
 
           <button
+            type="button"
             onClick={() => window.location.reload()}
             className="p-2.5 hover:bg-gray-100 rounded-full text-gray-400 transition-all active:rotate-180 duration-500"
           >
@@ -367,15 +441,15 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
         </div>
       </header>
 
-      {/* CALL MODAL */}
       {isCallOpen && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-4xl bg-[#0b1220] rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <div className="text-white">
-                <div className="text-sm font-bold">Video Call</div>
+                <div className="text-sm font-bold">Video call → reporter</div>
                 <div className="text-xs text-white/60">
-                  {callStatus === "ringing" && "Calling user…"}
+                  {reporterUserId != null && `Reporter user #${reporterUserId} · `}
+                  {callStatus === "ringing" && "Ringing mobile app…"}
                   {callStatus === "connecting" && "Connecting…"}
                   {callStatus === "in-call" && "In call"}
                   {callStatus === "starting" && "Starting…"}
@@ -383,6 +457,7 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
                 </div>
               </div>
               <button
+                type="button"
                 onClick={hangup}
                 className="px-3 py-2 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition flex items-center gap-2"
               >
@@ -400,7 +475,7 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
                   className="w-full h-[320px] md:h-[420px] object-cover"
                 />
                 <div className="absolute bottom-2 left-2 text-xs font-bold text-white/80 bg-black/40 px-2 py-1 rounded-lg">
-                  User
+                  Reporter
                 </div>
               </div>
 
@@ -421,7 +496,6 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
         </div>
       )}
 
-      {/* MESSAGES LIST */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4 z-10 scrollbar-hide">
         {messages.map((m, i) => {
           const isMine = m.senderType === "responderTeam";
@@ -434,7 +508,9 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
             >
               <div
                 className={`relative max-w-[85%] min-w-[100px] px-3.5 py-2 shadow-sm ${
-                  isMine ? "bg-[#EFFDDE] text-gray-800 rounded-2xl rounded-tr-none" : "bg-white text-gray-800 rounded-2xl rounded-tl-none"
+                  isMine
+                    ? "bg-[#EFFDDE] text-gray-800 rounded-2xl rounded-tr-none"
+                    : "bg-white text-gray-800 rounded-2xl rounded-tl-none"
                 }`}
               >
                 <div
@@ -450,7 +526,7 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
                     url={`${apiBaseUrl}${m.audioUrl}`}
                     isMine={isMine}
                     isPlaying={playingKey === i}
-                    onPlay={() => setPlayingKey(playingKey === i ? null : i)}
+                    onTogglePlay={() => setPlayingKey(playingKey === i ? null : i)}
                   />
                 ) : (
                   <p className="text-[14.5px] leading-relaxed break-words">{m.text}</p>
@@ -458,7 +534,10 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
 
                 <div className="flex items-center justify-end gap-1.5 mt-1 opacity-60">
                   <span className="text-[10px] font-medium">
-                    {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(m.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                   {isMine && <CheckCheck size={14} className="text-green-600" />}
                 </div>
@@ -475,10 +554,12 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
         )}
       </div>
 
-      {/* PRO INPUT FOOTER */}
       <footer className="p-3 bg-white/95 backdrop-blur-sm border-t border-gray-100 z-20">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
-          <button className="p-2 text-gray-400 hover:text-[#24A1DE] transition-colors rounded-full hover:bg-gray-50">
+          <button
+            type="button"
+            className="p-2 text-gray-400 hover:text-[#24A1DE] transition-colors rounded-full hover:bg-gray-50"
+          >
             <Paperclip size={22} />
           </button>
 
@@ -488,10 +569,11 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
                   <span className="text-[15px] font-mono font-bold text-gray-700">
-                    {Math.floor(recordMs / 60000)}:{(Math.floor(recordMs / 1000) % 60).toString().padStart(2, "0")}
+                    {Math.floor(recordMs / 60000)}:
+                    {(Math.floor(recordMs / 1000) % 60).toString().padStart(2, "0")}
                   </span>
                 </div>
-                <span className="text-[#24A1DE] text-sm font-medium animate-pulse">Slide to cancel</span>
+                <span className="text-[#24A1DE] text-sm font-medium animate-pulse">Recording</span>
               </div>
             ) : (
               <textarea
@@ -514,16 +596,24 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
           <div className="relative w-12 h-12 flex items-center justify-center">
             {text.trim() || isUploadingAudio ? (
               <button
+                type="button"
                 onClick={handleSend}
                 className="w-11 h-11 bg-[#24A1DE] text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-[#24A1DE]/40 transition-all active:scale-90"
               >
-                {isUploadingAudio ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} className="ml-0.5" />}
+                {isUploadingAudio ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Send size={20} className="ml-0.5" />
+                )}
               </button>
             ) : (
               <button
+                type="button"
                 onClick={toggleRecording}
                 className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-                  isRecording ? "bg-red-500 text-white animate-pulse" : "bg-[#24A1DE] text-white hover:bg-[#1e8ec4]"
+                  isRecording
+                    ? "bg-red-500 text-white animate-pulse"
+                    : "bg-[#24A1DE] text-white hover:bg-[#1e8ec4]"
                 }`}
               >
                 {isRecording ? <Square size={18} fill="currentColor" /> : <Mic size={22} />}
@@ -536,38 +626,49 @@ export default function ChatTab({ emergencyId, token, apiBaseUrl = "http://local
   );
 }
 
-function TelegramAudioPlayer({ url, isMine, isPlaying, onPlay }) {
-  const audioRef = useRef(new Audio(url));
+function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
+  const audioRef = useRef(null);
+  const onToggleRef = useRef(onTogglePlay);
+  onToggleRef.current = onTogglePlay;
   const [progress, setProgress] = useState(0);
-  const bars = useMemo(() => Array.from({ length: 28 }, () => Math.random() * 80 + 20), []);
+  const bars = useMemo(() => Array.from({ length: 28 }, () => Math.random() * 80 + 20), [url]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    const updateProgress = () => setProgress((audio.currentTime / audio.duration) * 100);
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    const updateProgress = () => {
+      if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
+    };
     audio.addEventListener("timeupdate", updateProgress);
     audio.addEventListener("ended", () => {
-      onPlay(null);
+      onToggleRef.current?.();
       setProgress(0);
     });
 
-    if (isPlaying) audio.play();
+    if (isPlaying) audio.play().catch(() => {});
     else audio.pause();
 
     return () => {
       audio.removeEventListener("timeupdate", updateProgress);
       audio.pause();
+      audio.src = "";
     };
-  }, [isPlaying]);
+  }, [url, isPlaying]);
 
   return (
     <div className="flex items-center gap-3 py-1.5 min-w-[220px]">
       <button
-        onClick={onPlay}
+        type="button"
+        onClick={onTogglePlay}
         className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-sm ${
           isMine ? "bg-[#86C166] text-white" : "bg-[#24A1DE] text-white"
         }`}
       >
-        {isPlaying ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" className="ml-1" />}
+        {isPlaying ? (
+          <Pause size={22} fill="currentColor" />
+        ) : (
+          <Play size={22} fill="currentColor" className="ml-1" />
+        )}
       </button>
 
       <div className="flex-1 flex flex-col justify-center">
@@ -576,15 +677,20 @@ function TelegramAudioPlayer({ url, isMine, isPlaying, onPlay }) {
             <div
               key={i}
               className={`w-[2.5px] rounded-full transition-colors duration-300 ${
-                (i / bars.length) * 100 < progress ? (isMine ? "bg-[#5b913d]" : "bg-[#24A1DE]") : "bg-gray-300/60"
+                (i / bars.length) * 100 < progress
+                  ? isMine
+                    ? "bg-[#5b913d]"
+                    : "bg-[#24A1DE]"
+                  : "bg-gray-300/60"
               }`}
               style={{ height: `${height}%` }}
             />
           ))}
         </div>
         <div className="flex justify-between items-center mt-1">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Voice Note</span>
-          <span className="text-[10px] font-mono text-gray-500">0:32</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+            Voice Note
+          </span>
         </div>
       </div>
     </div>
