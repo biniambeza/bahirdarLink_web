@@ -11,6 +11,7 @@ export default function ChatTab({
   token,
   apiBaseUrl = "http://localhost:5000",
 }) {
+  // ── Chat state ─────────────────────────────────────────────────────────────
   const [status,           setStatus]           = useState("idle");
   const [error,            setError]            = useState("");
   const [messages,         setMessages]         = useState([]);
@@ -19,16 +20,21 @@ export default function ChatTab({
   const [recordMs,         setRecordMs]         = useState(0);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [playingKey,       setPlayingKey]       = useState(null);
-  const [isCallOpen,       setIsCallOpen]       = useState(false);
-  const [callStatus,       setCallStatus]       = useState("idle");
-  const [reporterUserId,   setReporterUserId]   = useState(null);
 
-  const socketRef         = useRef(null);
-  const listRef           = useRef(null);
-  const inputRef          = useRef(null);
-  const mediaRecorderRef  = useRef(null);
-  const recordTimerRef    = useRef(null);
-  const mountedRef        = useRef(true);
+  // ── Call state ─────────────────────────────────────────────────────────────
+  const [isCallOpen,     setIsCallOpen]     = useState(false);
+  const [callStatus,     setCallStatus]     = useState("idle");
+  const [reporterUserId, setReporterUserId] = useState(null);
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const listRef  = useRef(null);
+  const inputRef = useRef(null);
+
+  // ── Socket / recorder refs ─────────────────────────────────────────────────
+  const socketRef        = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordTimerRef   = useRef(null);
+  const mountedRef       = useRef(true);
 
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = useRef(null);
@@ -41,9 +47,11 @@ export default function ChatTab({
   const reporterUserIdRef = useRef(null);
   const offerSentRef      = useRef(false);
   const emergencyIdRef    = useRef(emergencyId);
-  // Queued ICE candidates that arrived before setRemoteDescription
-  const pendingIceRef     = useRef([]);
 
+  // ICE candidates received before setRemoteDescription
+  const pendingIceRef = useRef([]);
+
+  // Keep emergencyIdRef in sync without re-running the main effect
   useEffect(() => { emergencyIdRef.current = emergencyId; }, [emergencyId]);
 
   // ── Axios instance ─────────────────────────────────────────────────────────
@@ -55,19 +63,17 @@ export default function ChatTab({
     return client;
   }, [apiBaseUrl, token]);
 
-  // ── Auto-scroll ────────────────────────────────────────────────────────────
+  // ── Auto-scroll messages ───────────────────────────────────────────────────
   useEffect(() => {
     if (listRef.current)
       listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, isRecording]);
 
-  // ── Re-attach streams whenever the call overlay mounts ────────────────────
-  // This is the safety net: if tracks arrived before the <video> refs were
-  // in the DOM, this effect wires them up the moment the overlay renders.
+  // ── Re-attach video streams when overlay mounts ────────────────────────────
+  // Safety net: if tracks arrived before the <video> elements were in the DOM,
+  // this effect wires them up the moment isCallOpen flips to true.
   useEffect(() => {
     if (!isCallOpen) return;
-
-    // Small tick so React has flushed the DOM with the new overlay
     const id = setTimeout(() => {
       if (remoteStreamRef.current && remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStreamRef.current;
@@ -78,18 +84,21 @@ export default function ChatTab({
         localVideoRef.current.play().catch(() => {});
       }
     }, 50);
-
     return () => clearTimeout(id);
   }, [isCallOpen]);
 
   // ── WebRTC helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Normalise an SDP descriptor so we always send a plain { type, sdp } object
+   * rather than an RTCSessionDescription instance (not JSON-serialisable).
+   */
   const sdpPayload = (desc) =>
     desc && typeof desc === "object" && "sdp" in desc
       ? { type: desc.type, sdp: desc.sdp }
       : desc;
 
-  // Attach srcObject to both video elements whenever we have streams.
-  // Called from ontrack and from the isCallOpen effect.
+  /** Wire srcObject on both video elements whenever streams are available. */
   const attachVideoElements = () => {
     if (remoteStreamRef.current && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStreamRef.current;
@@ -101,6 +110,10 @@ export default function ChatTab({
     }
   };
 
+  /**
+   * Create (or return) the RTCPeerConnection, acquire local media, and wire
+   * all event handlers.  Idempotent — safe to call multiple times.
+   */
   const ensurePeerConnection = async (socket) => {
     if (pcRef.current) return pcRef.current;
 
@@ -111,23 +124,28 @@ export default function ChatTab({
       ],
     });
 
-    // Create the remote MediaStream container up front
+    // Create the remote MediaStream container up-front
     remoteStreamRef.current = new MediaStream();
 
+    // ── ontrack ─────────────────────────────────────────────────────────────
     pc.ontrack = (event) => {
       const rs = remoteStreamRef.current;
       if (!rs) return;
 
-      // Add every incoming track, guard against duplicates on renegotiation
-      (event.streams[0]?.getTracks() ?? [event.track]).forEach((t) => {
+      // Prefer event.streams[0] (populated on web); fall back to event.track
+      const tracks =
+        event.streams[0]?.getTracks().length
+          ? event.streams[0].getTracks()
+          : [event.track];
+
+      tracks.forEach((t) => {
         if (!rs.getTracks().find((e) => e.id === t.id)) rs.addTrack(t);
       });
 
-      // Wire up the video element — if the overlay is already open the ref
-      // exists; if not, the isCallOpen effect will handle it.
       attachVideoElements();
     };
 
+    // ── onicecandidate ───────────────────────────────────────────────────────
     pc.onicecandidate = (event) => {
       if (!event.candidate) return;
       const s      = socket || socketRef.current;
@@ -141,25 +159,37 @@ export default function ChatTab({
       });
     };
 
+    // ── onconnectionstatechange ──────────────────────────────────────────────
     pc.onconnectionstatechange = () => {
       if (!mountedRef.current) return;
       const state = pc.connectionState;
       if (state === "connected")    setCallStatus("in-call");
       if (state === "failed")       setCallStatus("failed");
-      if (state === "disconnected") setCallStatus("ended");
+      if (state === "disconnected") setCallStatus("disconnected");
     };
 
-    // Acquire local media
+    // ── Acquire local media ──────────────────────────────────────────────────
     if (!localStreamRef.current) {
-      localStreamRef.current = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      try {
+        localStreamRef.current = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (mediaErr) {
+        // Fall back to audio-only if camera is unavailable
+        console.warn("Video unavailable, falling back to audio-only:", mediaErr);
+        localStreamRef.current = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true,
+        });
+      }
     }
 
-    // Attach local preview immediately if the overlay is already mounted
-    if (localVideoRef.current)
+    // Wire local preview immediately if the overlay is already mounted
+    if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current;
+      localVideoRef.current.play().catch(() => {});
+    }
 
     localStreamRef.current
       .getTracks()
@@ -169,6 +199,9 @@ export default function ChatTab({
     return pc;
   };
 
+  // ── Cleanup helpers ────────────────────────────────────────────────────────
+
+  /** Tear down WebRTC resources without touching React state. */
   const cleanupCallRefsOnly = ({ skipState = false } = {}) => {
     isInitiatorRef.current    = false;
     offerSentRef.current      = false;
@@ -176,6 +209,7 @@ export default function ChatTab({
     reporterUserIdRef.current = null;
     pendingIceRef.current     = [];
 
+    // Stop sender tracks before closing
     try { pcRef.current?.getSenders?.().forEach((s) => s.track?.stop()); } catch (_) {}
     try { pcRef.current?.close?.(); } catch (_) {}
     pcRef.current = null;
@@ -195,24 +229,29 @@ export default function ChatTab({
     }
   };
 
+  /** Full cleanup including React state reset. */
   const cleanupCall = () => {
     cleanupCallRefsOnly({ skipState: false });
     setCallStatus("ended");
     setTimeout(() => { if (mountedRef.current) setCallStatus("idle"); }, 800);
   };
 
-  // ── Socket init ────────────────────────────────────────────────────────────
+  // ── Socket + signalling setup ──────────────────────────────────────────────
   useEffect(() => {
     mountedRef.current = true;
 
     const initChat = async () => {
       if (!emergencyId || !token) return;
+
       try {
         setStatus("connecting");
+
+        // Initialise message history
         await api.post("/api/message/init", { emergencyId });
         const history = await api.get(`/api/message/${emergencyId}`);
         if (mountedRef.current) setMessages(history.data?.data || []);
 
+        // Connect socket
         const s = io(apiBaseUrl, {
           auth: {
             token: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
@@ -221,6 +260,7 @@ export default function ChatTab({
         });
         socketRef.current = s;
 
+        // ── chat events ────────────────────────────────────────────────────
         s.on("connect", () => {
           s.emit("chat:join", { emergencyId });
           if (mountedRef.current) setStatus("ready");
@@ -230,7 +270,7 @@ export default function ChatTab({
           if (mountedRef.current) setMessages((p) => [...p, msg]);
         });
 
-        // Server confirmed initiate — gives us the reporterUserId
+        // ── call:initiated — server confirmed initiation, gives reporterUserId
         s.on("call:initiated", (p) => {
           if (!mountedRef.current) return;
           const rid = p?.reporterUserId ?? p?.toUserId;
@@ -240,15 +280,18 @@ export default function ChatTab({
           }
         });
 
-        // Flutter accepted and joined the signalling room → send the offer
+        // ── call:peer-joined — Flutter accepted and joined the signalling room
         s.on("call:peer-joined", async (payload) => {
           if (!mountedRef.current) return;
           if (!isInitiatorRef.current || offerSentRef.current) return;
 
           const { socketId, identity } = payload || {};
           if (!socketId || !identity) return;
+
+          // Only accept joins from citizen/user senders (Flutter side)
           if (identity.senderType !== "user") return;
 
+          // Optionally verify the reporter matches what we expect
           const expected = reporterUserIdRef.current;
           if (expected != null && Number(identity.id) !== Number(expected)) return;
 
@@ -269,21 +312,26 @@ export default function ChatTab({
             });
           } catch (err) {
             console.error("createOffer failed:", err);
-            if (mountedRef.current) setError("Failed to create offer");
+            if (mountedRef.current) setError("Failed to create WebRTC offer");
           }
         });
 
-        // Flutter sent us the answer
+        // ── call:answer — Flutter replied with its answer SDP
         s.on("call:answer", async (payload) => {
           try {
             const pc = pcRef.current;
-            if (!pc || !payload?.sdp) return;
+            if (!pc) return;
 
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(payload.sdp)
-            );
+            // The answer SDP may arrive as payload.sdp (nested) or flat
+            const rawSdp = payload?.sdp ?? payload;
+            if (!rawSdp?.type || !rawSdp?.sdp) {
+              console.error("call:answer: invalid SDP payload", payload);
+              return;
+            }
 
-            // Drain queued ICE candidates
+            await pc.setRemoteDescription(new RTCSessionDescription(rawSdp));
+
+            // Drain ICE candidates queued before the answer arrived
             for (const cand of pendingIceRef.current) {
               try { await pc.addIceCandidate(cand); } catch (_) {}
             }
@@ -292,26 +340,27 @@ export default function ChatTab({
             if (mountedRef.current) setCallStatus("in-call");
           } catch (err) {
             console.error("setRemoteDescription(answer) failed:", err);
-            if (mountedRef.current) setError("Failed to apply answer");
+            if (mountedRef.current) setError("Failed to apply remote answer");
           }
         });
 
-        // ICE from Flutter
+        // ── call:ice — trickle ICE candidate from Flutter
         s.on("call:ice", async (payload) => {
           try {
             const pc = pcRef.current;
-            if (!pc || !payload?.candidate) return;
+            if (!pc) return;
+
+            // Candidate may be nested under payload.candidate or be the object itself
+            const rawCand = payload?.candidate ?? payload;
+            if (!rawCand || (!rawCand.candidate && !rawCand.sdpMid)) return;
 
             const cand =
-              payload.candidate instanceof RTCIceCandidate
-                ? payload.candidate
-                : new RTCIceCandidate(payload.candidate);
+              rawCand instanceof RTCIceCandidate
+                ? rawCand
+                : new RTCIceCandidate(rawCand);
 
-            // Queue if remote description not yet set
-            if (
-              !pc.remoteDescription ||
-              pc.remoteDescription.type === ""
-            ) {
+            // Queue if remote description not yet applied
+            if (!pc.remoteDescription || !pc.remoteDescription.type) {
               pendingIceRef.current.push(cand);
               return;
             }
@@ -320,6 +369,7 @@ export default function ChatTab({
           } catch (_) { /* transient — ignore */ }
         });
 
+        // ── Remote-initiated call end ──────────────────────────────────────
         const endFromRemote = () => {
           if (!mountedRef.current) return;
           cleanupCallRefsOnly({ skipState: false });
@@ -334,7 +384,8 @@ export default function ChatTab({
 
         s.on("call:error", (p) => {
           if (!mountedRef.current) return;
-          setError(p?.message || "Call error");
+          console.error("call:error from server:", p);
+          setError(p?.message || "Call error from server");
           cleanupCallRefsOnly({ skipState: false });
           setCallStatus("idle");
           setIsCallOpen(false);
@@ -343,16 +394,18 @@ export default function ChatTab({
         s.on("disconnect", () => {
           if (mountedRef.current) setStatus("idle");
         });
+
       } catch (err) {
         console.error("initChat failed:", err);
         if (mountedRef.current) {
           setStatus("error");
-          setError("Connection failed");
+          setError("Connection failed — please reload");
         }
       }
     };
 
     initChat();
+
     return () => {
       mountedRef.current = false;
       cleanupCallRefsOnly({ skipState: true });
@@ -420,11 +473,12 @@ export default function ChatTab({
   const startVideoCall = async () => {
     const s = socketRef.current;
     if (!s || status !== "ready") return;
+
     try {
       setError("");
 
-      // ✅ KEY FIX: Open the overlay FIRST so the <video> elements mount in
-      // the DOM before ensurePeerConnection runs and before any tracks arrive.
+      // Open the overlay FIRST so <video> elements mount in the DOM before
+      // ensurePeerConnection runs and before any tracks or state arrives.
       setIsCallOpen(true);
       setCallStatus("starting");
       isInitiatorRef.current  = true;
@@ -432,21 +486,21 @@ export default function ChatTab({
       peerSocketIdRef.current = null;
       pendingIceRef.current   = [];
 
-      // Yield to React so the overlay DOM is flushed before we touch refs
+      // Yield to React so the overlay DOM is fully flushed before we touch refs
       await new Promise((r) => setTimeout(r, 50));
 
-      // Pre-warm the PC and acquire media now that video elements exist
+      // Pre-warm the PC and acquire media now that video elements exist in DOM
       await ensurePeerConnection(s);
 
-      // Tell server → server pings Flutter via call:incoming
+      // Tell the server → server sends call:incoming to Flutter via identity room
       s.emit("call:initiate", { emergencyId });
-      // Join signalling room → when Flutter joins, server fires call:peer-joined
+      // Join signalling room → when Flutter joins, server fires call:peer-joined here
       s.emit("call:join",     { emergencyId });
 
       setCallStatus("ringing");
     } catch (err) {
       console.error("startVideoCall failed:", err);
-      setError("Failed to start video call: " + (err?.message ?? ""));
+      setError("Failed to start video call: " + (err?.message ?? "unknown error"));
       cleanupCallRefsOnly({ skipState: false });
       setCallStatus("idle");
       setIsCallOpen(false);
@@ -457,26 +511,29 @@ export default function ChatTab({
     const s      = socketRef.current;
     const target = peerSocketIdRef.current;
     const rid    = reporterUserIdRef.current;
+
     const payload = { emergencyId };
-    if (target) payload.toSocketId = target;
-    else if (rid != null)
-      payload.toIdentity = { senderType: "user", id: Number(rid) };
+    if (target)        payload.toSocketId = target;
+    else if (rid != null) payload.toIdentity = { senderType: "user", id: Number(rid) };
+
     s?.emit("call:hangup", payload);
     cleanupCall();
   };
 
   const callStatusLabel = {
-    starting:   "Starting…",
-    ringing:    "Ringing reporter's app…",
-    connecting: "Peer connected, negotiating…",
-    "in-call":  "In call",
-    failed:     "Connection failed",
-    ended:      "Call ended",
+    starting:      "Starting…",
+    ringing:       "Ringing reporter's app…",
+    connecting:    "Peer connected, negotiating…",
+    "in-call":     "In call",
+    disconnected:  "Reconnecting…",
+    failed:        "Connection failed",
+    ended:         "Call ended",
   }[callStatus] ?? "";
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full w-full bg-[#E6EBF0] overflow-hidden font-sans relative selection:bg-[#24A1DE]/30">
+      {/* Subtle background pattern */}
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
@@ -571,11 +628,11 @@ export default function ChatTab({
             {/* Video grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
 
-              {/* Remote — Flutter (reporter) */}
+              {/* Remote — Flutter / reporter */}
               <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
                 {/*
-                  ✅ KEY FIX: ref is now guaranteed to exist because isCallOpen=true
-                  means this subtree is mounted before ensurePeerConnection runs.
+                  ref is guaranteed to exist here because isCallOpen=true means
+                  this subtree is mounted before ensurePeerConnection runs.
                   autoPlay + playsInline are required for mobile browsers.
                 */}
                 <video
@@ -613,7 +670,7 @@ export default function ChatTab({
         </div>
       )}
 
-      {/* ── Messages ── */}
+      {/* ── Message list ── */}
       <div
         ref={listRef}
         className="flex-1 overflow-y-auto px-4 py-6 space-y-4 z-10 scrollbar-hide"
@@ -623,9 +680,7 @@ export default function ChatTab({
           return (
             <div
               key={i}
-              className={`flex ${
-                isMine ? "justify-end" : "justify-start"
-              } animate-in fade-in slide-in-from-bottom-1 duration-300`}
+              className={`flex ${isMine ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1 duration-300`}
             >
               <div
                 className={`relative max-w-[85%] min-w-[100px] px-3.5 py-2 shadow-sm ${
@@ -634,6 +689,7 @@ export default function ChatTab({
                     : "bg-white text-gray-800 rounded-2xl rounded-tl-none"
                 }`}
               >
+                {/* Telegram-style bubble tail */}
                 <div
                   className={`absolute top-0 w-3 h-3 ${
                     isMine
@@ -651,9 +707,7 @@ export default function ChatTab({
                     }
                   />
                 ) : (
-                  <p className="text-[14.5px] leading-relaxed break-words">
-                    {m.text}
-                  </p>
+                  <p className="text-[14.5px] leading-relaxed break-words">{m.text}</p>
                 )}
                 <div className="flex items-center justify-end gap-1.5 mt-1 opacity-60">
                   <span className="text-[10px] font-medium">
@@ -683,7 +737,7 @@ export default function ChatTab({
         )}
       </div>
 
-      {/* ── Footer ── */}
+      {/* ── Footer / input bar ── */}
       <footer className="p-3 bg-white/95 backdrop-blur-sm border-t border-gray-100 z-20">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <button
@@ -700,9 +754,7 @@ export default function ChatTab({
                   <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
                   <span className="text-[15px] font-mono font-bold text-gray-700">
                     {Math.floor(recordMs / 60000)}:
-                    {(Math.floor(recordMs / 1000) % 60)
-                      .toString()
-                      .padStart(2, "0")}
+                    {(Math.floor(recordMs / 1000) % 60).toString().padStart(2, "0")}
                   </span>
                 </div>
                 <span className="text-[#24A1DE] text-sm font-medium animate-pulse">
@@ -769,24 +821,30 @@ function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
   const audioRef    = useRef(null);
   const onToggleRef = useRef(onTogglePlay);
   onToggleRef.current = onTogglePlay;
+
   const [progress, setProgress] = useState(0);
   const bars = useMemo(
     () => Array.from({ length: 28 }, () => Math.random() * 80 + 20),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [url]
   );
 
   useEffect(() => {
     const audio = new Audio(url);
     audioRef.current = audio;
+
     const onTime = () => {
       if (audio.duration)
         setProgress((audio.currentTime / audio.duration) * 100);
     };
     const onEnd = () => { onToggleRef.current?.(); setProgress(0); };
+
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("ended",      onEnd);
+
     if (isPlaying) audio.play().catch(() => {});
     else           audio.pause();
+
     return () => {
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("ended",      onEnd);
