@@ -1,285 +1,865 @@
-import React from "react";
+// import React, { useState, useEffect, useMemo } from "react";
+// import { jwtDecode } from "jwt-decode";
+// import axios from "axios";
+// import {
+//   BarChart,
+//   Bar,
+//   XAxis,
+//   YAxis,
+//   Tooltip,
+//   ResponsiveContainer,
+//   Cell,
+// } from "recharts";
+// import {
+//   Activity,
+//   CheckCircle,
+//   Users,
+//   Bell,
+//   Plus,
+//   MoreHorizontal,
+//   MapPin,
+//   ShieldAlert,
+//   Zap,
+//   FolderLock,
+//   Search,
+// } from "lucide-react";
+
+// const BASE_URL = "http://localhost:5000";
+
+// const ResponderDashboardPage = () => {
+//   const [emergencies, setEmergencies] = useState([]);
+//   const [cases, setCases] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [teamId, setTeamId] = useState(null);
+
+//   // 1. Unified Data Fetching
+//   useEffect(() => {
+//     const fetchDashboardData = async () => {
+//       try {
+//         const token = localStorage.getItem("token");
+//         if (!token) {
+//           setLoading(false);
+//           return;
+//         }
+
+//         const decoded = jwtDecode(token);
+//         const responderTeamId = decoded.id;
+//         setTeamId(responderTeamId);
+
+//         // Fetch Emergencies and Cases in parallel
+//         const [emergRes, casesRes] = await Promise.all([
+//           axios.get(
+//             `${BASE_URL}/api/emergencies/responder-team/${responderTeamId}`,
+//             {
+//               headers: { Authorization: `Bearer ${token}` },
+//             },
+//           ),
+//           axios.get(`${BASE_URL}/api/cases/team/all`, {
+//             headers: { Authorization: `Bearer ${token}` },
+//           }),
+//         ]);
+
+//         setEmergencies(emergRes.data?.data || []);
+//         setCases(casesRes.data || []);
+//       } catch (error) {
+//         console.error("Dashboard Sync Error:", error);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchDashboardData();
+//   }, []);
+
+//   // 2. Data Processing for Stats and Charts
+//   const { emergencyChart, caseChart, dynamicStats } = useMemo(() => {
+//     // Emergency Status Counts
+//     const eCounts = {
+//       reported: emergencies.filter((e) => e.status === "reported").length,
+//       active: emergencies.filter((e) => e.status === "in_progress").length,
+//       resolved: emergencies.filter((e) => e.status === "resolved").length,
+//     };
+
+//     // Case Status Counts (Matching your CaseCard logic)
+//     const cCounts = {
+//       open: cases.filter((c) => c.status?.toLowerCase() === "open").length,
+//       pending: cases.filter((c) => c.status?.toLowerCase() === "pending")
+//         .length,
+//       closed: cases.filter((c) => c.status?.toLowerCase() === "closed").length,
+//     };
+
+//     const stats = [
+//       {
+//         title: "Live Incidents",
+//         value: emergencies.length,
+//         icon: Activity,
+//         color: "text-rose-600",
+//         bg: "bg-rose-50/50",
+//       },
+//       {
+//         title: "Total Cases",
+//         value: cases.length,
+//         icon: FolderLock,
+//         color: "text-blue-600",
+//         bg: "bg-blue-50/50",
+//       },
+//       {
+//         title: "Field Load",
+//         value: eCounts.active + cCounts.pending,
+//         icon: Zap,
+//         color: "text-amber-600",
+//         bg: "bg-amber-50/50",
+//       },
+//       {
+//         title: "Cleared",
+//         value: eCounts.resolved + cCounts.closed,
+//         icon: CheckCircle,
+//         color: "text-emerald-600",
+//         bg: "bg-emerald-50/50",
+//       },
+//     ];
+
+//     return {
+//       emergencyChart: [
+//         { name: "Reported", value: eCounts.reported, color: "#e11d48" },
+//         { name: "Active", value: eCounts.active, color: "#f59e0b" },
+//         { name: "Resolved", value: eCounts.resolved, color: "#10b981" },
+//       ],
+//       caseChart: [
+//         { name: "Open", value: cCounts.open, color: "#3b82f6" },
+//         { name: "Pending", value: cCounts.pending, color: "#8b5cf6" },
+//         { name: "Closed", value: cCounts.closed, color: "#64748b" },
+//       ],
+//       dynamicStats: stats,
+//     };
+//   }, [emergencies, cases]);
+
+//   if (loading)
+//     return (
+//       <div className="min-h-screen flex items-center justify-center bg-slate-50">
+//         <div className="flex flex-col items-center gap-4">
+//           <Zap className="animate-bounce text-blue-600" size={40} />
+//           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+//             Syncing Command Center
+//           </p>
+//         </div>
+//       </div>
+//     );
+
+//   return (
+//     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans pb-12">
+//       <div className="max-w-[1500px] mx-auto p-4 md:p-8">
+//         {/* Header */}
+//         <header className="flex justify-between items-center mb-10">
+//           <div>
+//             <h1 className="text-2xl font-black tracking-tight uppercase">
+//               Bahir<span className="text-blue-600">Link</span> HQ
+//             </h1>
+//             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">
+//               Operational Unit: {teamId || "Sector Main"}
+//             </p>
+//           </div>
+//           <div className="flex gap-3">
+//             <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm relative">
+//               <Bell size={20} className="text-slate-400" />
+//               <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+//             </div>
+//           </div>
+//         </header>
+
+//         {/* Stats Grid */}
+//         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+//           {dynamicStats.map((stat, idx) => (
+//             <div
+//               key={idx}
+//               className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm"
+//             >
+//               <div
+//                 className={`${stat.bg} ${stat.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4`}
+//               >
+//                 <stat.icon size={22} />
+//               </div>
+//               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+//                 {stat.title}
+//               </p>
+//               <h3 className="text-3xl font-black text-slate-900 mt-1">
+//                 {stat.value}
+//               </h3>
+//             </div>
+//           ))}
+//         </div>
+
+//         {/* DUAL ANALYTICS ROW */}
+//         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+//           {/* Incident Load Chart */}
+//           <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+//             <div className="flex justify-between items-start mb-8">
+//               <div>
+//                 <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">
+//                   Incident Load
+//                 </h2>
+//                 <p className="text-[10px] text-slate-400 font-bold uppercase">
+//                   Live Emergency Distribution
+//                 </p>
+//               </div>
+//               <Activity size={16} className="text-rose-500" />
+//             </div>
+
+//             <div className="h-44 w-full">
+//               <ResponsiveContainer width="100%" height="100%">
+//                 <BarChart
+//                   data={emergencyChart}
+//                   margin={{ top: 0, right: 0, left: -35, bottom: 0 }}
+//                 >
+//                   <XAxis dataKey="name" hide />
+//                   <YAxis
+//                     axisLine={false}
+//                     tickLine={false}
+//                     tick={{ fill: "#cbd5e1", fontSize: 10 }}
+//                   />
+//                   <Tooltip
+//                     cursor={{ fill: "transparent" }}
+//                     contentStyle={{
+//                       borderRadius: "16px",
+//                       border: "none",
+//                       boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+//                       fontSize: "11px",
+//                     }}
+//                   />
+//                   <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+//                     {emergencyChart.map((entry, index) => (
+//                       <Cell key={index} fill={entry.color} />
+//                     ))}
+//                   </Bar>
+//                 </BarChart>
+//               </ResponsiveContainer>
+//             </div>
+//             <div className="flex justify-between mt-6 px-2">
+//               {emergencyChart.map((item) => (
+//                 <div key={item.name} className="flex flex-col items-center">
+//                   <span className="text-[9px] font-black text-slate-300 uppercase mb-1">
+//                     {item.name}
+//                   </span>
+//                   <span
+//                     className="text-xs font-black"
+//                     style={{ color: item.color }}
+//                   >
+//                     {item.value}
+//                   </span>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+
+//           {/* Case Status Chart */}
+//           <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+//             <div className="flex justify-between items-start mb-8">
+//               <div>
+//                 <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">
+//                   Investigation Status
+//                 </h2>
+//                 <p className="text-[10px] text-slate-400 font-bold uppercase">
+//                   Case Management Overview
+//                 </p>
+//               </div>
+//               <FolderLock size={16} className="text-blue-500" />
+//             </div>
+
+//             <div className="h-44 w-full">
+//               <ResponsiveContainer width="100%" height="100%">
+//                 <BarChart
+//                   data={caseChart}
+//                   margin={{ top: 0, right: 0, left: -35, bottom: 0 }}
+//                 >
+//                   <XAxis dataKey="name" hide />
+//                   <YAxis
+//                     axisLine={false}
+//                     tickLine={false}
+//                     tick={{ fill: "#cbd5e1", fontSize: 10 }}
+//                   />
+//                   <Tooltip
+//                     cursor={{ fill: "transparent" }}
+//                     contentStyle={{
+//                       borderRadius: "16px",
+//                       border: "none",
+//                       boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+//                       fontSize: "11px",
+//                     }}
+//                   />
+//                   <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+//                     {caseChart.map((entry, index) => (
+//                       <Cell key={index} fill={entry.color} />
+//                     ))}
+//                   </Bar>
+//                 </BarChart>
+//               </ResponsiveContainer>
+//             </div>
+//             <div className="flex justify-between mt-6 px-2">
+//               {caseChart.map((item) => (
+//                 <div key={item.name} className="flex flex-col items-center">
+//                   <span className="text-[9px] font-black text-slate-300 uppercase mb-1">
+//                     {item.name}
+//                   </span>
+//                   <span
+//                     className="text-xs font-black"
+//                     style={{ color: item.color }}
+//                   >
+//                     {item.value}
+//                   </span>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Pipeline & Actions */}
+//         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+//           <div className="lg:col-span-8">
+//             <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
+//               <div className="px-10 py-7 border-b border-slate-50 flex justify-between items-center">
+//                 <h2 className="font-black text-slate-800 text-xs uppercase tracking-widest">
+//                   Active Pipeline
+//                 </h2>
+//                 <div className="flex items-center gap-2 text-slate-300">
+//                   <Search size={16} />
+//                   <MoreHorizontal size={18} />
+//                 </div>
+//               </div>
+
+//               <div className="p-4">
+//                 {emergencies.length === 0 ? (
+//                   <div className="py-20 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+//                     No Active Missions
+//                   </div>
+//                 ) : (
+//                   emergencies.slice(0, 5).map((item) => (
+//                     <div
+//                       key={item.id}
+//                       className="flex items-center justify-between p-5 hover:bg-slate-50 rounded-[2rem] transition-all group"
+//                     >
+//                       <div className="flex items-center gap-5">
+//                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+//                           <MapPin size={18} />
+//                         </div>
+//                         <div>
+//                           <p className="font-bold text-slate-800 text-sm">
+//                             {item.subdivision || "Sector Alpha"}
+//                           </p>
+//                           <p className="text-[11px] text-slate-400 font-medium">
+//                             {item.status}
+//                           </p>
+//                         </div>
+//                       </div>
+//                       <ChevronRightIcon />
+//                     </div>
+//                   ))
+//                 )}
+//               </div>
+//             </div>
+//           </div>
+
+//           <div className="lg:col-span-4">
+//             <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl h-full">
+//               <Zap
+//                 className="absolute -right-8 -bottom-8 text-white/5"
+//                 size={200}
+//               />
+//               <h3 className="text-xl font-black mb-1 relative z-10">
+//                 Quick Actions
+//               </h3>
+//               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8 relative z-10">
+//                 Commander Tools
+//               </p>
+
+//               <div className="grid grid-cols-1 gap-4 relative z-10">
+//                 <button className="w-full p-5 bg-blue-600 rounded-2xl flex items-center justify-between hover:bg-blue-500 transition-all">
+//                   <span className="text-[10px] font-black uppercase tracking-widest">
+//                     Log Emergency
+//                   </span>
+//                   <Plus size={20} />
+//                 </button>
+//                 <button className="w-full p-5 bg-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-700 transition-all">
+//                   <span className="text-[10px] font-black uppercase tracking-widest">
+//                     Open Case File
+//                   </span>
+//                   <FolderLock size={20} />
+//                 </button>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// // Simple helper icon
+// const ChevronRightIcon = () => (
+//   <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 group-hover:border-blue-100 transition-all">
+//     <svg
+//       width="16"
+//       height="16"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="3"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//     >
+//       <path d="m9 18 6-6-6-6" />
+//     </svg>
+//   </div>
+// );
+
+// export default ResponderDashboardPage;
+
+import React, { useState, useEffect, useMemo } from "react";
+import { jwtDecode } from "jwt-decode";
+import axios from "axios";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import {
   Activity,
-  Clock,
   CheckCircle,
-  Users,
   Bell,
-  ArrowUpRight,
-  Search,
   Plus,
-  MoreHorizontal,
   MapPin,
-  ShieldAlert,
   Zap,
+  FolderLock,
+  Search,
+  Target,
+  Award,
+  TrendingUp,
+  MoreHorizontal,
 } from "lucide-react";
 
-const stats = [
-  {
-    title: "Total Incidents",
-    value: 24,
-    change: "+12%",
-    icon: Activity,
-    color: "text-blue-600",
-    bg: "bg-blue-50/50",
-    trend: "up",
-  },
-  {
-    title: "Pending Dispatches",
-    value: 7,
-    change: "High Priority",
-    icon: ShieldAlert,
-    color: "text-rose-600",
-    bg: "bg-rose-50/50",
-    trend: "neutral",
-  },
-  {
-    title: "Resolved Cases",
-    value: 15,
-    change: "82% Efficiency",
-    icon: CheckCircle,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50/50",
-    trend: "up",
-  },
-  {
-    title: "Active Responders",
-    value: 12,
-    change: "92% Capacity",
-    icon: Users,
-    color: "text-indigo-600",
-    bg: "bg-indigo-50/50",
-    trend: "neutral",
-  },
-];
+const BASE_URL = "http://localhost:5000";
 
 const ResponderDashboardPage = () => {
+  const [emergencies, setEmergencies] = useState([]);
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [teamId, setTeamId] = useState(null);
+
+  // 1. Unified Data Fetching
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        const decoded = jwtDecode(token);
+        const responderTeamId = decoded.id;
+        setTeamId(responderTeamId);
+
+        const config = {
+          headers: { Authorization: `Bearer ${token}` },
+        };
+
+        const [emergRes, casesRes] = await Promise.all([
+          axios.get(
+            `${BASE_URL}/api/emergencies/responder-team/${responderTeamId}`,
+            config,
+          ),
+          axios.get(`${BASE_URL}/api/cases/team/all`, config),
+        ]);
+
+        setEmergencies(emergRes.data?.data || []);
+        setCases(casesRes.data?.data || casesRes.data || []);
+      } catch (error) {
+        console.error("Dashboard Sync Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // 2. Data Processing & Performance Metrics
+  const { emergencyChart, caseChart, dynamicStats, performance } =
+    useMemo(() => {
+      const eCounts = {
+        reported: emergencies.filter(
+          (e) => e.status?.toLowerCase() === "reported",
+        ).length,
+        active: emergencies.filter(
+          (e) => e.status?.toLowerCase() === "in_progress",
+        ).length,
+        resolved: emergencies.filter(
+          (e) => e.status?.toLowerCase() === "resolved",
+        ).length,
+      };
+
+      const cCounts = {
+        open: cases.filter((c) => c.status?.toLowerCase() === "open").length,
+        pending: cases.filter((c) => c.status?.toLowerCase() === "pending")
+          .length,
+        closed: cases.filter((c) => c.status?.toLowerCase() === "closed")
+          .length,
+      };
+
+      const totalItems = emergencies.length + cases.length;
+      const totalResolved = eCounts.resolved + cCounts.closed;
+      const successRate =
+        totalItems > 0 ? Math.round((totalResolved / totalItems) * 100) : 0;
+
+      const stats = [
+        {
+          title: "Live Incidents",
+          value: emergencies.length,
+          icon: Activity,
+          color: "text-rose-600",
+          bg: "bg-rose-50/50",
+        },
+        {
+          title: "Total Cases",
+          value: cases.length,
+          icon: FolderLock,
+          color: "text-blue-600",
+          bg: "bg-blue-50/50",
+        },
+        {
+          title: "Field Load",
+          value: eCounts.active + cCounts.pending,
+          icon: Zap,
+          color: "text-amber-600",
+          bg: "bg-amber-50/50",
+        },
+        {
+          title: "Cleared",
+          value: totalResolved,
+          icon: CheckCircle,
+          color: "text-emerald-600",
+          bg: "bg-emerald-50/50",
+        },
+      ];
+
+      return {
+        emergencyChart: [
+          { name: "Reported", value: eCounts.reported, color: "#e11d48" },
+          { name: "Active", value: eCounts.active, color: "#f59e0b" },
+          { name: "Resolved", value: eCounts.resolved, color: "#10b981" },
+        ],
+        caseChart: [
+          { name: "Open", value: cCounts.open, color: "#3b82f6" },
+          { name: "Pending", value: cCounts.pending, color: "#8b5cf6" },
+          { name: "Closed", value: cCounts.closed, color: "#64748b" },
+        ],
+        dynamicStats: stats,
+        performance: {
+          successRate,
+          eRate:
+            emergencies.length > 0
+              ? Math.round((eCounts.resolved / emergencies.length) * 100)
+              : 0,
+          cRate:
+            cases.length > 0
+              ? Math.round((cCounts.closed / cases.length) * 100)
+              : 0,
+          label:
+            successRate > 75
+              ? "Elite"
+              : successRate > 40
+                ? "Steady"
+                : "Critical Load",
+        },
+      };
+    }, [emergencies, cases]);
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Zap className="animate-bounce text-blue-600" size={40} />
+      </div>
+    );
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100">
-      <div className="max-w-[1600px] mx-auto p-4 md:p-8">
-        {/* Header Area */}
-        <header className="flex flex-col lg:flex-row lg:items-center justify-between mb-10 gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
-                <Zap size={20} className="text-white fill-current" />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                Command Center
-              </h1>
-            </div>
-            <p className="text-slate-500 font-medium text-sm flex items-center gap-2">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              System Live: 14 Active Nodes{" "}
-              <span className="text-slate-300">|</span> April 6, 2026
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-12 font-sans">
+      <div className="max-w-[1500px] mx-auto p-4 md:p-8">
+        {/* Header */}
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight uppercase">
+              Bahir<span className="text-blue-600">Link</span> HQ
+            </h1>
+            <p className="text-slate-400 text-[10px] font-bold uppercase mt-1 tracking-widest">
+              Unit ID: {teamId || "Sector Main"}
             </p>
           </div>
-
-          <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="relative hidden sm:block">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={16}
-              />
-              <input
-                type="text"
-                placeholder="Search IDs, units..."
-                className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 transition-all w-64"
-              />
-            </div>
-            <button className="relative p-2.5 hover:bg-slate-50 rounded-xl transition-colors">
-              <Bell size={20} className="text-slate-600" />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="h-8 w-[1px] bg-slate-100 mx-1" />
-            <button className="flex items-center gap-3 pl-2 pr-1 py-1 hover:bg-slate-50 rounded-xl transition-colors">
-              <span className="text-sm font-bold text-slate-700 hidden sm:inline">
-                Admin Unit 01
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-800 to-slate-600 flex items-center justify-center text-white text-[10px] font-bold">
-                AU
-              </div>
-            </button>
+          <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
+            <Bell size={20} className="text-slate-400" />
           </div>
         </header>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-          {stats.map((stat, idx) => (
+        {/* Top Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          {dynamicStats.map((stat, idx) => (
             <div
               key={idx}
-              className="group bg-white p-5 rounded-[1.75rem] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-blue-900/5 transition-all duration-300"
+              className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm"
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className={`${stat.bg} ${stat.color} p-2.5 rounded-xl`}>
-                  <stat.icon size={22} />
-                </div>
-                <div className="flex flex-col items-end">
-                  <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${stat.bg} ${stat.color} border border-current/10`}
-                  >
-                    {stat.change}
-                  </span>
-                </div>
+              <div
+                className={`${stat.bg} ${stat.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4`}
+              >
+                <stat.icon size={22} />
               </div>
-              <p className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 {stat.title}
               </p>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-3xl font-bold text-slate-900">
-                  {stat.value}
-                </h3>
-              </div>
+              <h3 className="text-3xl font-black text-slate-900 mt-1">
+                {stat.value}
+              </h3>
             </div>
           ))}
         </div>
 
-        {/* Main Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Activity Feed */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-8 py-6 flex justify-between items-center border-b border-slate-100 bg-slate-50/30">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Incident Pipeline
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium text-slate-400">
-                    Monitoring real-time dispatch streams
-                  </p>
-                </div>
-                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                  <MoreHorizontal size={20} className="text-slate-400" />
-                </button>
-              </div>
-              <div className="p-2">
-                {[
-                  {
-                    label: "Critical Incident #102: Structure Fire",
-                    time: "2m ago",
-                    status: "Dispatching",
-                    color: "text-rose-600",
-                    bg: "bg-rose-50",
-                  },
-                  {
-                    label: "Unit 04: Arrival confirmed at Sector G",
-                    time: "14m ago",
-                    status: "On-Site",
-                    color: "text-blue-600",
-                    bg: "bg-blue-50",
-                  },
-                  {
-                    label: "Protocol v4.2 Synchronized",
-                    time: "1h ago",
-                    status: "System",
-                    color: "text-slate-500",
-                    bg: "bg-slate-50",
-                  },
-                  {
-                    label: "Incident #098: Medical Clearance granted",
-                    time: "3h ago",
-                    status: "Resolved",
-                    color: "text-emerald-600",
-                    bg: "bg-emerald-50",
-                  },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-all group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}
-                      >
-                        <MapPin size={18} className={item.color} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-700 text-sm group-hover:text-blue-600 transition-colors">
-                          {item.label}
-                        </p>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
-                          {item.time} • Local Server
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest border border-current/20 ${item.color}`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full py-4 text-sm font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all border-t border-slate-100">
-                Access Archives
-              </button>
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+            <h2 className="text-xs font-black uppercase tracking-widest mb-8 text-slate-800">
+              Incident Load
+            </h2>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={emergencyChart}>
+                  <XAxis dataKey="name" hide />
+                  <Tooltip
+                    cursor={{ fill: "transparent" }}
+                    contentStyle={{ borderRadius: "16px", border: "none" }}
+                  />
+                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+                    {emergencyChart.map((e, i) => (
+                      <Cell key={i} fill={e.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Right Column: Actions & Map Preview */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Action Card */}
-            <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 right-0 p-6 opacity-10">
-                <ShieldAlert size={120} strokeWidth={1} />
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+            <h2 className="text-xs font-black uppercase tracking-widest mb-8 text-slate-800">
+              Case Portfolio
+            </h2>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={caseChart}>
+                  <XAxis dataKey="name" hide />
+                  <Tooltip
+                    cursor={{ fill: "transparent" }}
+                    contentStyle={{ borderRadius: "16px", border: "none" }}
+                  />
+                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+                    {caseChart.map((e, i) => (
+                      <Cell key={i} fill={e.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* PERFORMANCE SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-200 flex flex-col items-center justify-center relative overflow-hidden">
+            <TrendingUp
+              className="absolute -left-4 -bottom-4 text-slate-50"
+              size={120}
+            />
+            <div className="relative z-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4 mx-auto">
+                <Target className="text-blue-600" size={28} />
               </div>
-
-              <div className="relative z-10">
-                <h2 className="text-xl font-bold mb-2">Emergency Protocols</h2>
-                <p className="text-slate-400 text-sm mb-8 leading-relaxed font-medium">
-                  Quick-access triggers for active dispatchers and field
-                  coordinators.
-                </p>
-
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <button className="flex flex-col items-center justify-center p-4 bg-blue-600 hover:bg-blue-500 rounded-2xl transition-all gap-2 group">
-                    <Plus
-                      size={20}
-                      className="group-hover:rotate-90 transition-transform"
-                    />
-                    <span className="text-[11px] font-bold">New Dispatch</span>
-                  </button>
-                  <button className="flex flex-col items-center justify-center p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl transition-all gap-2 border border-slate-700">
-                    <Activity size={20} />
-                    <span className="text-[11px] font-bold">Log Event</span>
-                  </button>
-                </div>
-
-                <button className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-sm hover:shadow-lg hover:shadow-white/5 transition-all">
-                  Generate Summary Report
-                </button>
+              <h2 className="text-5xl font-black text-slate-900">
+                {performance.successRate}%
+              </h2>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">
+                Overall Efficiency
+              </p>
+              <div className="mt-4 px-4 py-1.5 bg-slate-900 text-white rounded-full text-[9px] font-black uppercase tracking-widest">
+                {performance.label}
               </div>
             </div>
+          </div>
 
-            {/* Map Placeholder/Preview */}
-            <div className="bg-white rounded-[2rem] p-2 border border-slate-200 shadow-sm overflow-hidden">
-              <div className="h-48 w-full rounded-[1.5rem] bg-slate-100 relative group cursor-crosshair overflow-hidden">
-                {/* Mock Map Background */}
-                <div className="absolute inset-0 opacity-20 grayscale bg-[url('https://www.google.com/maps/vt/pb=!1m4!1m3!1i12!2i2241!3i1546!2m3!1e0!2sm!3i400000000!5m1!5f2')] bg-cover" />
-
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative">
-                    <div className="absolute -inset-4 bg-blue-500/20 rounded-full animate-ping" />
-                    <MapPin
-                      className="text-blue-600 fill-blue-600 relative z-10"
-                      size={32}
-                    />
-                  </div>
-                </div>
-
-                <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center">
-                  <span className="bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold text-slate-700 shadow-sm border border-slate-200/50">
-                    Sector G-12 (Active)
+          <div className="lg:col-span-2 bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                  Resolution Performance
+                </h2>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                  Real-time throughput efficiency
+                </p>
+              </div>
+              <Award className="text-amber-500" size={20} />
+            </div>
+            <div className="space-y-10">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                    Emergency Resolution
                   </span>
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="w-6 h-6 rounded-full border-2 border-white bg-slate-300"
-                      />
-                    ))}
+                  <span className="text-[10px] font-black text-rose-600">
+                    {performance.eRate}%
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-rose-500 transition-all duration-1000"
+                    style={{ width: `${performance.eRate}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                    Cases Resolution
+                  </span>
+                  <span className="text-[10px] font-black text-blue-600">
+                    {performance.cRate}%
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-1000"
+                    style={{ width: `${performance.cRate}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* NUMERICAL SUMMARY & QUICK ACTIONS */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden h-full">
+              <div className="px-10 py-7 border-b border-slate-50 flex justify-between items-center">
+                <h2 className="font-black text-slate-800 text-xs uppercase tracking-widest">
+                  Mission Status Summary
+                </h2>
+                <Search size={18} className="text-slate-300" />
+              </div>
+
+              <div className="p-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="text-center p-6 rounded-[2.5rem] bg-slate-50 border border-slate-100 transition-all hover:shadow-md">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    New Reports
+                  </p>
+                  <h4 className="text-5xl font-black text-rose-600">
+                    {
+                      emergencies.filter(
+                        (e) => e.status?.toLowerCase() === "reported",
+                      ).length
+                    }
+                  </h4>
+                  <p className="text-[9px] font-bold text-slate-400 mt-2 italic uppercase tracking-tighter">
+                    Awaiting Dispatch
+                  </p>
+                </div>
+
+                <div className="text-center p-6 rounded-[2.5rem] bg-blue-50/30 border border-blue-100 transition-all hover:shadow-md">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">
+                    In Progress
+                  </p>
+                  <h4 className="text-5xl font-black text-blue-600">
+                    {
+                      emergencies.filter(
+                        (e) => e.status?.toLowerCase() === "in_progress",
+                      ).length
+                    }
+                  </h4>
+                  <p className="text-[9px] font-bold text-blue-400 mt-2 italic uppercase tracking-tighter">
+                    Active Field Units
+                  </p>
+                </div>
+
+                <div className="text-center p-6 rounded-[2.5rem] bg-emerald-50/30 border border-emerald-100 transition-all hover:shadow-md">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">
+                    Resolved
+                  </p>
+                  <h4 className="text-5xl font-black text-emerald-600">
+                    {
+                      emergencies.filter(
+                        (e) => e.status?.toLowerCase() === "resolved",
+                      ).length
+                    }
+                  </h4>
+                  <p className="text-[9px] font-bold text-emerald-500 mt-2 italic uppercase tracking-tighter">
+                    Missions Secured
+                  </p>
+                </div>
+              </div>
+
+              <div className="mx-10 mb-10 p-6 bg-slate-900 rounded-[2.5rem] flex items-center justify-between text-white group cursor-default">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/10 rounded-xl group-hover:bg-blue-600 transition-colors">
+                    <FolderLock size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Cases Successfully Resolved
+                    </p>
+                    <p className="text-lg font-black">
+                      {
+                        cases.filter(
+                          (c) => c.status?.toLowerCase() === "closed",
+                        ).length
+                      }{" "}
+                      Investigative Files
+                    </p>
                   </div>
                 </div>
+                <div className="text-right">
+                  <p className="text-[28px] font-black text-blue-400 leading-none">
+                    {performance.successRate}%
+                  </p>
+                  <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest">
+                    Total Rating
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4">
+            <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden h-full shadow-2xl">
+              <Zap
+                className="absolute -right-8 -bottom-8 text-white/5"
+                size={200}
+              />
+              <h3 className="text-xl font-black mb-1 relative z-10">
+                Quick Actions
+              </h3>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8 relative z-10">
+                Commander Tools
+              </p>
+              <div className="grid grid-cols-1 gap-4 relative z-10">
+                <button className="w-full p-5 bg-blue-600 rounded-2xl flex items-center justify-between hover:bg-blue-500 transition-all hover:scale-[1.02]">
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    Log Emergency
+                  </span>
+                  <Plus size={20} />
+                </button>
+                <button className="w-full p-5 bg-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-700 transition-all hover:scale-[1.02]">
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    Open Case File
+                  </span>
+                  <FolderLock size={20} />
+                </button>
               </div>
             </div>
           </div>
