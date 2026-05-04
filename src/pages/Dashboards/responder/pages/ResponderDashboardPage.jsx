@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  CartesianGrid,
 } from "recharts";
 import {
   Activity,
@@ -211,20 +212,49 @@ const ResponderDashboardPage = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Incident Load Chart */}
           <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest mb-8 text-slate-800">
               Incident Load
             </h2>
-            <div className="h-44 w-full">
+            <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={emergencyChart}>
-                  <XAxis dataKey="name" hide />
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}
-                    contentStyle={{ borderRadius: "16px", border: "none" }}
+                <BarChart
+                  data={emergencyChart}
+                  margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#f1f5f9"
                   />
-                  {/* Updated barSize and radius */}
-                  <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={30}>
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{
+                      fill: "#94a3b8",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      textAnchor: "middle",
+                    }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 900 }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f8fafc" }}
+                    contentStyle={{
+                      borderRadius: "16px",
+                      border: "none",
+                      boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 8, 8]} barSize={35}>
                     {emergencyChart.map((e, i) => (
                       <Cell key={i} fill={e.color} />
                     ))}
@@ -234,20 +264,44 @@ const ResponderDashboardPage = () => {
             </div>
           </div>
 
+          {/* Case Portfolio Chart */}
           <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest mb-8 text-slate-800">
               Case Portfolio
             </h2>
-            <div className="h-44 w-full">
+            <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={caseChart}>
-                  <XAxis dataKey="name" hide />
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}
-                    contentStyle={{ borderRadius: "16px", border: "none" }}
+                <BarChart
+                  data={caseChart}
+                  margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#f1f5f9"
                   />
-                  {/* Updated barSize and radius */}
-                  <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={30}>
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 900 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 900 }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f8fafc" }}
+                    contentStyle={{
+                      borderRadius: "16px",
+                      border: "none",
+                      boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 8, 8]} barSize={35}>
                     {caseChart.map((e, i) => (
                       <Cell key={i} fill={e.color} />
                     ))}
