@@ -1,1070 +1,863 @@
-// import React, { useEffect, useState, useRef } from "react";
-// import { motion, AnimatePresence } from "framer-motion";
-// import axios from "axios";
-// import {
-//   X,
-//   MapPin,
-//   Clock,
-//   FileText,
-//   Activity,
-//   MessageSquare,
-//   CheckCircle2,
-//   AlertTriangle,
-//   ClipboardList,
-//   Navigation,
-//   Shield,
-//   Info,
-//   ChevronRight,
-//   Users,
-//   Camera,
-//   Gavel,
-//   Home,
-//   Plus,
-//   Trash2,
-// } from "lucide-react";
-
-// import ChatTab from "./ChatTab";
-
-// const API_BASE = "http://localhost:5000";
-
-// const ActionsTab = ({ currentStatus, onUpdateStatus }) => {
-//   const fileInputRef = useRef(null);
-//   const [isFinalizing, setIsFinalizing] = useState(false);
-
-//   // Dynamic state for investigation attributes
-//   const [reportData, setReportData] = useState({
-//     incidentSummary: "",
-//     injuredCount: 0,
-//     deceasedCount: 0,
-//     witnesses: [""], // Dynamic array for witnesses
-//     suspects: [""], // Dynamic array for suspects
-//     propertyDamage: "",
-//     propertyDamageValue: 0,
-//     media: [],
-//   });
-
-//   const statusOptions = [
-//     { value: "reported", label: "Reported", color: "bg-slate-500", icon: Info },
-//     {
-//       value: "assigned",
-//       label: "Assigned",
-//       color: "bg-blue-500",
-//       icon: Shield,
-//     },
-//     {
-//       value: "in_progress",
-//       label: "In Progress",
-//       color: "bg-amber-500",
-//       icon: Activity,
-//     },
-//     {
-//       value: "resolved",
-//       label: "Resolved",
-//       color: "bg-emerald-500",
-//       icon: CheckCircle2,
-//     },
-//   ];
-
-//   // Logic for dynamic rows
-//   const addRow = (field) => {
-//     setReportData({ ...reportData, [field]: [...reportData[field], ""] });
-//   };
-
-//   const removeRow = (field, index) => {
-//     const newArr = reportData[field].filter((_, i) => i !== index);
-//     setReportData({ ...reportData, [field]: newArr.length ? newArr : [""] });
-//   };
-
-//   const handleDynamicChange = (field, index, value) => {
-//     const newArr = [...reportData[field]];
-//     newArr[index] = value;
-//     setReportData({ ...reportData, [field]: newArr });
-//   };
-
-//   const handleFileChange = (e) => {
-//     const files = Array.from(e.target.files);
-//     setReportData({ ...reportData, media: [...reportData.media, ...files] });
-//   };
-
-//   return (
-//     <div className="p-6 space-y-6">
-//       <div className="space-y-4">
-//         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-//           Select Operational Status
-//         </h3>
-//         <div className="grid grid-cols-1 gap-3">
-//           {statusOptions.map((opt) => (
-//             <button
-//               key={opt.value}
-//               disabled={currentStatus === opt.value}
-//               onClick={() =>
-//                 opt.value === "resolved"
-//                   ? setIsFinalizing(true)
-//                   : onUpdateStatus(opt.value)
-//               }
-//               className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-//                 currentStatus === opt.value
-//                   ? "bg-slate-100 border-slate-300 opacity-60 cursor-not-allowed"
-//                   : "bg-white border-slate-100 hover:border-blue-200 shadow-sm active:scale-[0.98]"
-//               }`}
-//             >
-//               <div className="flex items-center gap-4">
-//                 <div className={`p-2 rounded-lg text-white ${opt.color}`}>
-//                   <opt.icon size={18} />
-//                 </div>
-//                 <span className="font-bold text-slate-700">{opt.label}</span>
-//               </div>
-//               {currentStatus === opt.value ? (
-//                 <CheckCircle2 size={20} className="text-blue-600" />
-//               ) : (
-//                 <ChevronRight size={18} className="text-slate-300" />
-//               )}
-//             </button>
-//           ))}
-//         </div>
-//       </div>
-
-//       {isFinalizing && (
-//         <motion.div
-//           initial={{ opacity: 0, y: 10 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           className="space-y-4 pt-4 border-t-2 border-dashed border-slate-200"
-//         >
-//           <div className="flex items-center gap-2 text-amber-600">
-//             <AlertTriangle size={16} />
-//             <span className="text-xs font-black uppercase tracking-widest">
-//               Manual Incident Attributes
-//             </span>
-//           </div>
-
-//           {/* Victim Statistics */}
-//           <div className="grid grid-cols-2 gap-3">
-//             <div className="space-y-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//                 Injured Count
-//               </label>
-//               <div className="relative">
-//                 <input
-//                   type="number"
-//                   min="0"
-//                   value={reportData.injuredCount}
-//                   onChange={(e) =>
-//                     setReportData({
-//                       ...reportData,
-//                       injuredCount: parseInt(e.target.value) || 0,
-//                     })
-//                   }
-//                   className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//                 />
-//                 <Users
-//                   className="absolute left-3 top-3.5 text-slate-400"
-//                   size={14}
-//                 />
-//               </div>
-//             </div>
-//             <div className="space-y-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//                 Deceased Count
-//               </label>
-//               <div className="relative">
-//                 <input
-//                   type="number"
-//                   min="0"
-//                   value={reportData.deceasedCount}
-//                   onChange={(e) =>
-//                     setReportData({
-//                       ...reportData,
-//                       deceasedCount: parseInt(e.target.value) || 0,
-//                     })
-//                   }
-//                   className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//                 />
-//                 <Activity
-//                   className="absolute left-3 top-3.5 text-red-400"
-//                   size={14}
-//                 />
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Dynamic Witnesses */}
-//           <div className="space-y-2">
-//             <div className="flex items-center justify-between px-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase">
-//                 Witnesses
-//               </label>
-//               <button
-//                 onClick={() => addRow("witnesses")}
-//                 className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase hover:underline"
-//               >
-//                 <Plus size={12} /> Add Witness
-//               </button>
-//             </div>
-//             {reportData.witnesses.map((witness, index) => (
-//               <div key={index} className="flex gap-2">
-//                 <div className="relative flex-1">
-//                   <input
-//                     type="text"
-//                     placeholder={`Witness ${index + 1} Name`}
-//                     value={witness}
-//                     onChange={(e) =>
-//                       handleDynamicChange("witnesses", index, e.target.value)
-//                     }
-//                     className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//                   />
-//                   <Users
-//                     className="absolute left-3 top-3.5 text-slate-400"
-//                     size={14}
-//                   />
-//                 </div>
-//                 {reportData.witnesses.length > 1 && (
-//                   <button
-//                     onClick={() => removeRow("witnesses", index)}
-//                     className="p-2 text-slate-300 hover:text-red-500"
-//                   >
-//                     <Trash2 size={18} />
-//                   </button>
-//                 )}
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* Dynamic Suspects */}
-//           <div className="space-y-2">
-//             <div className="flex items-center justify-between px-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase">
-//                 Suspects / Perpetrators
-//               </label>
-//               <button
-//                 onClick={() => addRow("suspects")}
-//                 className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase hover:underline"
-//               >
-//                 <Plus size={12} /> Add Suspect
-//               </button>
-//             </div>
-//             {reportData.suspects.map((suspect, index) => (
-//               <div key={index} className="flex gap-2">
-//                 <div className="relative flex-1">
-//                   <input
-//                     type="text"
-//                     placeholder={`Suspect ${index + 1} details`}
-//                     value={suspect}
-//                     onChange={(e) =>
-//                       handleDynamicChange("suspects", index, e.target.value)
-//                     }
-//                     className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//                   />
-//                   <Gavel
-//                     className="absolute left-3 top-3.5 text-slate-400"
-//                     size={14}
-//                   />
-//                 </div>
-//                 {reportData.suspects.length > 1 && (
-//                   <button
-//                     onClick={() => removeRow("suspects", index)}
-//                     className="p-2 text-slate-300 hover:text-red-500"
-//                   >
-//                     <Trash2 size={18} />
-//                   </button>
-//                 )}
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* Property Damage */}
-//           <div className="space-y-3">
-//             <div className="space-y-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//                 Property Damage Description
-//               </label>
-//               <div className="relative">
-//                 <textarea
-//                   placeholder="Details of damaged property..."
-//                   value={reportData.propertyDamage}
-//                   onChange={(e) =>
-//                     setReportData({
-//                       ...reportData,
-//                       propertyDamage: e.target.value,
-//                     })
-//                   }
-//                   className="w-full h-20 bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//                 />
-//                 <Home
-//                   className="absolute left-3 top-3.5 text-slate-400"
-//                   size={14}
-//                 />
-//               </div>
-//             </div>
-//             <div className="space-y-1">
-//               <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//                 Estimated Value of Damage
-//               </label>
-//               <input
-//                 type="number"
-//                 value={reportData.propertyDamageValue}
-//                 onChange={(e) =>
-//                   setReportData({
-//                     ...reportData,
-//                     propertyDamageValue: parseFloat(e.target.value) || 0,
-//                   })
-//                 }
-//                 className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//               />
-//             </div>
-//           </div>
-
-//           {/* Incident Summary */}
-//           <div className="space-y-1">
-//             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//               Incident Summary
-//             </label>
-//             <textarea
-//               value={reportData.incidentSummary}
-//               onChange={(e) =>
-//                 setReportData({
-//                   ...reportData,
-//                   incidentSummary: e.target.value,
-//                 })
-//               }
-//               placeholder="Provide a detailed summary..."
-//               className="w-full h-28 bg-white border border-slate-200 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-//             />
-//           </div>
-
-//           {/* Media Evidence */}
-//           <div className="space-y-1">
-//             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-//               Media Evidence
-//             </label>
-//             <button
-//               onClick={() => fileInputRef.current.click()}
-//               className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:bg-slate-50 transition-colors"
-//             >
-//               <Camera size={18} />
-//               <span className="text-xs font-bold">
-//                 {reportData.media.length > 0
-//                   ? `${reportData.media.length} files selected`
-//                   : "Attach Scene Photos/Evidence"}
-//               </span>
-//             </button>
-//             <input
-//               type="file"
-//               multiple
-//               ref={fileInputRef}
-//               className="hidden"
-//               onChange={handleFileChange}
-//             />
-//           </div>
-
-//           <button
-//             onClick={() =>
-//               onUpdateStatus("resolved", {
-//                 ...reportData,
-//                 witnesses: reportData.witnesses.filter((w) => w.trim() !== ""),
-//                 suspects: reportData.suspects.filter((s) => s.trim() !== ""),
-//               })
-//             }
-//             disabled={!reportData.incidentSummary.trim()}
-//             className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-[0.98] transition-transform"
-//           >
-//             Finalize & Close Case
-//           </button>
-//         </motion.div>
-//       )}
-//     </div>
-//   );
-// };
-
-// const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
-//   const [activeTab, setActiveTab] = useState("details");
-//   const [localStatus, setLocalStatus] = useState("");
-
-//   useEffect(() => {
-//     if (emergency) setLocalStatus(emergency.status);
-//   }, [emergency]);
-
-//   const handleUpdateStatus = async (newStatus, reportPayload = null) => {
-//     try {
-//       const token = localStorage.getItem("token");
-//       const id = emergency?._id || emergency?.id;
-//       if (!token || !id) return;
-
-//       if (newStatus === "resolved" && reportPayload) {
-//         await axios.post(`${API_BASE}/api/finalReport/${id}`, reportPayload, {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//             "Content-Type": "application/json",
-//           },
-//         });
-//       }
-
-//       const response = await axios.patch(
-//         `${API_BASE}/api/emergencies/${id}/status`,
-//         { status: newStatus },
-//         {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//             "Content-Type": "application/json",
-//           },
-//         },
-//       );
-
-//       if (response.status === 200 || response.status === 204) {
-//         setLocalStatus(newStatus);
-//         if (onRefresh) onRefresh();
-//         if (newStatus === "resolved") onClose();
-//       }
-//     } catch (err) {
-//       console.error("Status Update Error:", err.response?.data);
-//       alert(`Error: ${err.response?.data?.message || "Internal Server Error"}`);
-//     }
-//   };
-
-//   if (!emergency) return null;
-
-//   return (
-//     <AnimatePresence>
-//       {isOpen && (
-//         <>
-//           <motion.div
-//             className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] z-[70]"
-//             initial={{ opacity: 0 }}
-//             animate={{ opacity: 1 }}
-//             exit={{ opacity: 0 }}
-//             onClick={onClose}
-//           />
-
-//           <motion.div
-//             className="fixed top-0 right-0 h-full w-full max-w-lg bg-white z-[80] shadow-2xl flex flex-col"
-//             initial={{ x: "100%" }}
-//             animate={{ x: 0 }}
-//             exit={{ x: "100%" }}
-//             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-//           >
-//             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-//               <div>
-//                 <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-//                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />{" "}
-//                   Emergency Intel
-//                 </h2>
-//                 <p className="text-[10px] font-mono text-slate-400 mt-1">
-//                   ID:{" "}
-//                   {String(emergency._id || emergency.id)
-//                     .slice(-8)
-//                     .toUpperCase()}
-//                 </p>
-//               </div>
-//               <button
-//                 onClick={onClose}
-//                 className="p-2 hover:bg-slate-100 rounded-xl text-slate-400"
-//               >
-//                 <X size={20} />
-//               </button>
-//             </div>
-
-//             <div className="px-6 py-2 flex bg-slate-50 border-b border-slate-100">
-//               {[
-//                 { id: "details", icon: Activity, label: "Info" },
-//                 { id: "action", icon: ClipboardList, label: "Status" },
-//                 { id: "chat", icon: MessageSquare, label: "Comms" },
-//               ].map((tab) => (
-//                 <button
-//                   key={tab.id}
-//                   onClick={() => setActiveTab(tab.id)}
-//                   className={`flex-1 flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"}`}
-//                 >
-//                   <tab.icon size={14} /> {tab.label}
-//                 </button>
-//               ))}
-//             </div>
-
-//             <div className="flex-1 overflow-y-auto bg-slate-50/50">
-//               {activeTab === "details" && (
-//                 <div className="p-6 space-y-4">
-//                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-//                     <span className="text-[10px] font-black text-slate-400 uppercase">
-//                       Active Status
-//                     </span>
-//                     <span
-//                       className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${localStatus === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-//                     >
-//                       {localStatus?.replace("_", " ")}
-//                     </span>
-//                   </div>
-//                   <div className="grid grid-cols-2 gap-4">
-//                     <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-//                       <Clock size={16} className="text-blue-500 mb-2" />
-//                       <p className="text-[10px] font-black text-slate-400 uppercase">
-//                         Time Reported
-//                       </p>
-//                       <p className="font-bold text-slate-800">
-//                         {new Date(emergency.createdAt).toLocaleTimeString()}
-//                       </p>
-//                     </div>
-//                     <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-//                       <Activity size={16} className="text-red-500 mb-2" />
-//                       <p className="text-[10px] font-black text-slate-400 uppercase">
-//                         Category
-//                       </p>
-//                       <p className="font-bold text-slate-800">
-//                         {emergency.emergencyType?.name || "Critical"}
-//                       </p>
-//                     </div>
-//                   </div>
-//                   <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
-//                     <div className="flex items-center gap-2 text-slate-400">
-//                       <FileText size={14} />
-//                       <span className="text-[10px] font-black uppercase">
-//                         Original Narrative
-//                       </span>
-//                     </div>
-//                     <p className="text-sm text-slate-600 leading-relaxed italic">
-//                       "{emergency.description || "No narrative provided."}"
-//                     </p>
-//                   </div>
-//                   <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-//                     <div className="flex items-center gap-2 text-slate-400">
-//                       <MapPin size={14} />
-//                       <span className="text-[10px] font-black uppercase">
-//                         Location
-//                       </span>
-//                     </div>
-//                     <div>
-//                       <p className="text-sm font-bold text-slate-800">
-//                         {emergency.kebele?.name || "Unknown Area"}
-//                       </p>
-//                       <p className="text-xs text-slate-500">
-//                         {emergency.subdivision || "Standard subdivision"}
-//                       </p>
-//                     </div>
-//                     <button
-//                       onClick={() =>
-//                         window.open("https://www.google.com/maps", "_blank")
-//                       }
-//                       className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
-//                     >
-//                       <Navigation size={14} /> Open Maps
-//                     </button>
-//                   </div>
-//                 </div>
-//               )}
-//               {activeTab === "action" && (
-//                 <ActionsTab
-//                   currentStatus={localStatus}
-//                   onUpdateStatus={handleUpdateStatus}
-//                 />
-//               )}
-//               {activeTab === "chat" && (
-//                 <ChatTab
-//                   emergencyId={emergency._id || emergency.id}
-//                   token={localStorage.getItem("token")}
-//                   apiBaseUrl={API_BASE}
-//                 />
-//               )}
-//             </div>
-//           </motion.div>
-//         </>
-//       )}
-//     </AnimatePresence>
-//   );
-// };
-
-// export default EmergencyDetailDrawer;
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import {
-  X,
-  MapPin,
-  Clock,
-  FileText,
-  Activity,
-  MessageSquare,
-  CheckCircle2,
-  AlertTriangle,
-  ClipboardList,
-  Navigation,
-  Shield,
-  Info,
-  ChevronRight,
-  Users,
-  Camera,
-  Gavel,
-  Home,
-  Plus,
-  Trash2,
-  Download, // Added for the PDF button
+  X, MapPin, FileText, Activity, MessageSquare,
+  CheckCircle2, AlertTriangle, ClipboardList, Navigation,
+  Shield, Info, ChevronRight, Users, Camera, Gavel, Home,
+  Plus, Trash2, Download, Phone, User, Calendar, Tag,
+  Layers, GitMerge, Eye, Image as ImageIcon,
+  Hash, Crosshair, Map, Zap, Radio,
 } from "lucide-react";
-
 import ChatTab from "./ChatTab";
 
 const API_BASE = "http://localhost:5000";
 
-const ActionsTab = ({ currentStatus, onUpdateStatus }) => {
-  const fileInputRef = useRef(null);
-  const [isFinalizing, setIsFinalizing] = useState(false);
+// ─── Design Tokens ─────────────────────────────────────────────────────────────
+const T = {
+  white:    "#FFFFFF",
+  surface0: "#FFFFFF",
+  surface1: "#F4F7FB",
+  surface2: "#EBF1FA",
+  surface3: "#DDE8F7",
 
-  const [reportData, setReportData] = useState({
-    incidentSummary: "",
-    injuredCount: 0,
-    deceasedCount: 0,
-    witnesses: [""],
-    suspects: [""],
-    propertyDamage: "",
-    propertyDamageValue: 0,
-    media: [],
-  });
+  blue900: "#0A1F44",
+  blue800: "#0D2D6B",
+  blue700: "#1140A0",
+  blue600: "#1A52C4",
+  blue500: "#2563EB",
+  blue400: "#4A80F0",
+  blue300: "#7BA7F5",
+  blue200: "#BAD1FB",
+  blue100: "#DBE9FD",
+  blue50:  "#EEF4FF",
 
-  const statusOptions = [
-    { value: "reported", label: "Reported", color: "bg-slate-500", icon: Info },
-    {
-      value: "assigned",
-      label: "Assigned",
-      color: "bg-blue-500",
-      icon: Shield,
-    },
-    {
-      value: "in_progress",
-      label: "In Progress",
-      color: "bg-amber-500",
-      icon: Activity,
-    },
-    {
-      value: "resolved",
-      label: "Resolved",
-      color: "bg-emerald-500",
-      icon: CheckCircle2,
-    },
-  ];
+  ink0: "#0B1628",
+  ink1: "#1E3251",
+  ink2: "#4A607F",
+  ink3: "#7A92B0",
+  ink4: "#A8BDD8",
 
-  const addRow = (field) => {
-    setReportData({ ...reportData, [field]: [...reportData[field], ""] });
-  };
+  border0: "#E4EBF5",
+  border1: "#C8D8EE",
+  border2: "#9DB8DE",
 
-  const removeRow = (field, index) => {
-    const newArr = reportData[field].filter((_, i) => i !== index);
-    setReportData({ ...reportData, [field]: newArr.length ? newArr : [""] });
-  };
+  green600: "#059669",
+  green500: "#10B981",
+  green100: "#D1FAE5",
+  green50:  "#ECFDF5",
+  amber600: "#D97706",
+  amber500: "#F59E0B",
+  amber100: "#FEF3C7",
+  amber50:  "#FFFBEB",
+  red600:   "#DC2626",
+  red500:   "#EF4444",
+  red100:   "#FEE2E2",
+  red50:    "#FFF5F5",
+  purple600:"#7C3AED",
+  purple100:"#EDE9FE",
+};
 
-  const handleDynamicChange = (field, index, value) => {
-    const newArr = [...reportData[field]];
-    newArr[index] = value;
-    setReportData({ ...reportData, [field]: newArr });
-  };
+// ─── Location Parser — ALL storage formats ─────────────────────────────────────
+function parseLocation(e) {
+  // 1. Flat top-level: { latitude, longitude }
+  if (e.latitude != null && e.longitude != null) {
+    const lat = parseFloat(e.latitude), lng = parseFloat(e.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  // 2. String "lat,lng" — guest users e.g. "10.21435,37.2363"
+  if (typeof e.location === "string" && e.location.includes(",")) {
+    const [a, b] = e.location.split(",");
+    const lat = parseFloat(a?.trim()), lng = parseFloat(b?.trim());
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  // 3. GeoJSON { coordinates: [lng, lat] } — registered users (lon-first!)
+  if (Array.isArray(e.location?.coordinates) && e.location.coordinates.length === 2) {
+    const lng = parseFloat(e.location.coordinates[0]);
+    const lat = parseFloat(e.location.coordinates[1]);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  // 4. Location object { lat, lng } or { latitude, longitude }
+  if (e.location?.lat != null) {
+    const lat = parseFloat(e.location.lat), lng = parseFloat(e.location.lng);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  if (e.location?.latitude != null) {
+    const lat = parseFloat(e.location.latitude), lng = parseFloat(e.location.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  return { lat: null, lng: null };
+}
 
-  const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    if (selectedFiles.length > 0) {
-      setReportData((prev) => ({
-        ...prev,
-        media: [...prev.media, ...selectedFiles],
-      }));
-    }
-    e.target.value = "";
-  };
+// ─── Status config ─────────────────────────────────────────────────────────────
+const STATUS_CFG = {
+  reported:    { label: "Reported",    color: T.ink3,      bg: T.surface2,   border: T.border1,   dot: T.ink4,      pulse: false },
+  assigned:    { label: "Assigned",    color: T.blue600,   bg: T.blue50,     border: T.blue200,   dot: T.blue500,   pulse: true  },
+  in_progress: { label: "In Progress", color: T.amber600,  bg: T.amber50,    border: T.amber100,  dot: T.amber500,  pulse: true  },
+  resolved:    { label: "Resolved",    color: T.green600,  bg: T.green50,    border: T.green100,  dot: T.green500,  pulse: false },
+  pending:     { label: "Pending",     color: T.amber600,  bg: T.amber50,    border: T.amber100,  dot: T.amber500,  pulse: true  },
+  active:      { label: "Active",      color: T.blue600,   bg: T.blue50,     border: T.blue200,   dot: T.blue500,   pulse: true  },
+  dispatched:  { label: "Dispatched",  color: T.purple600, bg: T.purple100,  border: T.purple100, dot: T.purple600, pulse: true  },
+  cancelled:   { label: "Cancelled",   color: T.red600,    bg: T.red50,      border: T.red100,    dot: T.red500,    pulse: false },
+};
 
-  const removeFile = (index) => {
-    setReportData((prev) => ({
-      ...prev,
-      media: prev.media.filter((_, i) => i !== index),
-    }));
-  };
+// ─── StatusBadge ───────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const s = STATUS_CFG[status?.toLowerCase()] || STATUS_CFG.pending;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 12px 4px 8px", borderRadius: 999,
+      background: s.bg, color: s.color,
+      fontSize: 11, fontWeight: 700, letterSpacing: ".05em",
+      border: `1.5px solid ${s.border}`,
+    }}>
+      <span style={{
+        width: 7, height: 7, borderRadius: "50%",
+        background: s.dot, flexShrink: 0,
+        animation: s.pulse ? "dotPulse 2s ease-in-out infinite" : "none",
+      }} />
+      {s.label}
+    </span>
+  );
+}
+
+// ─── Media Viewer ─────────────────────────────────────────────────────────────
+function MediaViewer({ mediaUrl, token }) {
+  const [state, setState] = useState({ url: null, type: null, loading: false, error: null });
+  const [lightbox, setLightbox] = useState(false);
+
+  useEffect(() => {
+    if (!mediaUrl) return;
+    let cancelled = false;
+    (async () => {
+      setState(p => ({ ...p, loading: true, error: null }));
+      try {
+        const full = mediaUrl.startsWith("http") ? mediaUrl : `${API_BASE}/${mediaUrl.replace(/^\//, "")}`;
+        const res = await axios.get(full, { responseType: "blob", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (cancelled) return;
+        setState({ url: URL.createObjectURL(res.data), type: res.headers["content-type"] || "", loading: false, error: null });
+      } catch {
+        if (!cancelled) setState(p => ({ ...p, loading: false, error: "Media unavailable" }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mediaUrl]);
+
+  if (!mediaUrl) return null;
+  const isImage = state.type?.startsWith("image");
+  const isVideo = state.type?.startsWith("video");
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          Select Operational Status
-        </h3>
-        <div className="grid grid-cols-1 gap-3">
-          {statusOptions.map((opt) => {
-            const isCurrent = currentStatus === opt.value;
-            const isResolvedInDB = currentStatus === "resolved";
+    <>
+      <div style={{
+        borderRadius: 14, overflow: "hidden", border: `1.5px solid ${T.border0}`,
+        background: T.surface1, minHeight: 160,
+        display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
+        boxShadow: "0 2px 12px rgba(37,99,235,.06)",
+      }}>
+        {state.loading && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 32 }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${T.blue100}`, borderTopColor: T.blue500, animation: "spin .75s linear infinite" }} />
+            <span style={{ color: T.ink3, fontSize: 12, fontWeight: 500 }}>Loading media…</span>
+          </div>
+        )}
+        {state.error && (
+          <div style={{ color: T.ink4, fontSize: 13, padding: 32, textAlign: "center" }}>
+            <ImageIcon size={28} style={{ marginBottom: 10, opacity: .3, display: "block", margin: "0 auto 10px" }} />
+            <p style={{ margin: 0, fontWeight: 600 }}>{state.error}</p>
+          </div>
+        )}
+        {!state.loading && !state.error && state.url && isImage && (
+          <>
+            <img src={state.url} alt="Evidence" onClick={() => setLightbox(true)} style={{ width: "100%", maxHeight: 290, objectFit: "cover", display: "block", cursor: "zoom-in" }} />
+            <button onClick={() => setLightbox(true)} style={{
+              position: "absolute", bottom: 12, right: 12,
+              background: "rgba(255,255,255,.92)", backdropFilter: "blur(8px)",
+              border: `1.5px solid ${T.border0}`, borderRadius: 9,
+              padding: "6px 12px", display: "flex", alignItems: "center", gap: 5,
+              fontSize: 11, color: T.blue600, cursor: "pointer", fontWeight: 700,
+              boxShadow: "0 2px 12px rgba(0,0,0,.08)",
+            }}>
+              <Eye size={12} /> View Full
+            </button>
+          </>
+        )}
+        {!state.loading && !state.error && state.url && isVideo && (
+          <video src={state.url} controls style={{ width: "100%", maxHeight: 290, display: "block" }} />
+        )}
+        {!state.loading && !state.error && state.url && !isImage && !isVideo && (
+          <a href={state.url} download style={{ color: T.blue500, fontSize: 13, padding: 32, display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+            <Download size={16} /> Download Attachment
+          </a>
+        )}
+      </div>
 
-            return (
-              <button
-                key={opt.value}
-                /* Disable if already current status OR if the whole emergency is resolved */
-                disabled={isCurrent || isResolvedInDB}
-                onClick={() =>
-                  opt.value === "resolved"
-                    ? setIsFinalizing(true)
-                    : onUpdateStatus(opt.value)
-                }
-                className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                  isCurrent
-                    ? "bg-slate-100 border-slate-300 opacity-60 cursor-not-allowed"
-                    : isResolvedInDB
-                      ? "bg-slate-50 border-slate-100 opacity-40 blur-[0.5px] grayscale cursor-not-allowed"
-                      : "bg-white border-slate-100 hover:border-blue-200 shadow-sm active:scale-[0.98]"
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`p-2 rounded-lg text-white ${opt.color} ${isResolvedInDB && !isCurrent ? "opacity-50" : ""}`}
-                  >
-                    <opt.icon size={18} />
-                  </div>
-                  <span
-                    className={`font-bold ${isResolvedInDB ? "text-slate-400" : "text-slate-700"}`}
-                  >
-                    {opt.label}
-                  </span>
-                </div>
-                {isCurrent ? (
-                  <CheckCircle2 size={20} className="text-blue-600" />
-                ) : (
-                  <ChevronRight size={18} className="text-slate-300" />
-                )}
-              </button>
-            );
-          })}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLightbox(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(10,20,50,.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}
+          >
+            <img src={state.url} alt="" style={{ maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain", borderRadius: 12 }} />
+            <button onClick={() => setLightbox(false)} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 10, padding: 10, cursor: "pointer", color: "#fff", backdropFilter: "blur(8px)" }}>
+              <X size={17} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// ─── Map Preview ───────────────────────────────────────────────────────────────
+function MapPreview({ lat, lng }) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+  if (isNaN(Number(lat)) || isNaN(Number(lng))) return null;
+  const pad = 0.005;
+  const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}&z=16`;
+  const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=16`;
+
+  return (
+    <div>
+      <div style={{
+        borderRadius: 14, overflow: "hidden", border: `1.5px solid ${T.border0}`,
+        position: "relative", height: 190, background: T.surface1,
+        boxShadow: "0 2px 16px rgba(37,99,235,.07)",
+      }}>
+        <iframe
+          title="Location Map"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng-pad},${lat-pad},${lng+pad},${lat+pad}&layer=mapnik&marker=${lat},${lng}`}
+          style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+          loading="lazy"
+        />
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 56, background: "linear-gradient(to top, rgba(255,255,255,.95), transparent)", pointerEvents: "none" }} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <div style={{
+          flex: 1, background: T.blue50, border: `1.5px solid ${T.blue100}`,
+          borderRadius: 12, padding: "10px 14px",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: T.blue100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Crosshair size={13} color={T.blue600} />
+          </div>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 800, color: T.blue400, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 2 }}>GPS Coordinates</div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: T.blue800, fontFamily: "'Courier New', monospace" }}>
+              {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}
+            </div>
+          </div>
+        </div>
+
+        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: 4, padding: "10px 16px", flexShrink: 0,
+          background: T.blue600, borderRadius: 12, color: T.white, textDecoration: "none",
+          fontSize: 9, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase",
+          boxShadow: `0 4px 14px ${T.blue500}40`, transition: "all .18s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.blue700; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = T.blue600; e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          <Navigation size={15} /> Maps
+        </a>
+
+        <a href={osmUrl} target="_blank" rel="noopener noreferrer" style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: 4, padding: "10px 14px", flexShrink: 0,
+          background: T.white, borderRadius: 12, border: `1.5px solid ${T.border0}`,
+          color: T.ink2, textDecoration: "none",
+          fontSize: 9, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase",
+          transition: "all .18s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue200; e.currentTarget.style.color = T.blue600; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = T.border0; e.currentTarget.style.color = T.ink2; }}
+        >
+          <Map size={15} /> OSM
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Info Row ──────────────────────────────────────────────────────────────────
+function InfoRow({ icon: Icon, label, value, mono, last, accent }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div style={{
+      display: "flex", gap: 12, padding: "12px 0",
+      borderBottom: last ? "none" : `1px solid ${T.surface2}`,
+      alignItems: "flex-start",
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+        background: accent ? T.blue50 : T.surface1,
+        border: `1.5px solid ${accent ? T.blue100 : T.border0}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Icon size={13} color={accent ? T.blue600 : T.ink3} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 10, color: T.ink4, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase" }}>
+          {label}
+        </p>
+        <p style={{
+          margin: "3px 0 0", fontSize: 13, color: T.ink0, fontWeight: 500,
+          fontFamily: mono ? "'Courier New', monospace" : "inherit",
+          wordBreak: "break-word", lineHeight: 1.55,
+        }}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Section Header ────────────────────────────────────────────────────────────
+function SectionHead({ label, icon: Icon }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "22px 0 12px" }}>
+      {Icon && (
+        <div style={{
+          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+          background: T.blue50, border: `1px solid ${T.blue100}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Icon size={11} color={T.blue600} />
+        </div>
+      )}
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: T.blue700 }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, ${T.blue100}, transparent)` }} />
+    </div>
+  );
+}
+
+// ─── Card ─────────────────────────────────────────────────────────────────────
+function Card({ children, style = {} }) {
+  return (
+    <div style={{
+      background: T.white, borderRadius: 14, border: `1.5px solid ${T.border0}`,
+      padding: "4px 16px", boxShadow: "0 1px 6px rgba(37,99,235,.04)",
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Details Tab ──────────────────────────────────────────────────────────────
+function DetailsTab({ emergency: e, localStatus, onDownloadPDF, isDownloading, token }) {
+  const { lat, lng } = parseLocation(e);
+
+  return (
+    <div style={{ padding: "20px 20px 48px" }}>
+
+      {/* Hero */}
+      <div style={{
+        borderRadius: 18, overflow: "hidden",
+        border: `1.5px solid ${T.blue200}`,
+        background: `linear-gradient(140deg, ${T.blue600} 0%, ${T.blue800} 100%)`,
+        padding: "22px 22px 20px",
+        position: "relative",
+        boxShadow: `0 8px 32px ${T.blue500}30`,
+      }}>
+        <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.06)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -30, right: 40, width: 90, height: 90, borderRadius: "50%", background: "rgba(255,255,255,.04)", pointerEvents: "none" }} />
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+          <div style={{
+            width: 46, height: 46, borderRadius: 13,
+            background: "rgba(255,255,255,.15)", border: "1.5px solid rgba(255,255,255,.25)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <AlertTriangle size={22} color="#fff" />
+          </div>
+          <StatusBadge status={localStatus} />
+        </div>
+
+        <h2 style={{ margin: "0 0 5px", fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-.4px" }}>
+          {e.kebele?.name || "Unknown Location"}
+        </h2>
+        <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,.65)", display: "flex", alignItems: "center", gap: 5 }}>
+          <MapPin size={12} color="rgba(255,255,255,.5)" />
+          {e.subdivision || e.address || "No subdivision specified"}
+        </p>
+
+        {e.mergedCount > 1 && (
+          <div style={{
+            marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6,
+            background: "rgba(255,255,255,.15)", border: "1px solid rgba(255,255,255,.25)",
+            borderRadius: 8, padding: "5px 11px",
+            fontSize: 11, fontWeight: 700, color: "#fff",
+          }}>
+            <GitMerge size={11} /> {e.mergedCount} incidents merged
+          </div>
+        )}
+      </div>
+
+      {/* Media */}
+      {(e.media || e.mediaUrl || e.mediaPath) && (
+        <>
+          <SectionHead label="Media Evidence" icon={Camera} />
+          <MediaViewer mediaUrl={e.media || e.mediaUrl || e.mediaPath} token={token} />
+        </>
+      )}
+
+      {/* Narrative */}
+      {e.description && (
+        <>
+          <SectionHead label="Incident Narrative" icon={FileText} />
+          <div style={{
+            background: T.blue50, borderRadius: 12, padding: "15px 18px",
+            border: `1.5px solid ${T.blue100}`, borderLeft: `4px solid ${T.blue500}`,
+          }}>
+            <p style={{ margin: 0, fontSize: 13, color: T.ink1, lineHeight: 1.8, fontStyle: "italic" }}>
+              "{e.description}"
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Details */}
+      <SectionHead label="Incident Details" icon={Info} />
+      <Card>
+        <InfoRow icon={Hash}     label="Incident ID"  value={String(e._id || e.id || "").slice(-12).toUpperCase()} mono accent />
+        <InfoRow icon={Tag}      label="Category"     value={e.category?.name || e.categoryName} accent />
+        <InfoRow icon={Layers}   label="Type"         value={e.emergencyType?.name} />
+        <InfoRow icon={Activity} label="Status"       value={localStatus?.replace(/_/g, " ")} />
+        <InfoRow icon={Calendar} label="Reported At"  value={e.createdAt ? new Date(e.createdAt).toLocaleString() : null} />
+        <InfoRow icon={Calendar} label="Last Updated" value={e.updatedAt ? new Date(e.updatedAt).toLocaleString() : null} last />
+      </Card>
+
+      {/* Location */}
+      <SectionHead label="Location" icon={MapPin} />
+      <Card style={{ marginBottom: 12 }}>
+        <InfoRow icon={MapPin} label="Kebele"            value={e.kebele?.name} accent />
+        <InfoRow icon={MapPin} label="Subdivision"       value={e.subdivision} />
+        <InfoRow icon={MapPin} label="Specific Location" value={e.specificLocation || e.address} last />
+      </Card>
+      <MapPreview lat={lat} lng={lng} />
+
+      {/* Reporter */}
+      {(e.user || e.guest || e.reportedBy) && (
+        <>
+          <SectionHead label="Reporter" icon={User} />
+          <Card>
+            <InfoRow icon={User}  label="Name"  value={(e.user || e.guest || e.reportedBy)?.name} accent />
+            <InfoRow icon={Phone} label="Phone" value={(e.user || e.guest || e.reportedBy)?.phone} last />
+          </Card>
+        </>
+      )}
+
+      {/* PDF record */}
+      {localStatus === "resolved" && (
+        <>
+          <SectionHead label="Official Record" icon={Shield} />
+          <div style={{
+            background: T.green50, borderRadius: 16, border: `1.5px solid ${T.green100}`,
+            padding: "18px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: T.green100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <CheckCircle2 size={15} color={T.green600} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: T.green600 }}>Case Finalized</p>
+                <p style={{ margin: 0, fontSize: 11, color: T.green500 }}>Official report is ready to download</p>
+              </div>
+            </div>
+            <button onClick={onDownloadPDF} disabled={isDownloading} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "13px 0",
+              background: isDownloading ? T.green100 : T.green600,
+              border: "none", borderRadius: 11,
+              color: isDownloading ? T.green600 : T.white,
+              fontSize: 12, fontWeight: 800, letterSpacing: ".06em",
+              cursor: isDownloading ? "not-allowed" : "pointer",
+              transition: "all .2s",
+              boxShadow: isDownloading ? "none" : `0 4px 14px ${T.green500}40`,
+            }}>
+              {isDownloading
+                ? <><div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${T.green100}`, borderTopColor: T.green600, animation: "spin .7s linear infinite" }} /> Generating…</>
+                : <><Download size={14} /> Download Official PDF</>
+              }
+            </button>
+          </div>
+        </>
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes dotPulse {
+          0%   { box-shadow: 0 0 0 0 currentColor; opacity:1; }
+          70%  { box-shadow: 0 0 0 5px transparent; opacity:.7; }
+          100% { box-shadow: 0 0 0 0 transparent; opacity:1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Actions Tab ─────────────────────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  { value: "reported",    label: "Reported",    icon: Radio,        color: T.ink3,     bg: T.surface1 },
+  { value: "assigned",    label: "Assigned",    icon: Shield,       color: T.blue600,  bg: T.blue50   },
+  { value: "in_progress", label: "In Progress", icon: Zap,          color: T.amber600, bg: T.amber50  },
+  { value: "resolved",    label: "Resolved",    icon: CheckCircle2, color: T.green600, bg: T.green50  },
+];
+
+function ActionsTab({ currentStatus, onUpdateStatus }) {
+  const fileInputRef = useRef(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [reportData, setReportData] = useState({
+    incidentSummary: "", injuredCount: 0, deceasedCount: 0,
+    witnesses: [""], suspects: [""],
+    propertyDamage: "", propertyDamageValue: 0, media: [],
+  });
+  const isResolved = currentStatus === "resolved";
+
+  const addRow    = f         => setReportData(p => ({ ...p, [f]: [...p[f], ""] }));
+  const removeRow = (f, i)    => { const a = reportData[f].filter((_, j) => j !== i); setReportData(p => ({ ...p, [f]: a.length ? a : [""] })); };
+  const dynChange = (f, i, v) => { const a = [...reportData[f]]; a[i] = v; setReportData(p => ({ ...p, [f]: a })); };
+  const handleFiles = ev      => { setReportData(p => ({ ...p, media: [...p.media, ...Array.from(ev.target.files)] })); ev.target.value = ""; };
+  const removeFile  = i       => setReportData(p => ({ ...p, media: p.media.filter((_, j) => j !== i) }));
+
+  const inputBase = {
+    width: "100%", background: T.white, border: `1.5px solid ${T.border0}`,
+    borderRadius: 10, padding: "10px 12px 10px 38px",
+    fontSize: 13, color: T.ink0, outline: "none",
+    boxSizing: "border-box", fontFamily: "inherit",
+    transition: "border-color .15s, box-shadow .15s",
+  };
+  const labelBase = {
+    display: "block", marginBottom: 6,
+    fontSize: 10, fontWeight: 800, color: T.ink3,
+    letterSpacing: ".1em", textTransform: "uppercase",
+  };
+  const iconPos = { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" };
+  const onFocus = e => { e.target.style.borderColor = T.blue300; e.target.style.boxShadow = `0 0 0 3px ${T.blue100}`; };
+  const onBlur  = e => { e.target.style.borderColor = T.border0; e.target.style.boxShadow = "none"; };
+
+  return (
+    <div style={{ padding: "20px 20px 48px" }}>
+
+      {/* Header row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10, marginBottom: 18,
+        padding: "14px 16px", borderRadius: 13,
+        background: T.blue50, border: `1.5px solid ${T.blue100}`,
+      }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: T.blue100, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <ClipboardList size={16} color={T.blue600} />
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.blue800 }}>Status Management</p>
+          <p style={{ margin: 0, fontSize: 11, color: T.blue400 }}>Update the operational status of this emergency</p>
         </div>
       </div>
 
-      {isFinalizing && currentStatus !== "resolved" && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4 pt-4 border-t-2 border-dashed border-slate-200"
-        >
-          <div className="flex items-center gap-2 text-amber-600">
-            <AlertTriangle size={16} />
-            <span className="text-xs font-black uppercase tracking-widest">
-              Manual Incident Attributes
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                Injured Count
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  value={reportData.injuredCount}
-                  onChange={(e) =>
-                    setReportData({
-                      ...reportData,
-                      injuredCount: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-                />
-                <Users
-                  className="absolute left-3 top-3.5 text-slate-400"
-                  size={14}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                Deceased Count
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  value={reportData.deceasedCount}
-                  onChange={(e) =>
-                    setReportData({
-                      ...reportData,
-                      deceasedCount: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-                />
-                <Activity
-                  className="absolute left-3 top-3.5 text-red-400"
-                  size={14}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* MISSING ATTRIBUTES ADDED BELOW: Property Damage & Property Value */}
-          <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                Property Damage Description
-              </label>
-              <div className="relative">
-                <textarea
-                  placeholder="Describe damage to property..."
-                  value={reportData.propertyDamage}
-                  onChange={(e) =>
-                    setReportData({
-                      ...reportData,
-                      propertyDamage: e.target.value,
-                    })
-                  }
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none h-20"
-                />
-                <Home
-                  className="absolute left-3 top-3.5 text-slate-400"
-                  size={14}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-                Estimated Damage Value (ETB)
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="0.00"
-                  value={reportData.propertyDamageValue}
-                  onChange={(e) =>
-                    setReportData({
-                      ...reportData,
-                      propertyDamageValue: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-                />
-                <span className="absolute left-3 top-3.5 text-[10px] font-bold text-slate-400">
-                  ETB
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase">
-                Witnesses
-              </label>
-              <button
-                onClick={() => addRow("witnesses")}
-                className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase hover:underline"
-              >
-                <Plus size={12} /> Add Witness
-              </button>
-            </div>
-            {reportData.witnesses.map((witness, index) => (
-              <div key={index} className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder={`Witness ${index + 1}`}
-                    value={witness}
-                    onChange={(e) =>
-                      handleDynamicChange("witnesses", index, e.target.value)
-                    }
-                    className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-                  />
-                  <Users
-                    className="absolute left-3 top-3.5 text-slate-400"
-                    size={14}
-                  />
-                </div>
-                {reportData.witnesses.length > 1 && (
-                  <button
-                    onClick={() => removeRow("witnesses", index)}
-                    className="p-2 text-slate-300 hover:text-red-500"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase">
-                Suspects
-              </label>
-              <button
-                onClick={() => addRow("suspects")}
-                className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase hover:underline"
-              >
-                <Plus size={12} /> Add Suspect
-              </button>
-            </div>
-            {reportData.suspects.map((suspect, index) => (
-              <div key={index} className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder={`Suspect ${index + 1}`}
-                    value={suspect}
-                    onChange={(e) =>
-                      handleDynamicChange("suspects", index, e.target.value)
-                    }
-                    className="w-full bg-white border border-slate-200 rounded-xl p-3 pl-10 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-                  />
-                  <Gavel
-                    className="absolute left-3 top-3.5 text-slate-400"
-                    size={14}
-                  />
-                </div>
-                {reportData.suspects.length > 1 && (
-                  <button
-                    onClick={() => removeRow("suspects", index)}
-                    className="p-2 text-slate-300 hover:text-red-500"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-              Incident Summary
-            </label>
-            <textarea
-              value={reportData.incidentSummary}
-              onChange={(e) =>
-                setReportData({
-                  ...reportData,
-                  incidentSummary: e.target.value,
-                })
-              }
-              placeholder="Provide summary..."
-              className="w-full h-24 bg-white border border-slate-200 rounded-xl p-4 text-sm focus:ring-4 focus:ring-blue-50 outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">
-              Media Evidence
-            </label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current.click()}
-              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:bg-slate-50 transition-colors"
+      {/* Status options */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+        {STATUS_OPTIONS.map(opt => {
+          const isCurrent = currentStatus === opt.value;
+          return (
+            <button key={opt.value}
+              disabled={isCurrent || isResolved}
+              onClick={() => opt.value === "resolved" ? setIsFinalizing(true) : onUpdateStatus(opt.value)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 16px", borderRadius: 13,
+                border: isCurrent ? `2px solid ${opt.color}44` : `1.5px solid ${T.border0}`,
+                background: isCurrent ? opt.bg : T.white,
+                cursor: isCurrent || isResolved ? "not-allowed" : "pointer",
+                opacity: isResolved && !isCurrent ? .3 : 1,
+                transition: "all .16s", fontFamily: "inherit",
+                boxShadow: isCurrent ? `0 2px 12px ${opt.color}18` : "0 1px 4px rgba(0,0,0,.04)",
+              }}
+              onMouseEnter={e => { if (!isCurrent && !isResolved) { e.currentTarget.style.borderColor = opt.color + "55"; e.currentTarget.style.background = opt.bg; e.currentTarget.style.boxShadow = `0 3px 14px ${opt.color}12`; } }}
+              onMouseLeave={e => { if (!isCurrent) { e.currentTarget.style.borderColor = T.border0; e.currentTarget.style.background = T.white; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)"; } }}
             >
-              <Camera size={18} />
-              <span className="text-xs font-bold">
-                {reportData.media.length > 0
-                  ? `${reportData.media.length} files`
-                  : "Attach Media"}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11,
+                  background: isCurrent ? `${opt.color}18` : T.surface1,
+                  border: `1.5px solid ${isCurrent ? opt.color + "33" : T.border0}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <opt.icon size={17} color={isCurrent ? opt.color : T.ink3} />
+                </div>
+                <div style={{ textAlign: "left" }}>
+                  <span style={{ display: "block", fontWeight: 700, fontSize: 14, color: isCurrent ? opt.color : T.ink0 }}>
+                    {opt.label}
+                  </span>
+                  {isCurrent && (
+                    <span style={{ fontSize: 11, color: opt.color, opacity: .7 }}>Currently active</span>
+                  )}
+                </div>
+              </div>
+              {isCurrent
+                ? <CheckCircle2 size={18} color={opt.color} />
+                : <ChevronRight size={16} color={T.ink4} />
+              }
             </button>
-            <input
-              type="file"
-              multiple
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
+          );
+        })}
+      </div>
 
-          <button
-            onClick={() => onUpdateStatus("resolved", { ...reportData })}
-            disabled={!reportData.incidentSummary.trim()}
-            className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg active:scale-[0.98] transition-transform"
-          >
-            Finalize & Close Case
-          </button>
-        </motion.div>
-      )}
-
-      {currentStatus === "resolved" && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-          <CheckCircle2 className="text-emerald-500" size={20} />
-          <p className="text-xs font-bold text-emerald-700 uppercase">
-            Case Finalized & Closed
-          </p>
+      {isResolved && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "14px 16px", background: T.green50,
+          borderRadius: 12, border: `1.5px solid ${T.green100}`,
+        }}>
+          <CheckCircle2 size={18} color={T.green600} />
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.green600 }}>Case Finalized & Closed</p>
         </div>
       )}
+
+      {/* Finalization form */}
+      <AnimatePresence>
+        {isFinalizing && !isResolved && (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }}
+            style={{ paddingTop: 22, borderTop: `1.5px solid ${T.border0}`, marginTop: 6 }}
+          >
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", marginBottom: 20,
+              background: T.amber50, borderRadius: 11, border: `1.5px solid ${T.amber100}`,
+            }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: T.amber100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <AlertTriangle size={13} color={T.amber600} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: T.amber600 }}>
+                Incident report required before closing this case
+              </span>
+            </div>
+
+            {/* Counts */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              {[
+                { field: "injuredCount",  label: "Injured",  Icon: Users,        color: T.amber600 },
+                { field: "deceasedCount", label: "Deceased", Icon: AlertTriangle, color: T.red600   },
+              ].map(({ field, label, Icon, color }) => (
+                <div key={field}>
+                  <label style={labelBase}>{label}</label>
+                  <div style={{ position: "relative" }}>
+                    <Icon size={13} color={color} style={iconPos} />
+                    <input type="number" min="0" value={reportData[field]}
+                      onChange={ev => setReportData(p => ({ ...p, [field]: parseInt(ev.target.value) || 0 }))}
+                      style={inputBase} onFocus={onFocus} onBlur={onBlur}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Property damage */}
+            <div style={{ background: T.surface1, borderRadius: 13, padding: 14, border: `1.5px solid ${T.border0}`, marginBottom: 16 }}>
+              <label style={labelBase}>Property Damage Description</label>
+              <div style={{ position: "relative", marginBottom: 10 }}>
+                <Home size={13} color={T.ink4} style={{ position: "absolute", left: 12, top: 13, pointerEvents: "none" }} />
+                <textarea placeholder="Describe any property damage…" value={reportData.propertyDamage}
+                  onChange={ev => setReportData(p => ({ ...p, propertyDamage: ev.target.value }))}
+                  style={{ ...inputBase, paddingTop: 11, height: 80, resize: "none" }}
+                  onFocus={onFocus} onBlur={onBlur}
+                />
+              </div>
+              <label style={labelBase}>Estimated Value (ETB)</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ ...iconPos, left: 10, fontSize: 9, fontWeight: 800, color: T.ink4 }}>ETB</span>
+                <input type="number" min="0" placeholder="0" value={reportData.propertyDamageValue}
+                  onChange={ev => setReportData(p => ({ ...p, propertyDamageValue: parseFloat(ev.target.value) || 0 }))}
+                  style={{ ...inputBase, paddingLeft: 44 }} onFocus={onFocus} onBlur={onBlur}
+                />
+              </div>
+            </div>
+
+            {/* Witnesses & Suspects */}
+            {[
+              { field: "witnesses", label: "Witnesses", addLabel: "Add Witness", Icon: Users,  placeholder: "Witness name" },
+              { field: "suspects",  label: "Suspects",  addLabel: "Add Suspect",  Icon: Gavel, placeholder: "Suspect details" },
+            ].map(({ field, label, addLabel, Icon, placeholder }) => (
+              <div key={field} style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <label style={labelBase}>{label}</label>
+                  <button onClick={() => addRow(field)} style={{
+                    display: "flex", alignItems: "center", gap: 4,
+                    background: T.blue50, border: `1.5px solid ${T.blue100}`,
+                    borderRadius: 7, padding: "4px 10px",
+                    color: T.blue600, fontSize: 10, fontWeight: 700,
+                    cursor: "pointer", transition: "all .15s",
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.blue100; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = T.blue50; }}
+                  >
+                    <Plus size={11} /> {addLabel}
+                  </button>
+                </div>
+                {reportData[field].map((val, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <div style={{ flex: 1, position: "relative" }}>
+                      <Icon size={13} color={T.ink4} style={iconPos} />
+                      <input type="text" placeholder={`${placeholder} ${idx + 1}`} value={val}
+                        onChange={ev => dynChange(field, idx, ev.target.value)}
+                        style={inputBase} onFocus={onFocus} onBlur={onBlur}
+                      />
+                    </div>
+                    {reportData[field].length > 1 && (
+                      <button onClick={() => removeRow(field, idx)}
+                        style={{ background: "none", border: "none", color: T.ink4, cursor: "pointer", padding: "0 4px", transition: "color .15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = T.red500}
+                        onMouseLeave={e => e.currentTarget.style.color = T.ink4}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {/* Summary */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelBase}>Incident Summary <span style={{ color: T.red500 }}>*</span></label>
+              <textarea placeholder="Provide a detailed incident summary…" value={reportData.incidentSummary}
+                onChange={ev => setReportData(p => ({ ...p, incidentSummary: ev.target.value }))}
+                style={{
+                  width: "100%", height: 100, background: T.white,
+                  border: `1.5px solid ${T.border0}`, borderRadius: 10, padding: 12,
+                  fontSize: 13, color: T.ink0, outline: "none", resize: "none",
+                  boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.65,
+                  transition: "border-color .15s, box-shadow .15s",
+                }}
+                onFocus={onFocus} onBlur={onBlur}
+              />
+            </div>
+
+            {/* Media */}
+            <div style={{ marginBottom: 22 }}>
+              <label style={labelBase}>Media Evidence</label>
+              <button type="button" onClick={() => fileInputRef.current.click()} style={{
+                width: "100%", padding: "14px 0",
+                border: `2px dashed ${T.blue200}`, borderRadius: 12,
+                background: T.blue50, color: T.blue400,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                transition: "all .15s", boxSizing: "border-box",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue400; e.currentTarget.style.color = T.blue600; e.currentTarget.style.background = T.blue100; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = T.blue200; e.currentTarget.style.color = T.blue400; e.currentTarget.style.background = T.blue50; }}
+              >
+                <Camera size={15} />
+                {reportData.media.length > 0 ? `${reportData.media.length} file(s) — click to add more` : "Attach Scene Photos / Evidence"}
+              </button>
+              <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFiles} />
+              {reportData.media.length > 0 && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {reportData.media.map((f, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px", background: T.surface1, borderRadius: 9,
+                      border: `1px solid ${T.border0}`, fontSize: 12, color: T.ink2,
+                    }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "82%" }}>{f.name}</span>
+                      <button onClick={() => removeFile(i)} style={{ background: "none", border: "none", color: T.ink4, cursor: "pointer", padding: 0, transition: "color .15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = T.red500}
+                        onMouseLeave={e => e.currentTarget.style.color = T.ink4}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={() => onUpdateStatus("resolved", {
+                ...reportData,
+                witnesses: reportData.witnesses.filter(w => w.trim()),
+                suspects:  reportData.suspects.filter(s => s.trim()),
+              })}
+              disabled={!reportData.incidentSummary.trim()}
+              style={{
+                width: "100%", padding: "15px 0",
+                background: reportData.incidentSummary.trim()
+                  ? `linear-gradient(135deg, ${T.blue600}, ${T.blue700})`
+                  : T.surface2,
+                border: "none", borderRadius: 13,
+                color: reportData.incidentSummary.trim() ? T.white : T.ink4,
+                fontSize: 13, fontWeight: 800, letterSpacing: ".04em",
+                cursor: reportData.incidentSummary.trim() ? "pointer" : "not-allowed",
+                transition: "all .2s", fontFamily: "inherit",
+                boxShadow: reportData.incidentSummary.trim() ? `0 6px 20px ${T.blue500}35` : "none",
+              }}
+            >
+              Finalize & Close Case
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
-};
+}
 
+// ─── Tab config ───────────────────────────────────────────────────────────────
+const TABS = [
+  { id: "details", icon: Activity,      label: "Details" },
+  { id: "action",  icon: ClipboardList, label: "Actions" },
+  { id: "chat",    icon: MessageSquare, label: "Chat"    },
+];
+
+// ─── Main Drawer ──────────────────────────────────────────────────────────────
 const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
-  const [activeTab, setActiveTab] = useState("details");
-  const [localStatus, setLocalStatus] = useState("");
-  const [isDownloading, setIsDownloading] = useState(false); // New state
+  const [activeTab,     setActiveTab]     = useState("details");
+  const [localStatus,   setLocalStatus]   = useState("");
+  const [isDownloading, setIsDownloading] = useState(false);
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   useEffect(() => {
-    if (emergency) setLocalStatus(emergency.status);
+    if (emergency) { setLocalStatus(emergency.status); setActiveTab("details"); }
   }, [emergency]);
 
   const handleDownloadPDF = async () => {
+    setIsDownloading(true);
     try {
-      setIsDownloading(true);
-      const token = localStorage.getItem("token");
       const id = emergency?._id || emergency?.id;
-
-      const response = await axios({
-        url: `${API_BASE}/api/finalReport/download/${id}`,
-        method: "GET",
-        responseType: "blob",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Report_${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error("Download Error:", err);
-      alert("Failed to generate PDF. Is the report available?");
-    } finally {
-      setIsDownloading(false);
-    }
+      const res = await axios({ url: `${API_BASE}/api/finalReport/download/${id}`, method: "GET", responseType: "blob", headers: { Authorization: `Bearer ${token}` } });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url; a.setAttribute("download", `Report_${id}.pdf`);
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch { alert("Failed to generate PDF."); }
+    finally { setIsDownloading(false); }
   };
 
   const handleUpdateStatus = async (newStatus, reportPayload = null) => {
     try {
-      const token = localStorage.getItem("token");
       const id = emergency?._id || emergency?.id;
       if (!token || !id) return;
-
       if (newStatus === "resolved" && reportPayload) {
-        const formData = new FormData();
-        formData.append("incidentSummary", reportPayload.incidentSummary);
-        formData.append("injuredCount", reportPayload.injuredCount);
-        formData.append("deceasedCount", reportPayload.deceasedCount);
-        formData.append("propertyDamage", reportPayload.propertyDamage);
-        formData.append(
-          "propertyDamageValue",
-          reportPayload.propertyDamageValue,
-        );
-
-        reportPayload.witnesses.forEach(
-          (w) => w.trim() && formData.append("witnesses[]", w),
-        );
-        reportPayload.suspects.forEach(
-          (s) => s.trim() && formData.append("suspects[]", s),
-        );
-        reportPayload.media.forEach((file) => formData.append("media", file));
-
-        await axios.post(`${API_BASE}/api/finalReport/${id}`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
+        const fd = new FormData();
+        fd.append("incidentSummary",     reportPayload.incidentSummary);
+        fd.append("injuredCount",        reportPayload.injuredCount);
+        fd.append("deceasedCount",       reportPayload.deceasedCount);
+        fd.append("propertyDamage",      reportPayload.propertyDamage);
+        fd.append("propertyDamageValue", reportPayload.propertyDamageValue);
+        reportPayload.witnesses.forEach(w => fd.append("witnesses[]", w));
+        reportPayload.suspects.forEach(s  => fd.append("suspects[]", s));
+        reportPayload.media.forEach(f     => fd.append("media", f));
+        await axios.post(`${API_BASE}/api/finalReport/${id}`, fd, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } });
       }
-
-      await axios.patch(
-        `${API_BASE}/api/emergencies/${id}/status`,
-        { status: newStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
+      await axios.patch(`${API_BASE}/api/emergencies/${id}/status`, { status: newStatus }, { headers: { Authorization: `Bearer ${token}` } });
       setLocalStatus(newStatus);
-      if (onRefresh) onRefresh();
+      onRefresh?.();
       if (newStatus === "resolved") onClose();
     } catch (err) {
-      console.error("Status Update Error:", err.response?.data);
       alert(`Error: ${err.response?.data?.message || "Server Error"}`);
     }
   };
@@ -1075,169 +868,124 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] z-[70]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
+            style={{ position: "fixed", inset: 0, background: "rgba(10,31,68,.3)", zIndex: 70, backdropFilter: "blur(5px)" }}
           />
+
+          {/* Drawer */}
           <motion.div
-            className="fixed top-0 right-0 h-full w-full max-w-lg bg-white z-[80] shadow-2xl flex flex-col"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+            style={{
+              position: "fixed", top: 0, right: 0, bottom: 0,
+              width: "min(520px, 100vw)",
+              background: T.surface1, zIndex: 80,
+              display: "flex", flexDirection: "column",
+              boxShadow: "-6px 0 40px rgba(10,31,68,.12), -1px 0 0 rgba(37,99,235,.08)",
+              fontFamily: "'Sora','Helvetica Neue',sans-serif",
+            }}
           >
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />{" "}
-                  Emergency Intel
-                </h2>
-                <p className="text-[10px] font-mono text-slate-400 mt-1">
-                  ID:{" "}
-                  {String(emergency._id || emergency.id)
-                    .slice(-8)
-                    .toUpperCase()}
-                </p>
+            {/* Top stripe */}
+            <div style={{ height: 3, flexShrink: 0, background: `linear-gradient(to right, ${T.blue500}, ${T.blue300}, ${T.blue600})` }} />
+
+            {/* Header */}
+            <div style={{
+              padding: "0 18px", borderBottom: `1.5px solid ${T.border0}`,
+              background: T.white, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              height: 62, boxShadow: "0 1px 0 rgba(37,99,235,.05)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
+                  background: localStatus === "resolved" ? T.green500 : T.red500,
+                  boxShadow: localStatus === "resolved" ? `0 0 0 3px ${T.green100}` : `0 0 0 3px ${T.red100}`,
+                  animation: localStatus === "resolved" ? "none" : "headerPulse 2s ease-in-out infinite",
+                }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: T.ink0, letterSpacing: "-.2px" }}>Emergency Detail</p>
+                  <p style={{ margin: 0, fontSize: 10, color: T.ink4, letterSpacing: ".1em", fontFamily: "'Courier New', monospace" }}>
+                    #{String(emergency._id || emergency.id || "").slice(-10).toUpperCase()}
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400"
+
+              <button onClick={onClose} style={{
+                width: 36, height: 36, borderRadius: 10,
+                border: `1.5px solid ${T.border0}`, background: T.surface1,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                color: T.ink3, transition: "all .15s",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = T.surface2; e.currentTarget.style.borderColor = T.border1; e.currentTarget.style.color = T.ink1; }}
+                onMouseLeave={e => { e.currentTarget.style.background = T.surface1; e.currentTarget.style.borderColor = T.border0; e.currentTarget.style.color = T.ink3; }}
               >
-                <X size={20} />
+                <X size={15} />
               </button>
             </div>
 
-            <div className="px-6 py-2 flex bg-slate-50 border-b">
-              {[
-                { id: "details", icon: Activity, label: "Info" },
-                { id: "action", icon: ClipboardList, label: "Status" },
-                { id: "chat", icon: MessageSquare, label: "Comms" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  <tab.icon size={14} /> {tab.label}
-                </button>
-              ))}
+            {/* Tabs */}
+            <div style={{ display: "flex", borderBottom: `1.5px solid ${T.border0}`, background: T.white, flexShrink: 0 }}>
+              {TABS.map(tab => {
+                const active = activeTab === tab.id;
+                return (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    padding: "14px 0", background: active ? T.blue50 : "transparent", border: "none",
+                    borderBottom: active ? `2.5px solid ${T.blue500}` : "2.5px solid transparent",
+                    color: active ? T.blue600 : T.ink4,
+                    fontSize: 11, fontWeight: active ? 800 : 600, letterSpacing: ".07em", textTransform: "uppercase",
+                    cursor: "pointer", transition: "all .15s", fontFamily: "inherit",
+                  }}>
+                    <tab.icon size={13} /> {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-slate-50/50">
-              {activeTab === "details" && (
-                <div className="p-6 space-y-4">
-                  {/* Status Banner */}
-                  <div className="bg-white p-4 rounded-2xl border flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">
-                      Active Status
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${localStatus === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-                    >
-                      {localStatus?.replace("_", " ")}
-                    </span>
-                  </div>
-
-                  {/* NEW: Download PDF Section (Visible only when resolved) */}
-                  {localStatus === "resolved" && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="p-5 bg-slate-900 rounded-2xl shadow-xl space-y-3"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Shield className="text-blue-400" size={16} />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                          Official Record Available
-                        </span>
-                      </div>
-                      <button
-                        onClick={handleDownloadPDF}
-                        disabled={isDownloading}
-                        className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98]"
-                      >
-                        {isDownloading ? (
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <Download size={18} />
-                        )}
-                        {isDownloading
-                          ? "Generating..."
-                          : "Download Official PDF"}
-                      </button>
-                    </motion.div>
+            {/* Content */}
+            <div style={{
+              flex: 1, overflowY: "auto", background: T.surface1,
+              scrollbarWidth: "thin", scrollbarColor: `${T.border1} transparent`,
+            }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  transition={{ duration: .13 }}
+                >
+                  {activeTab === "details" && (
+                    <DetailsTab emergency={emergency} localStatus={localStatus} onDownloadPDF={handleDownloadPDF} isDownloading={isDownloading} token={token} />
                   )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-2xl border">
-                      <Clock size={16} className="text-blue-500 mb-2" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase">
-                        Time
-                      </p>
-                      <p className="font-bold text-slate-800">
-                        {new Date(emergency.createdAt).toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-2xl border">
-                      <Activity size={16} className="text-red-500 mb-2" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase">
-                        Type
-                      </p>
-                      <p className="font-bold text-slate-800">
-                        {emergency.emergencyType?.name || "Critical"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bg-white p-5 rounded-2xl border space-y-2">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <FileText size={14} />
-                      <span className="text-[10px] font-black uppercase">
-                        Narrative
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed italic">
-                      "{emergency.description || "No narrative."}"
-                    </p>
-                  </div>
-                  <div className="bg-white p-5 rounded-2xl border space-y-4">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <MapPin size={14} />
-                      <span className="text-[10px] font-black uppercase">
-                        Location
-                      </span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-800">
-                      {emergency.kebele?.name || "Unknown"} -{" "}
-                      {emergency.subdivision || "Standard"}
-                    </p>
-                    <button
-                      onClick={() =>
-                        window.open("https://www.google.com/maps", "_blank")
-                      }
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
-                    >
-                      <Navigation size={14} /> Open Maps
-                    </button>
-                  </div>
-                </div>
-              )}
-              {activeTab === "action" && (
-                <ActionsTab
-                  currentStatus={localStatus}
-                  onUpdateStatus={handleUpdateStatus}
-                />
-              )}
-              {activeTab === "chat" && (
-                <ChatTab
-                  emergencyId={emergency._id || emergency.id}
-                  token={localStorage.getItem("token")}
-                  apiBaseUrl={API_BASE}
-                />
-              )}
+                  {activeTab === "action" && (
+                    <ActionsTab currentStatus={localStatus} onUpdateStatus={handleUpdateStatus} />
+                  )}
+                  {activeTab === "chat" && (
+                    <ChatTab emergencyId={emergency._id || emergency.id} token={token} apiBaseUrl={API_BASE} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </motion.div>
+
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes headerPulse {
+              0%,100% { box-shadow: 0 0 0 3px #FEE2E2; }
+              50%     { box-shadow: 0 0 0 7px #FFF5F5; }
+            }
+            @keyframes dotPulse {
+              0%   { box-shadow: 0 0 0 0 rgba(37,99,235,.5); }
+              70%  { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
+              100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+            }
+            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: #C8D8EE; border-radius: 4px; }
+          `}</style>
         </>
       )}
     </AnimatePresence>

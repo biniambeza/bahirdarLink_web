@@ -5,13 +5,13 @@ import {
   Flame, Droplets, Skull, Ambulance, Radio,
   Search, ChevronRight, TrendingUp, TrendingDown,
   Shield, Users, Activity, RefreshCw, AlertCircle,
-  CheckCircle2,
+  CheckCircle2, X,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import IncidentDetail from "./IncidentDetail";
+import IncidentDetailPage from "./IncidentDetail";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const API       = "http://localhost:5000/api";
@@ -53,10 +53,8 @@ const getStatusKey = e => {
   return r;
 };
 
-const isReported   = e => getStatusKey(e) === "reported";
-const isInProgress = e => getStatusKey(e) === "in_progress";
 const isResolved   = e => getStatusKey(e) === "resolved";
-const isEscalated  = e => getStatusKey(e) === "escalated";
+const isReported   = e => getStatusKey(e) === "reported";
 const getInitials  = (n="") => n.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase() || "??";
 
 function buildTimeline(emergencies, range) {
@@ -123,7 +121,6 @@ const KPICard = ({label,value,sub,trend,trendUp,accent,icon:Icon,delay=0,loading
     animation:"kpiIn 0.55s cubic-bezier(.22,.68,0,1.2) both",
     animationDelay:`${delay}ms`, position:"relative", overflow:"hidden",
   }}>
-    {/* Gradient orb */}
     <div style={{position:"absolute",top:-30,right:-30,width:110,height:110,
       background:`radial-gradient(circle,${accent}20 0%,transparent 70%)`,pointerEvents:"none"}} />
     <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,
@@ -184,6 +181,101 @@ const ErrorBanner = ({msg,onRetry}) => (
       border:"none",cursor:"pointer",fontWeight:700}}>Retry</button>
   </div>
 );
+
+// ─── SLIDE PANEL ─────────────────────────────────────────────────────────────
+const SlidePanel = ({ incident, onClose }) => {
+  const isOpen = !!incident;
+
+  // Lock body scroll when panel open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(10,31,68,0.45)",
+          backdropFilter: "blur(3px)",
+          zIndex: 90,
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+          transition: "opacity 0.35s cubic-bezier(.4,0,.2,1)",
+        }}
+      />
+
+      {/* Panel */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: "50%",
+          minWidth: 480,
+          background: "linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
+          zIndex: 100,
+          boxShadow: "-8px 0 48px rgba(10,31,68,0.18)",
+          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.38s cubic-bezier(.4,0,.2,1)",
+          overflowY: "auto",
+          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Close strip at top-left of panel */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "sticky",
+            top: 12,
+            left: 16,
+            zIndex: 10,
+            alignSelf: "flex-start",
+            marginLeft: 16,
+            marginTop: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "7px 14px",
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(10px)",
+            border: "1.5px solid #E4EBF5",
+            borderRadius: 11,
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#2563EB",
+            cursor: "pointer",
+            fontFamily: "'Sora','Helvetica Neue',sans-serif",
+            boxShadow: "0 2px 12px rgba(37,99,235,0.1)",
+            transition: "all .15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#DBEAFE"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.92)"; }}
+        >
+          <X size={13} /> Close Panel
+        </button>
+
+        {/* Incident content rendered inside panel */}
+        {incident && (
+          <div style={{ flex: 1 }}>
+            <IncidentDetailPage incidentProp={incident} panelMode />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 const DashboardMain = () => {
@@ -288,9 +380,8 @@ const DashboardMain = () => {
   const stats = useMemo(()=>{
     const total=emergencies.length;
     const resolved=emergencies.filter(isResolved).length;
-    const reported=emergencies.filter(isReported).length;
     const resRate=total?((resolved/total)*100).toFixed(1):"0.0";
-    return {total,resolved,reported,resRate};
+    return {total,resolved,resRate};
   },[emergencies]);
 
   const catPie    = useMemo(()=>buildCategoryPie(emergencies,catColorMap),[emergencies,catColorMap]);
@@ -325,407 +416,413 @@ const DashboardMain = () => {
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      fontFamily:"'Syne',sans-serif",
-      background:"linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
-      minHeight:"100vh", padding:"28px 32px", color:"#0F172A",
-    }}>
-      <style>{`
-        @keyframes kpiIn   { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:none} }
-        @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
-        @keyframes shimmer { 0%,100%{opacity:.7} 50%{opacity:.35} }
-      `}</style>
+    <>
+      {/* Slide Panel */}
+      <SlidePanel incident={selected} onClose={() => setSelected(null)} />
 
-      <IncidentDetail incident={selected} onClose={()=>setSelected(null)}/>
+      <div style={{
+        fontFamily:"'Syne',sans-serif",
+        background:"linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
+        minHeight:"100vh", padding:"28px 32px", color:"#0F172A",
+      }}>
+        <style>{`
+          @keyframes kpiIn   { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:none} }
+          @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+          @keyframes shimmer { 0%,100%{opacity:.7} 50%{opacity:.35} }
+        `}</style>
 
-      {/* Error banners */}
-      {errors.emergencies && <ErrorBanner msg={errors.emergencies} onRetry={fetchEmergencies}/>}
-      {errors.teams        && <ErrorBanner msg={errors.teams}       onRetry={fetchTeams}/>}
-      {errors.agencies     && <ErrorBanner msg={errors.agencies}    onRetry={fetchAgencies}/>}
+        {/* Error banners */}
+        {errors.emergencies && <ErrorBanner msg={errors.emergencies} onRetry={fetchEmergencies}/>}
+        {errors.teams        && <ErrorBanner msg={errors.teams}       onRetry={fetchTeams}/>}
+        {errors.agencies     && <ErrorBanner msg={errors.agencies}    onRetry={fetchAgencies}/>}
 
-      {/* ── TOP BAR ── */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:28}}>
-        <div>
-          <div style={{fontSize:9.5,fontWeight:700,letterSpacing:".18em",color:"#3B82F6",
-            fontFamily:"'DM Mono',monospace",marginBottom:4,textTransform:"uppercase"}}>
-            ● Live Dashboard
+        {/* ── TOP BAR ── */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:28}}>
+          <div>
+            <div style={{fontSize:9.5,fontWeight:700,letterSpacing:".18em",color:"#3B82F6",
+              fontFamily:"'DM Mono',monospace",marginBottom:4,textTransform:"uppercase"}}>
+              ● Live Dashboard
+            </div>
+            <h1 style={{fontSize:24,fontWeight:800,color:"#0C1A3E",letterSpacing:"-.03em",lineHeight:1}}>
+              Emergency Control Center
+            </h1>
+            <p style={{fontSize:11,color:"#94A3B8",marginTop:3,fontFamily:"'DM Mono',monospace"}}>
+              {lastSync ? `Last synced ${format(lastSync,"HH:mm:ss")}` : "Loading…"}
+            </p>
           </div>
-          <h1 style={{fontSize:24,fontWeight:800,color:"#0C1A3E",letterSpacing:"-.03em",lineHeight:1}}>
-            Emergency Control Center
-          </h1>
-          <p style={{fontSize:11,color:"#94A3B8",marginTop:3,fontFamily:"'DM Mono',monospace"}}>
-            {lastSync ? `Last synced ${format(lastSync,"HH:mm:ss")}` : "Loading…"}
-          </p>
-        </div>
 
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {/* Category pills */}
-          {!loading.categories && categories.length>0 && (
-            <div style={{display:"flex",gap:5,flexWrap:"wrap",maxWidth:440,justifyContent:"flex-end"}}>
-              {categories.slice(0,8).map((cat,i)=>{
-                const key=(cat.name||"").toLowerCase().trim().replace(/\s+/g,"_");
-                const color=catColorMap[key]||DEFAULT_PALETTE[i%DEFAULT_PALETTE.length];
-                const Icon=ICON_MAP[key]||Radio;
-                return (
-                  <div key={cat.id||i} className="cat-pill" style={{
-                    display:"flex",alignItems:"center",gap:5,
-                    padding:"5px 11px", background:color+"15",
-                    border:`1.5px solid ${color}40`, borderRadius:8,
-                    fontSize:9,color,fontWeight:700,
-                    fontFamily:"'DM Mono',monospace",
-                    transition:"all .15s",cursor:"default",
-                  }}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:color}}/>
-                    <Icon size={9} color={color}/>
-                    {cat.name}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <button className="rfrsh-btn" onClick={fetchAll} style={{
-            display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
-            background:"#fff",border:"1.5px solid #DBEAFE",borderRadius:11,
-            fontSize:10,color:"#3B82F6",cursor:"pointer",
-            fontFamily:"'DM Mono',monospace",fontWeight:700,
-            transition:"all .15s",boxShadow:"0 2px 10px rgba(59,130,246,.08)",
-          }}>
-            <RefreshCw size={11} style={{animation:isLoadingAny?"spin 1s linear infinite":"none"}}/>
-            REFRESH
-          </button>
-        </div>
-      </div>
-
-      {/* ── KPI ROW ── */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:24}}>
-        <KPICard label="TOTAL INCIDENTS" value={stats.total} sub="in database"
-          trend={`${stats.total} total`} trendUp={false} accent="#3B82F6"
-          icon={Activity} delay={0} loading={loading.emergencies}/>
-        <KPICard label="RESOLVED" value={stats.resolved} sub="successfully closed"
-          trend={`${stats.resRate}% rate`} trendUp={false} accent="#10B981"
-          icon={CheckCircle2} delay={80} loading={loading.emergencies}/>
-        <KPICard label="RESPONDER TEAMS" value={teams.length} sub="total registered"
-          trend={`${teamRows.filter(t=>t.deployed>0).length} active`} trendUp={false}
-          accent="#6366F1" icon={Shield} delay={160} loading={loading.teams}/>
-        <KPICard label="AGENCIES" value={agencies.length} sub="registered"
-          trend={`${agencyRows.filter(a=>a.active).length} on duty`} trendUp={false}
-          accent="#F97316" icon={Users} delay={240} loading={loading.agencies}/>
-      </div>
-
-      {/* ── ROW 2: TIMELINE + DONUT ── */}
-      <div style={{display:"grid",gridTemplateColumns:"1.7fr 1fr",gap:18,marginBottom:18}}>
-
-        {/* Timeline */}
-        <div style={{
-          background:"#fff",borderRadius:22,padding:"26px 28px",
-          border:"1px solid #DBEAFE",
-          boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
-          animation:"fadeUp .5s .1s ease both",
-        }}>
-          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:22}}>
-            <SectionHeader title="Incident Timeline" sub="Computed from real records"/>
-            <div style={{display:"flex",background:"#F0F6FF",borderRadius:11,padding:3,gap:2}}>
-              {["daily","weekly","monthly"].map(r=>(
-                <button key={r} className="range-btn" onClick={()=>setRange(r)} style={{
-                  padding:"5px 13px",borderRadius:8,border:"none",cursor:"pointer",
-                  fontSize:9,fontWeight:700,letterSpacing:".1em",
-                  fontFamily:"'DM Mono',monospace",textTransform:"uppercase",
-                  background:range===r?"#3B82F6":"transparent",
-                  color:range===r?"#fff":"#64748B",
-                  boxShadow:range===r?"0 2px 8px rgba(59,130,246,.3)":"none",
-                  transition:"all .15s",
-                }}>{r}</button>
-              ))}
-            </div>
-          </div>
-          {loading.emergencies ? (
-            <div style={{display:"flex",alignItems:"flex-end",gap:5,height:210,paddingBottom:8}}>
-              {[40,80,60,120,90,150,110,180,130,70,100,160].map((h,i)=>(
-                <Sk key={i} h={h} w="100%" r={4}/>
-              ))}
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={210}>
-              <BarChart data={chartData} barSize={range==="monthly"?16:range==="weekly"?34:18}>
-                <defs>
-                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.85}/>
-                  </linearGradient>
-                  <linearGradient id="barGradLast" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F97316" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="#EA580C" stopOpacity={0.85}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#EDF2FF" vertical={false}/>
-                <XAxis dataKey="label" tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false} width={26}/>
-                <Tooltip content={<BlueTooltip/>} cursor={{fill:"rgba(59,130,246,0.05)",radius:6}}/>
-                <Bar dataKey="count" name="Incidents" radius={[6,6,0,0]}>
-                  {chartData.map((_,i)=>(
-                    <Cell key={i} fill={i===chartData.length-1?"url(#barGradLast)":"url(#barGrad)"}/>
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Category Donut */}
-        <div style={{
-          background:"#fff",borderRadius:22,padding:"26px 28px",
-          border:"1px solid #DBEAFE",
-          boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
-          animation:"fadeUp .5s .2s ease both",
-        }}>
-          <SectionHeader title="By Category" sub={`${categories.length} categories`}/>
-          {loading.emergencies||loading.categories ? (
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <Sk h={150} r={14}/>
-              {[1,2,3,4].map(i=><Sk key={i} h={14}/>)}
-            </div>
-          ) : catPie.length===0 ? (
-            <div style={{textAlign:"center",color:"#94A3B8",paddingTop:60,fontSize:12}}>No data yet.</div>
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={170}>
-                <PieChart>
-                  <Pie data={catPie} cx="50%" cy="50%" innerRadius={50} outerRadius={76}
-                    paddingAngle={3} dataKey="value" strokeWidth={3} stroke="#fff">
-                    {catPie.map((entry,i)=><Cell key={i} fill={entry.color}/>)}
-                  </Pie>
-                  <Tooltip content={<BlueTooltip/>}/>
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
-                {catPie.map((c,i)=>{
-                  const Icon=ICON_MAP[c.key]||Radio;
-                  const pct=catPie.length>0?Math.round((c.value/Math.max(...catPie.map(x=>x.value)))*100):0;
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {!loading.categories && categories.length>0 && (
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",maxWidth:440,justifyContent:"flex-end"}}>
+                {categories.slice(0,8).map((cat,i)=>{
+                  const key=(cat.name||"").toLowerCase().trim().replace(/\s+/g,"_");
+                  const color=catColorMap[key]||DEFAULT_PALETTE[i%DEFAULT_PALETTE.length];
+                  const Icon=ICON_MAP[key]||Radio;
                   return (
-                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <div style={{width:9,height:9,borderRadius:3,background:c.color,
-                          boxShadow:`0 0 0 2px ${c.color}30`,flexShrink:0}}/>
-                        <div style={{width:20,height:20,borderRadius:6,background:c.color+"20",
-                          display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          <Icon size={10} color={c.color}/>
+                    <div key={cat.id||i} className="cat-pill" style={{
+                      display:"flex",alignItems:"center",gap:5,
+                      padding:"5px 11px", background:color+"15",
+                      border:`1.5px solid ${color}40`, borderRadius:8,
+                      fontSize:9,color,fontWeight:700,
+                      fontFamily:"'DM Mono',monospace",
+                      transition:"all .15s",cursor:"default",
+                    }}>
+                      <div style={{width:6,height:6,borderRadius:"50%",background:color}}/>
+                      <Icon size={9} color={color}/>
+                      {cat.name}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button className="rfrsh-btn" onClick={fetchAll} style={{
+              display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
+              background:"#fff",border:"1.5px solid #DBEAFE",borderRadius:11,
+              fontSize:10,color:"#3B82F6",cursor:"pointer",
+              fontFamily:"'DM Mono',monospace",fontWeight:700,
+              transition:"all .15s",boxShadow:"0 2px 10px rgba(59,130,246,.08)",
+            }}>
+              <RefreshCw size={11} style={{animation:isLoadingAny?"spin 1s linear infinite":"none"}}/>
+              REFRESH
+            </button>
+          </div>
+        </div>
+
+        {/* ── KPI ROW ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:24}}>
+          <KPICard label="TOTAL INCIDENTS" value={stats.total} sub="in database"
+            trend={`${stats.total} total`} trendUp={false} accent="#3B82F6"
+            icon={Activity} delay={0} loading={loading.emergencies}/>
+          <KPICard label="RESOLVED" value={stats.resolved} sub="successfully closed"
+            trend={`${stats.resRate}% rate`} trendUp={false} accent="#10B981"
+            icon={CheckCircle2} delay={80} loading={loading.emergencies}/>
+          <KPICard label="RESPONDER TEAMS" value={teams.length} sub="total registered"
+            trend={`${teamRows.filter(t=>t.deployed>0).length} active`} trendUp={false}
+            accent="#6366F1" icon={Shield} delay={160} loading={loading.teams}/>
+          <KPICard label="AGENCIES" value={agencies.length} sub="registered"
+            trend={`${agencyRows.filter(a=>a.active).length} on duty`} trendUp={false}
+            accent="#F97316" icon={Users} delay={240} loading={loading.agencies}/>
+        </div>
+
+        {/* ── ROW 2: TIMELINE + DONUT ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1.7fr 1fr",gap:18,marginBottom:18}}>
+
+          {/* Timeline */}
+          <div style={{
+            background:"#fff",borderRadius:22,padding:"26px 28px",
+            border:"1px solid #DBEAFE",
+            boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
+            animation:"fadeUp .5s .1s ease both",
+          }}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:22}}>
+              <SectionHeader title="Incident Timeline" sub="Computed from real records"/>
+              <div style={{display:"flex",background:"#F0F6FF",borderRadius:11,padding:3,gap:2}}>
+                {["daily","weekly","monthly"].map(r=>(
+                  <button key={r} className="range-btn" onClick={()=>setRange(r)} style={{
+                    padding:"5px 13px",borderRadius:8,border:"none",cursor:"pointer",
+                    fontSize:9,fontWeight:700,letterSpacing:".1em",
+                    fontFamily:"'DM Mono',monospace",textTransform:"uppercase",
+                    background:range===r?"#3B82F6":"transparent",
+                    color:range===r?"#fff":"#64748B",
+                    boxShadow:range===r?"0 2px 8px rgba(59,130,246,.3)":"none",
+                    transition:"all .15s",
+                  }}>{r}</button>
+                ))}
+              </div>
+            </div>
+            {loading.emergencies ? (
+              <div style={{display:"flex",alignItems:"flex-end",gap:5,height:210,paddingBottom:8}}>
+                {[40,80,60,120,90,150,110,180,130,70,100,160].map((h,i)=>(
+                  <Sk key={i} h={h} w="100%" r={4}/>
+                ))}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={chartData} barSize={range==="monthly"?16:range==="weekly"?34:18}>
+                  <defs>
+                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.85}/>
+                    </linearGradient>
+                    <linearGradient id="barGradLast" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F97316" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#EA580C" stopOpacity={0.85}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EDF2FF" vertical={false}/>
+                  <XAxis dataKey="label" tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false} width={26}/>
+                  <Tooltip content={<BlueTooltip/>} cursor={{fill:"rgba(59,130,246,0.05)",radius:6}}/>
+                  <Bar dataKey="count" name="Incidents" radius={[6,6,0,0]}>
+                    {chartData.map((_,i)=>(
+                      <Cell key={i} fill={i===chartData.length-1?"url(#barGradLast)":"url(#barGrad)"}/>
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Category Donut */}
+          <div style={{
+            background:"#fff",borderRadius:22,padding:"26px 28px",
+            border:"1px solid #DBEAFE",
+            boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
+            animation:"fadeUp .5s .2s ease both",
+          }}>
+            <SectionHeader title="By Category" sub={`${categories.length} categories`}/>
+            {loading.emergencies||loading.categories ? (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <Sk h={150} r={14}/>
+                {[1,2,3,4].map(i=><Sk key={i} h={14}/>)}
+              </div>
+            ) : catPie.length===0 ? (
+              <div style={{textAlign:"center",color:"#94A3B8",paddingTop:60,fontSize:12}}>No data yet.</div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={170}>
+                  <PieChart>
+                    <Pie data={catPie} cx="50%" cy="50%" innerRadius={50} outerRadius={76}
+                      paddingAngle={3} dataKey="value" strokeWidth={3} stroke="#fff">
+                      {catPie.map((entry,i)=><Cell key={i} fill={entry.color}/>)}
+                    </Pie>
+                    <Tooltip content={<BlueTooltip/>}/>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
+                  {catPie.map((c,i)=>{
+                    const Icon=ICON_MAP[c.key]||Radio;
+                    const pct=catPie.length>0?Math.round((c.value/Math.max(...catPie.map(x=>x.value)))*100):0;
+                    return (
+                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:7}}>
+                          <div style={{width:9,height:9,borderRadius:3,background:c.color,
+                            boxShadow:`0 0 0 2px ${c.color}30`,flexShrink:0}}/>
+                          <div style={{width:20,height:20,borderRadius:6,background:c.color+"20",
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <Icon size={10} color={c.color}/>
+                          </div>
+                          <span style={{fontSize:10.5,color:"#475569",fontWeight:600}}>{c.name}</span>
                         </div>
-                        <span style={{fontSize:10.5,color:"#475569",fontWeight:600}}>{c.name}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:44,height:5,borderRadius:3,background:"#EEF4FF",overflow:"hidden"}}>
+                            <div style={{width:`${pct}%`,height:"100%",background:c.color,borderRadius:3}}/>
+                          </div>
+                          <span style={{fontSize:12,fontWeight:800,color:c.color,
+                            fontFamily:"'DM Mono',monospace",minWidth:18,textAlign:"right"}}>{c.value}</span>
+                        </div>
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:44,height:5,borderRadius:3,background:"#EEF4FF",overflow:"hidden"}}>
-                          <div style={{width:`${pct}%`,height:"100%",background:c.color,borderRadius:3}}/>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── ROW 3: INCIDENTS + TEAMS + AGENCIES ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1.55fr 1fr 0.85fr",gap:18}}>
+
+          {/* Incident list */}
+          <div style={{
+            background:"#fff",borderRadius:22,padding:"26px 28px",
+            border:"1px solid #DBEAFE",
+            boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
+            animation:"fadeUp .5s .28s ease both",
+          }}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <SectionHeader title="Recent Incidents" sub="Click a row to view details"/>
+              <div style={{position:"relative"}}>
+                <Search size={12} color="#94A3B8" style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}/>
+                <input className="s-input" value={search} onChange={e=>setSearch(e.target.value)}
+                  placeholder="Search…" style={{
+                    paddingLeft:30,paddingRight:12,paddingTop:8,paddingBottom:8,
+                    background:"#F0F6FF",border:"1.5px solid #DBEAFE",borderRadius:11,
+                    fontSize:11,color:"#0F172A",fontFamily:"'DM Mono',monospace",
+                    width:160,transition:"all .2s",
+                  }}/>
+              </div>
+            </div>
+
+            {loading.emergencies ? (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[1,2,3,4,5,6].map(i=><Sk key={i} h={56} r={13}/>)}
+              </div>
+            ) : filtered.length===0 ? (
+              <div style={{textAlign:"center",color:"#94A3B8",padding:"40px 0",fontSize:12}}>No incidents found.</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                {filtered.map(r=>{
+                  const {color,bg,Icon}=getCatMeta(r);
+                  const st=STATUS_META[getStatusKey(r)]||STATUS_META.reported;
+                  const loc=r.kebele?.name||r.kebele||r.location||"Unknown location";
+                  const type=r.emergencyType?.name||r.emergencyType||r.type||"Emergency";
+                  return (
+                    <div
+                      key={r.id||r._id}
+                      className="inc-row"
+                      onClick={() => setSelected(r)}
+                      style={{
+                        display:"flex",alignItems:"center",gap:12,padding:"11px 13px",
+                        background:"#FAFBFF",border:"1.5px solid #E8EFFE",borderRadius:13,
+                        cursor:"pointer",transition:"all .18s ease",
+                      }}
+                    >
+                      <div style={{width:36,height:36,borderRadius:11,background:bg,
+                        border:`1.5px solid ${color}30`,display:"flex",alignItems:"center",
+                        justifyContent:"center",flexShrink:0}}>
+                        <Icon size={16} color={color} strokeWidth={2}/>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <div style={{fontSize:12,fontWeight:700,color:"#0F172A",
+                            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{type}</div>
+                          <div style={{fontSize:8,padding:"2px 6px",borderRadius:5,
+                            background:color+"18",color,fontWeight:700,
+                            fontFamily:"'DM Mono',monospace",flexShrink:0}}>
+                            {getCatKey(r).replace(/_/g," ")}
+                          </div>
                         </div>
-                        <span style={{fontSize:12,fontWeight:800,color:c.color,
-                          fontFamily:"'DM Mono',monospace",minWidth:18,textAlign:"right"}}>{c.value}</span>
+                        <div style={{fontSize:10,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{loc}</div>
+                      </div>
+                      <div style={{fontSize:9,color:"#CBD5E1",fontFamily:"'DM Mono',monospace",
+                        whiteSpace:"nowrap",flexShrink:0}}>
+                        {formatDistanceToNow(new Date(r.createdAt),{addSuffix:true})}
+                      </div>
+                      <span style={{
+                        fontSize:8,fontWeight:700,padding:"3px 9px",borderRadius:6,
+                        background:st.bg,color:st.color,border:`1px solid ${st.border}`,
+                        letterSpacing:".08em",fontFamily:"'DM Mono',monospace",flexShrink:0,
+                      }}>{st.label.toUpperCase()}</span>
+                      <ChevronRight size={13} color="#CBD5E1" style={{flexShrink:0}}/>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Responder Teams */}
+          <div style={{
+            background:"#fff",borderRadius:22,padding:"26px 28px",
+            border:"1px solid #DBEAFE",
+            boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
+            animation:"fadeUp .5s .36s ease both",
+          }}>
+            <SectionHeader title="Responder Teams" sub={`${teams.length} teams total`}/>
+            {loading.teams ? (
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {[1,2,3,4,5].map(i=><Sk key={i} h={38} r={10}/>)}
+              </div>
+            ) : teamRows.length===0 ? (
+              <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No teams registered.</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {teamRows.map((t,i)=>{
+                  const pct=t.total>0?Math.min(100,Math.round((t.deployed/t.total)*100)):0;
+                  const load=pct>=75?"HIGH":pct>=40?"MOD":"FREE";
+                  const loadColor=pct>=75?"#EF4444":pct>=40?"#F59E0B":"#10B981";
+                  return (
+                    <div key={i} className="team-row" style={{
+                      padding:"10px 12px",borderRadius:12,transition:"background .15s",
+                    }}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:26,height:26,borderRadius:8,background:t.color+"18",
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <Shield size={12} color={t.color} strokeWidth={2.5}/>
+                          </div>
+                          <span style={{fontSize:11,fontWeight:700,color:"#1E293B",
+                            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:110}}>{t.name}</span>
+                        </div>
+                        <span style={{fontSize:9,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{t.deployed}/{t.total}</span>
+                      </div>
+                      <div style={{height:6,background:"#EEF4FF",borderRadius:4,overflow:"hidden"}}>
+                        <div style={{width:`${pct}%`,height:"100%",
+                          background:`linear-gradient(90deg,${t.color},${t.color}bb)`,
+                          borderRadius:4,transition:"width .8s ease"}}/>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+                        <span style={{fontSize:8,color:loadColor,fontFamily:"'DM Mono',monospace",fontWeight:700}}>{load}</span>
+                        <span style={{fontSize:8,fontWeight:800,color:t.color,fontFamily:"'DM Mono',monospace"}}>{pct}%</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── ROW 3: INCIDENTS + TEAMS + AGENCIES ── */}
-      <div style={{display:"grid",gridTemplateColumns:"1.55fr 1fr 0.85fr",gap:18}}>
-
-        {/* Incident list */}
-        <div style={{
-          background:"#fff",borderRadius:22,padding:"26px 28px",
-          border:"1px solid #DBEAFE",
-          boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
-          animation:"fadeUp .5s .28s ease both",
-        }}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-            <SectionHeader title="Recent Incidents" sub="Click a row to view details"/>
-            <div style={{position:"relative"}}>
-              <Search size={12} color="#94A3B8" style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}/>
-              <input className="s-input" value={search} onChange={e=>setSearch(e.target.value)}
-                placeholder="Search…" style={{
-                  paddingLeft:30,paddingRight:12,paddingTop:8,paddingBottom:8,
-                  background:"#F0F6FF",border:"1.5px solid #DBEAFE",borderRadius:11,
-                  fontSize:11,color:"#0F172A",fontFamily:"'DM Mono',monospace",
-                  width:160,transition:"all .2s",
-                }}/>
-            </div>
+            )}
           </div>
 
-          {loading.emergencies ? (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {[1,2,3,4,5,6].map(i=><Sk key={i} h={56} r={13}/>)}
-            </div>
-          ) : filtered.length===0 ? (
-            <div style={{textAlign:"center",color:"#94A3B8",padding:"40px 0",fontSize:12}}>No incidents found.</div>
-          ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:7}}>
-              {filtered.map(r=>{
-                const {color,bg,Icon}=getCatMeta(r);
-                const st=STATUS_META[getStatusKey(r)]||STATUS_META.reported;
-                const loc=r.kebele?.name||r.kebele||r.location||"Unknown location";
-                const type=r.emergencyType?.name||r.emergencyType||r.type||"Emergency";
-                return (
-                  <div key={r.id||r._id} className="inc-row" onClick={()=>setSelected(r)}
-                    style={{
-                      display:"flex",alignItems:"center",gap:12,padding:"11px 13px",
-                      background:"#FAFBFF",border:"1.5px solid #E8EFFE",borderRadius:13,
-                      cursor:"pointer",transition:"all .18s ease",
-                    }}>
-                    <div style={{width:36,height:36,borderRadius:11,background:bg,
-                      border:`1.5px solid ${color}30`,display:"flex",alignItems:"center",
-                      justifyContent:"center",flexShrink:0}}>
-                      <Icon size={16} color={color} strokeWidth={2}/>
+          {/* Agencies */}
+          <div style={{
+            background:"#fff",borderRadius:22,padding:"26px 28px",
+            border:"1px solid #DBEAFE",
+            boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
+            animation:"fadeUp .5s .44s ease both",
+            display:"flex",flexDirection:"column",
+          }}>
+            <SectionHeader title="Agencies" sub={`${agencies.length} registered`}/>
+            {loading.agencies ? (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[1,2,3,4,5].map(i=><Sk key={i} h={44} r={12}/>)}
+              </div>
+            ) : agencyRows.length===0 ? (
+              <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No agencies found.</div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:7,flex:1}}>
+                {agencyRows.map((a,i)=>(
+                  <div key={i} className="agency-row" style={{
+                    display:"flex",alignItems:"center",gap:10,padding:"9px 11px",
+                    background:"#F8FAFF",borderRadius:12,
+                    border:"1px solid #E8EFFE",transition:"all .15s",
+                  }}>
+                    <div style={{width:32,height:32,borderRadius:"50%",background:`${a.color}18`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:10,fontWeight:800,color:a.color,flexShrink:0,
+                      border:`1.5px solid ${a.color}30`}}>
+                      {a.initials}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"#0F172A",
-                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{type}</div>
-                        <div style={{fontSize:8,padding:"2px 6px",borderRadius:5,
-                          background:color+"18",color,fontWeight:700,
-                          fontFamily:"'DM Mono',monospace",flexShrink:0}}>
-                          {getCatKey(r).replace(/_/g," ")}
-                        </div>
-                      </div>
-                      <div style={{fontSize:10,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{loc}</div>
+                      <div style={{fontSize:11,fontWeight:700,color:"#0F172A",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</div>
+                      <div style={{fontSize:8.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{a.role}</div>
                     </div>
-                    <div style={{fontSize:9,color:"#CBD5E1",fontFamily:"'DM Mono',monospace",
-                      whiteSpace:"nowrap",flexShrink:0}}>
-                      {formatDistanceToNow(new Date(r.createdAt),{addSuffix:true})}
-                    </div>
-                    <span style={{
-                      fontSize:8,fontWeight:700,padding:"3px 9px",borderRadius:6,
-                      background:st.bg,color:st.color,border:`1px solid ${st.border}`,
-                      letterSpacing:".08em",fontFamily:"'DM Mono',monospace",flexShrink:0,
-                    }}>{st.label.toUpperCase()}</span>
-                    <ChevronRight size={13} color="#CBD5E1" style={{flexShrink:0}}/>
+                    <div style={{
+                      width:8,height:8,borderRadius:"50%",flexShrink:0,
+                      background:a.active?"#10B981":"#F59E0B",
+                      boxShadow:a.active?"0 0 0 3px rgba(16,185,129,0.2)":"0 0 0 3px rgba(245,158,11,0.2)",
+                    }}/>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
 
-        {/* Responder Teams */}
-        <div style={{
-          background:"#fff",borderRadius:22,padding:"26px 28px",
-          border:"1px solid #DBEAFE",
-          boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
-          animation:"fadeUp .5s .36s ease both",
-        }}>
-          <SectionHeader title="Responder Teams" sub={`${teams.length} teams total`}/>
-          {loading.teams ? (
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              {[1,2,3,4,5].map(i=><Sk key={i} h={38} r={10}/>)}
-            </div>
-          ) : teamRows.length===0 ? (
-            <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No teams registered.</div>
-          ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              {teamRows.map((t,i)=>{
-                const pct=t.total>0?Math.min(100,Math.round((t.deployed/t.total)*100)):0;
-                const load=pct>=75?"HIGH":pct>=40?"MOD":"FREE";
-                const loadColor=pct>=75?"#EF4444":pct>=40?"#F59E0B":"#10B981";
-                return (
-                  <div key={i} className="team-row" style={{
-                    padding:"10px 12px",borderRadius:12,transition:"background .15s",
-                  }}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:26,height:26,borderRadius:8,background:t.color+"18",
-                          display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          <Shield size={12} color={t.color} strokeWidth={2.5}/>
-                        </div>
-                        <span style={{fontSize:11,fontWeight:700,color:"#1E293B",
-                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:110}}>{t.name}</span>
-                      </div>
-                      <span style={{fontSize:9,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{t.deployed}/{t.total}</span>
-                    </div>
-                    <div style={{height:6,background:"#EEF4FF",borderRadius:4,overflow:"hidden"}}>
-                      <div style={{width:`${pct}%`,height:"100%",
-                        background:`linear-gradient(90deg,${t.color},${t.color}bb)`,
-                        borderRadius:4,transition:"width .8s ease"}}/>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-                      <span style={{fontSize:8,color:loadColor,fontFamily:"'DM Mono',monospace",fontWeight:700}}>{load}</span>
-                      <span style={{fontSize:8,fontWeight:800,color:t.color,fontFamily:"'DM Mono',monospace"}}>{pct}%</span>
-                    </div>
+            {/* Summary box */}
+            <div style={{
+              marginTop:16,padding:"14px 16px",
+              background:"linear-gradient(135deg,#EFF6FF,#DBEAFE)",
+              borderRadius:14,border:"1px solid #BFDBFE",
+            }}>
+              <div style={{fontSize:9,color:"#1D4ED8",fontFamily:"'DM Mono',monospace",
+                letterSpacing:".12em",marginBottom:10,fontWeight:700}}>NETWORK SUMMARY</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {[
+                  {val:agencies.length, lbl:"AGENCIES", color:"#1D4ED8"},
+                  {val:teams.length,    lbl:"TEAMS",    color:"#0F172A"},
+                  {val:stats.total,     lbl:"INCIDENTS",color:"#3B82F6"},
+                  {val:stats.resolved,  lbl:"RESOLVED", color:"#10B981"},
+                ].map((s,i)=>(
+                  <div key={i} style={{background:"rgba(255,255,255,.7)",borderRadius:9,padding:"8px 10px"}}>
+                    <div style={{fontSize:18,fontWeight:800,color:s.color,letterSpacing:"-.02em"}}>{s.val}</div>
+                    <div style={{fontSize:7.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{s.lbl}</div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Agencies */}
-        <div style={{
-          background:"#fff",borderRadius:22,padding:"26px 28px",
-          border:"1px solid #DBEAFE",
-          boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
-          animation:"fadeUp .5s .44s ease both",
-          display:"flex",flexDirection:"column",
-        }}>
-          <SectionHeader title="Agencies" sub={`${agencies.length} registered`}/>
-          {loading.agencies ? (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {[1,2,3,4,5].map(i=><Sk key={i} h={44} r={12}/>)}
-            </div>
-          ) : agencyRows.length===0 ? (
-            <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No agencies found.</div>
-          ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:7,flex:1}}>
-              {agencyRows.map((a,i)=>(
-                <div key={i} className="agency-row" style={{
-                  display:"flex",alignItems:"center",gap:10,padding:"9px 11px",
-                  background:"#F8FAFF",borderRadius:12,
-                  border:"1px solid #E8EFFE",transition:"all .15s",
-                }}>
-                  <div style={{width:32,height:32,borderRadius:"50%",background:`${a.color}18`,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontSize:10,fontWeight:800,color:a.color,flexShrink:0,
-                    border:`1.5px solid ${a.color}30`}}>
-                    {a.initials}
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#0F172A",
-                      whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</div>
-                    <div style={{fontSize:8.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{a.role}</div>
-                  </div>
-                  <div style={{
-                    width:8,height:8,borderRadius:"50%",flexShrink:0,
-                    background:a.active?"#10B981":"#F59E0B",
-                    boxShadow:a.active?"0 0 0 3px rgba(16,185,129,0.2)":"0 0 0 3px rgba(245,158,11,0.2)",
-                  }}/>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Summary box */}
-          <div style={{
-            marginTop:16,padding:"14px 16px",
-            background:"linear-gradient(135deg,#EFF6FF,#DBEAFE)",
-            borderRadius:14,border:"1px solid #BFDBFE",
-          }}>
-            <div style={{fontSize:9,color:"#1D4ED8",fontFamily:"'DM Mono',monospace",
-              letterSpacing:".12em",marginBottom:10,fontWeight:700}}>NETWORK SUMMARY</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[
-                {val:agencies.length, lbl:"AGENCIES", color:"#1D4ED8"},
-                {val:teams.length,    lbl:"TEAMS",    color:"#0F172A"},
-                {val:stats.total,     lbl:"INCIDENTS",color:"#3B82F6"},
-                {val:stats.resolved,  lbl:"RESOLVED", color:"#10B981"},
-              ].map((s,i)=>(
-                <div key={i} style={{background:"rgba(255,255,255,.7)",borderRadius:9,padding:"8px 10px"}}>
-                  <div style={{fontSize:18,fontWeight:800,color:s.color,letterSpacing:"-.02em"}}>{s.val}</div>
-                  <div style={{fontSize:7.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{s.lbl}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
