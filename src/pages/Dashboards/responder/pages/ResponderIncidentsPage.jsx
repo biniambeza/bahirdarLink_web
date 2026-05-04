@@ -28,9 +28,12 @@ const ResponderIncidentsPage = () => {
       const responderTeamId = decoded.id;
 
       const [emergencyRes, typesRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/emergencies/responder-team/${responderTeamId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        axios.get(
+          `${API_BASE}/api/emergencies/responder-team/${responderTeamId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        ),
         axios.get(`${API_BASE}/api/emergencyType`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -117,7 +120,8 @@ const ResponderIncidentsPage = () => {
         !selectedCategory || incident.categoryId === selectedCategory;
 
       const query = searchQuery.toLowerCase();
-      const location = `${incident.kebele?.name || ""} ${incident.subdivision || ""}`.toLowerCase();
+      const location =
+        `${incident.kebele?.name || ""} ${incident.subdivision || ""}`.toLowerCase();
 
       return matchesCategory && location.includes(query);
     });

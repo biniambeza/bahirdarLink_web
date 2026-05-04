@@ -223,7 +223,8 @@ const ResponderDashboardPage = () => {
                     cursor={{ fill: "transparent" }}
                     contentStyle={{ borderRadius: "16px", border: "none" }}
                   />
-                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+                  {/* Updated barSize and radius */}
+                  <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={30}>
                     {emergencyChart.map((e, i) => (
                       <Cell key={i} fill={e.color} />
                     ))}
@@ -245,7 +246,8 @@ const ResponderDashboardPage = () => {
                     cursor={{ fill: "transparent" }}
                     contentStyle={{ borderRadius: "16px", border: "none" }}
                   />
-                  <Bar dataKey="value" radius={[10, 10, 10, 10]} barSize={8}>
+                  {/* Updated barSize and radius */}
+                  <Bar dataKey="value" radius={[12, 12, 12, 12]} barSize={30}>
                     {caseChart.map((e, i) => (
                       <Cell key={i} fill={e.color} />
                     ))}
