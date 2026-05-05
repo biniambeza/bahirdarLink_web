@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 // Added Edit2 to imports
-import { PlusCircle, Users, Edit2 } from "lucide-react"; 
+import { PlusCircle, Users, Edit2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import AddAgentPanel from "./AddAgentPanel";
@@ -21,9 +21,12 @@ const AgentsPage = () => {
     setError("");
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.get("http://localhost:5000/api/agency", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(
+        "http://localhost:5000/api/agency/my-agents",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (data.success) setAgents(data.data);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -123,7 +126,7 @@ const AgentsPage = () => {
                       {agent.status}
                     </span>
                   </div>
-                  
+
                   {/* Dedicated Edit Button */}
                   <button
                     onClick={(e) => {
@@ -137,14 +140,21 @@ const AgentsPage = () => {
                 </div>
 
                 <div className="space-y-1 mt-2">
-                  <p className="text-slate-500 text-sm flex items-center gap-2">{agent.email}</p>
+                  <p className="text-slate-500 text-sm flex items-center gap-2">
+                    {agent.email}
+                  </p>
                   <p className="text-slate-500 text-sm">{agent.phone}</p>
-                  <p className="text-slate-400 text-xs italic">{agent.location}</p>
+                  <p className="text-slate-400 text-xs italic">
+                    {agent.location}
+                  </p>
                 </div>
 
                 <div className="mt-auto pt-3 border-t border-slate-50">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    Type: <span className="text-blue-600">{agent.AgencyType?.name || "N/A"}</span>
+                    Type:{" "}
+                    <span className="text-blue-600">
+                      {agent.AgencyType?.name || "N/A"}
+                    </span>
                   </p>
                 </div>
               </motion.div>

@@ -1,151 +1,321 @@
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
-import { PlusCircle } from "lucide-react";
-// import AddServiceCategoryPanel from "./AddServiceCategoryPanel";
+import {
+  Edit,
+  Trash2,
+  Plus,
+  RefreshCw,
+  ChevronRight,
+  Search,
+  Layers,
+  X,
+  CheckCircle2,
+} from "lucide-react";
 
 const CategoryPage = () => {
+  // --- Data State ---
   const [categories, setCategories] = useState([]);
   const [serviceTypes, setServiceTypes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [activeType, setActiveType] = useState(null);
   const [search, setSearch] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
 
-  // Fetch categories
-  const fetchCategories = async () => {
-    setLoading(true);
-    setError("");
+  // --- Modal State ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState("add"); // 'add' or 'edit'
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [formData, setFormData] = useState({ name: "", description: "" });
 
+  const fetchAllData = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
 
-      const res = await axios.get(
-        "http://localhost:5000/api/service-categories",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const [catRes, typeRes] = await Promise.all([
+        axios.get("http://localhost:5000/api/serviceCategory", { headers }),
+        axios.get("http://localhost:5000/api/serviceType", { headers }),
+      ]);
 
-      if (res.data.success) setCategories(res.data.data);
+      const fetchedCats = catRes.data.categories || [];
+      const fetchedTypes = Array.isArray(typeRes.data) ? typeRes.data : [];
+
+      setCategories(fetchedCats);
+      setServiceTypes(fetchedTypes);
+
+      if (fetchedTypes.length > 0 && !activeType) {
+        setActiveType(fetchedTypes[0]);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch service types (for display)
-  const fetchServiceTypes = async () => {
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const currentCategories = useMemo(() => {
+    return categories.filter((cat) => {
+      const matchesType = String(cat.serviceTypeId) === String(activeType?.id);
+      const matchesSearch = cat.name
+        .toLowerCase()
+        .includes(search.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [categories, activeType, search]);
+
+  // --- Form Handlers ---
+  const openAddModal = () => {
+    setModalMode("add");
+    setFormData({ name: "", description: "" });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (cat) => {
+    setModalMode("edit");
+    setSelectedCategoryId(cat.id);
+    setFormData({ name: cat.name, description: cat.description || "" });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload = { ...formData, serviceTypeId: activeType.id };
 
-      const res = await axios.get("http://localhost:5000/api/service-types", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (modalMode === "add") {
+        await axios.post("http://localhost:5000/api/serviceCategory", payload, {
+          headers,
+        });
+      } else {
+        await axios.put(
+          `http://localhost:5000/api/serviceCategory/${selectedCategoryId}`,
+          payload,
+          { headers },
+        );
+      }
 
-      if (res.data.success) setServiceTypes(res.data.data);
+      setIsModalOpen(false);
+      fetchAllData();
     } catch (err) {
-      console.error(err);
+      alert(err.response?.data?.message || "Operation failed");
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-    fetchServiceTypes();
-  }, []);
-
-  const getServiceTypeName = (id) => {
-    return serviceTypes.find((t) => t.id === id)?.name || "N/A";
-  };
-
-  // Filter
-  const filtered = useMemo(() => {
-    return categories.filter(
-      (c) =>
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        (c.description || "").toLowerCase().includes(search.toLowerCase()) ||
-        getServiceTypeName(c.serviceTypeId)
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-    );
-  }, [search, categories, serviceTypes]);
-
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Service Categories</h1>
-          <p className="text-gray-500 text-sm">
-            Manage all service categories under each service type
-          </p>
+    <div className="min-h-screen bg-white text-slate-900 relative">
+      {/* Top Navbar */}
+      <nav className="border-b border-slate-100 px-8 py-4 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-md z-30">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+            <Layers size={16} />
+          </div>
+          <div>
+            <h1 className="text-sm font-black tracking-tighter uppercase text-slate-800">
+              Service Management
+            </h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              Hierarchy Control
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <PlusCircle size={18} />
-          Add Category
-        </button>
-      </div>
+        <div className="flex items-center gap-4">
+          <div className="relative hidden sm:block">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={14}
+            />
+            <input
+              type="text"
+              placeholder="Quick search..."
+              className="pl-9 pr-4 py-2 bg-slate-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={fetchAllData}
+            className="p-2 hover:bg-slate-50 rounded-xl transition-all"
+          >
+            <RefreshCw
+              size={16}
+              className={
+                loading ? "animate-spin text-blue-600" : "text-slate-400"
+              }
+            />
+          </button>
+        </div>
+      </nav>
 
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Search categories..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full border px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-      />
+      <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row">
+        {/* Sidebar - Service Types */}
+        <aside className="w-full md:w-80 border-r border-slate-50 min-h-[calc(100vh-70px)] p-8">
+          <div className="mb-8 px-2">
+            <h2 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">
+              Service Types
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {serviceTypes.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => setActiveType(type)}
+                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 ${
+                  String(activeType?.id) === String(type.id)
+                    ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]"
+                    : "text-slate-500 hover:bg-slate-50 hover:translate-x-1"
+                }`}
+              >
+                <span className="text-sm font-bold">{type.name}</span>
+                <ChevronRight
+                  size={14}
+                  className={
+                    String(activeType?.id) === String(type.id)
+                      ? "opacity-100"
+                      : "opacity-30"
+                  }
+                />
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        {loading ? (
-          <p>Loading...</p>
-        ) : error ? (
-          <p className="text-red-500">{error}</p>
-        ) : (
-          <table className="min-w-full border border-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="py-2 px-4 border-b">ID</th>
-                <th className="py-2 px-4 border-b">Name</th>
-                <th className="py-2 px-4 border-b">Description</th>
-                <th className="py-2 px-4 border-b">Service Type</th>
-              </tr>
-            </thead>
+        {/* Main Content */}
+        <main className="flex-1 p-8 md:p-16 bg-slate-50/50">
+          <header className="flex flex-col sm:flex-row justify-between items-end sm:items-center mb-12 gap-6">
+            <div>
+              <span className="text-blue-600 font-black text-[10px] tracking-widest uppercase mb-2 block">
+                Viewing Categories for
+              </span>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900">
+                {activeType?.name || "Select Type"}
+              </h2>
+            </div>
+            <button
+              onClick={openAddModal}
+              className="group flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl text-xs font-black transition-all shadow-lg shadow-blue-100 active:scale-95"
+            >
+              <Plus size={18} /> ADD NEW CATEGORY
+            </button>
+          </header>
 
-            <tbody>
-              {filtered.map((cat) => (
-                <motion.tr
+          <div className="grid gap-4">
+            {currentCategories.length > 0 ? (
+              currentCategories.map((cat) => (
+                <div
                   key={cat.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center hover:bg-gray-50"
+                  className="group bg-white p-6 rounded-3xl flex items-center justify-between border border-transparent hover:border-blue-100 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500"
                 >
-                  <td className="py-2 px-4 border-b">{cat.id}</td>
-                  <td className="py-2 px-4 border-b font-medium">{cat.name}</td>
-                  <td className="py-2 px-4 border-b">
-                    {cat.description || "N/A"}
-                  </td>
-                  <td className="py-2 px-4 border-b">
-                    {getServiceTypeName(cat.serviceTypeId)}
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors font-bold text-xs">
+                      {cat.id}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">{cat.name}</h3>
+                      <p className="text-xs text-slate-400 mt-1 max-w-md line-clamp-1">
+                        {cat.description || "No description provided."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditModal(cat)}
+                      className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="bg-white/50 border-2 border-dashed border-slate-200 rounded-[40px] py-20 flex flex-col items-center justify-center text-slate-400">
+                <p className="font-bold text-sm tracking-tight">
+                  No categories found for this type.
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
 
-      {/* Add Panel */}
-      {showAdd && (
-        <AddServiceCategoryPanel
-          closePanel={() => setShowAdd(false)}
-          refreshCategories={fetchCategories}
-        />
+      {/* --- ADD/EDIT MODAL --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+          ></div>
+          <div className="relative bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden p-10 animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-2xl font-black tracking-tight">
+                  {modalMode === "add" ? "New Category" : "Edit Category"}
+                </h3>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
+                  Assigning to {activeType?.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 hover:bg-slate-50 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                  Category Name
+                </label>
+                <input
+                  required
+                  type="text"
+                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all font-bold"
+                  placeholder="e.g. Water Leakage"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                  Description
+                </label>
+                <textarea
+                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm min-h-[120px]"
+                  placeholder="Describe the type of emergency handled here..."
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-blue-600 text-white py-5 rounded-3xl font-black text-xs transition-all shadow-xl shadow-slate-200 group"
+              >
+                <CheckCircle2
+                  size={18}
+                  className="group-hover:scale-110 transition-transform"
+                />
+                {modalMode === "add" ? "SAVE CATEGORY" : "UPDATE CATEGORY"}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -40,7 +40,6 @@ const Sidebar = ({
 
       {/* Navigation */}
       <nav className="flex-1 px-4 space-y-2 mt-8">
-
         <SidebarLink
           active={selectedCategory === "dashboard"}
           icon={<Home />}
@@ -60,21 +59,21 @@ const Sidebar = ({
 
         {/* Agencies (Service Admin focus) */}
         <SidebarLink
-          active={selectedCategory === "agencies"}
+          active={selectedCategory === "agents"}
           icon={<Building />}
-          label="Agencies"
+          label="Agents"
           open={sidebarOpen}
-          onClick={() => setSelectedCategory("agencies")}
+          onClick={() => setSelectedCategory("agents")}
         />
 
         {/* Responder Teams */}
-        <SidebarLink
+        {/* <SidebarLink
           active={selectedCategory === "teams"}
           icon={<UserCheck />}
           label="Responder Teams"
           open={sidebarOpen}
           onClick={() => setSelectedCategory("teams")}
-        />
+        /> */}
 
         {/* Kebele (Join table management) */}
         <SidebarLink
