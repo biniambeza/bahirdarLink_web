@@ -756,6 +756,32 @@ function Card({ children, style = {} }) {
   );
 }
 
+const resolveCategoryName = (e) =>
+  e.serviceCategory?.name ||
+  e.category?.name ||
+  e.categoryName ||
+  e.serviceCategoryName ||
+  e.category ||
+  "General";
+
+const resolveIncidentType = (e) =>
+  e.serviceType?.name ||
+  e.serviceType ||
+  e.emergencyType?.name ||
+  e.emergencyType ||
+  e.type ||
+  "General";
+
+const resolveReporter = (e) =>
+  e.user || e.guest || e.reportedBy || e.reporter || null;
+
+const resolveMediaUrl = (e) => {
+  const media =
+    e.media || e.mediaUrl || e.mediaPath || e.attachment || e.file || null;
+  if (Array.isArray(media)) return media[0]?.url || media[0] || null;
+  return media || null;
+};
+
 // ─── Details Tab ──────────────────────────────────────────────────────────────
 function DetailsTab({
   emergency: e,
@@ -763,6 +789,7 @@ function DetailsTab({
   onDownloadPDF,
   isDownloading,
   token,
+  isService,
 }) {
   const { lat, lng } = parseLocation(e);
 
@@ -852,7 +879,10 @@ function DetailsTab({
           }}
         >
           <MapPin size={12} color="rgba(255,255,255,.5)" />
-          {e.subdivision || e.address || "No subdivision specified"}
+          {e.subdivision ||
+            e.address ||
+            e.specificLocation ||
+            "No subdivision specified"}
         </p>
 
         {e.mergedCount > 1 && (
@@ -877,20 +907,20 @@ function DetailsTab({
       </div>
 
       {/* Media */}
-      {(e.media || e.mediaUrl || e.mediaPath) && (
+      {resolveMediaUrl(e) && (
         <>
           <SectionHead label="Media Evidence" icon={Camera} />
-          <MediaViewer
-            mediaUrl={e.media || e.mediaUrl || e.mediaPath}
-            token={token}
-          />
+          <MediaViewer mediaUrl={resolveMediaUrl(e)} token={token} />
         </>
       )}
 
       {/* Narrative */}
       {e.description && (
         <>
-          <SectionHead label="Incident Narrative" icon={FileText} />
+          <SectionHead
+            label={isService ? "Service Narrative" : "Incident Narrative"}
+            icon={FileText}
+          />
           <div
             style={{
               background: T.blue50,
@@ -916,11 +946,14 @@ function DetailsTab({
       )}
 
       {/* Details */}
-      <SectionHead label="Incident Details" icon={Info} />
+      <SectionHead
+        label={isService ? "Service Details" : "Incident Details"}
+        icon={Info}
+      />
       <Card>
         <InfoRow
           icon={Hash}
-          label="Incident ID"
+          label={isService ? "Service ID" : "Incident ID"}
           value={String(e._id || e.id || "")
             .slice(-12)
             .toUpperCase()}
@@ -930,10 +963,10 @@ function DetailsTab({
         <InfoRow
           icon={Tag}
           label="Category"
-          value={e.category?.name || e.categoryName}
+          value={resolveCategoryName(e)}
           accent
         />
-        <InfoRow icon={Layers} label="Type" value={e.emergencyType?.name} />
+        <InfoRow icon={Layers} label="Type" value={resolveIncidentType(e)} />
         <InfoRow
           icon={Activity}
           label="Status"
@@ -967,20 +1000,20 @@ function DetailsTab({
       <MapPreview lat={lat} lng={lng} />
 
       {/* Reporter */}
-      {(e.user || e.guest || e.reportedBy) && (
+      {resolveReporter(e) && (
         <>
           <SectionHead label="Reporter" icon={User} />
           <Card>
             <InfoRow
               icon={User}
               label="Name"
-              value={(e.user || e.guest || e.reportedBy)?.name}
+              value={resolveReporter(e)?.name}
               accent
             />
             <InfoRow
               icon={Phone}
               label="Phone"
-              value={(e.user || e.guest || e.reportedBy)?.phone}
+              value={resolveReporter(e)?.phone}
               last
             />
           </Card>
@@ -988,7 +1021,7 @@ function DetailsTab({
       )}
 
       {/* PDF record */}
-      {localStatus === "resolved" && (
+      {localStatus === "resolved" && !isService && (
         <>
           <SectionHead label="Official Record" icon={Shield} />
           <div
@@ -1128,7 +1161,7 @@ const STATUS_OPTIONS = [
   },
 ];
 
-function ActionsTab({ currentStatus, onUpdateStatus }) {
+function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
   const fileInputRef = useRef(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [reportData, setReportData] = useState({
@@ -1242,7 +1275,8 @@ function ActionsTab({ currentStatus, onUpdateStatus }) {
             Status Management
           </p>
           <p style={{ margin: 0, fontSize: 11, color: T.blue400 }}>
-            Update the operational status of this emergency
+            Update the operational status of this
+            {isService ? " service assignment" : " emergency"}
           </p>
         </div>
       </div>
@@ -1823,12 +1857,19 @@ const TABS = [
 ];
 
 // ─── Main Drawer ──────────────────────────────────────────────────────────────
-const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
+const EmergencyDetailDrawer = ({
+  isOpen,
+  onClose,
+  emergency,
+  onRefresh,
+  isService = false,
+}) => {
   const [activeTab, setActiveTab] = useState("details");
   const [localStatus, setLocalStatus] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const apiPath = isService ? "service" : "emergencies";
 
   useEffect(() => {
     if (emergency) {
@@ -1865,7 +1906,7 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
     try {
       const id = emergency?._id || emergency?.id;
       if (!token || !id) return;
-      if (newStatus === "resolved" && reportPayload) {
+      if (newStatus === "resolved" && reportPayload && !isService) {
         const fd = new FormData();
         fd.append("incidentSummary", reportPayload.incidentSummary);
         fd.append("injuredCount", reportPayload.injuredCount);
@@ -1883,7 +1924,7 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
         });
       }
       await axios.patch(
-        `${API_BASE}/api/emergencies/${id}/status`,
+        `${API_BASE}/api/${apiPath}/${id}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -1989,7 +2030,7 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
                       letterSpacing: "-.2px",
                     }}
                   >
-                    Emergency Detail
+                    {isService ? "Service Detail" : "Emergency Detail"}
                   </p>
                   <p
                     style={{
@@ -2106,12 +2147,14 @@ const EmergencyDetailDrawer = ({ isOpen, onClose, emergency, onRefresh }) => {
                       onDownloadPDF={handleDownloadPDF}
                       isDownloading={isDownloading}
                       token={token}
+                      isService={isService}
                     />
                   )}
                   {activeTab === "action" && (
                     <ActionsTab
                       currentStatus={localStatus}
                       onUpdateStatus={handleUpdateStatus}
+                      isService={isService}
                     />
                   )}
                   {activeTab === "chat" && (
