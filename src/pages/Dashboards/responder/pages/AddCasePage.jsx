@@ -4,7 +4,6 @@ import {
   Loader2,
   Upload,
   User,
-  MapPin,
   Trash2,
   AlertTriangle,
   Coins,
@@ -88,6 +87,18 @@ const AddCasePage = ({ onClose, onSaved }) => {
     }));
   };
 
+  // Clamp and floor any numeric input to a safe integer
+  const handleIntegerChange = (e) => {
+    const { name, value } = e.target;
+    if (value === "") {
+      setNewCase((prev) => ({ ...prev, [name]: "" }));
+      return;
+    }
+    // Strip decimals — take only the integer part
+    const intVal = Math.floor(Math.abs(Number(value)));
+    setNewCase((prev) => ({ ...prev, [name]: String(intVal) }));
+  };
+
   const handleAddCase = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -97,9 +108,7 @@ const AddCasePage = ({ onClose, onSaved }) => {
       const token = localStorage.getItem("token");
       const data = new FormData();
 
-      // FIXED: Database synchronization logic
-      // List of fields that MUST be stored as numbers in the DB
-      const numericFields = [
+      const integerFields = [
         "age",
         "height",
         "weight",
@@ -111,13 +120,12 @@ const AddCasePage = ({ onClose, onSaved }) => {
 
       Object.keys(newCase).forEach((key) => {
         const value = newCase[key];
-
         if (value === null || value === undefined) return;
 
-        if (numericFields.includes(key)) {
-          // If the field has a value, parse it to a float/int to ensure DB visibility
+        if (integerFields.includes(key)) {
           if (value !== "") {
-            data.append(key, Number(value));
+            // Always send as a safe integer — Math.floor ensures no decimals
+            data.append(key, Math.floor(Number(value)));
           }
         } else if (typeof value === "boolean") {
           data.append(key, value);
@@ -153,7 +161,7 @@ const AddCasePage = ({ onClose, onSaved }) => {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-md">
       <div className="h-full w-full md:w-[600px] bg-white shadow-2xl overflow-y-auto flex flex-col border-l border-slate-200">
-        {/* Terminal Header */}
+        {/* Header */}
         <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100 p-6 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-black text-slate-900 tracking-tighter uppercase">
@@ -179,13 +187,11 @@ const AddCasePage = ({ onClose, onSaved }) => {
           )}
 
           <form onSubmit={handleAddCase} className="space-y-12">
-            {/* 01: Identification */}
+            {/* 01: Visual Record */}
             <section className="space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
-                  01 Visual Record
-                </span>
-              </div>
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
+                01 Visual Record
+              </span>
               <div className="group border-2 border-dashed border-slate-200 rounded-[2.5rem] p-3 transition-all hover:border-indigo-400 bg-slate-50/50">
                 {imagePreview ? (
                   <div className="relative h-64 rounded-[2rem] overflow-hidden">
@@ -232,11 +238,9 @@ const AddCasePage = ({ onClose, onSaved }) => {
 
             {/* 02: Biometrics */}
             <section className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
-                  02 Biometrics
-                </span>
-              </div>
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
+                02 Biometrics
+              </span>
               <div className="space-y-4">
                 <div className="relative">
                   <User
@@ -253,12 +257,22 @@ const AddCasePage = ({ onClose, onSaved }) => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Age — integer only */}
                   <input
                     type="number"
                     name="age"
                     placeholder="Age"
+                    min="0"
+                    max="150"
+                    step="1"
                     value={newCase.age}
-                    onChange={handleChange}
+                    onChange={handleIntegerChange}
+                    onKeyDown={(e) => {
+                      // Block "." and "e" keys so decimals can't be typed
+                      if (e.key === "." || e.key === "e" || e.key === "E") {
+                        e.preventDefault();
+                      }
+                    }}
                     className="border border-slate-200 rounded-2xl p-4 text-sm outline-none"
                   />
                   <select
@@ -273,7 +287,8 @@ const AddCasePage = ({ onClose, onSaved }) => {
                     <option value="female">Female</option>
                   </select>
                 </div>
-                {/* HEIGHT & WEIGHT FIX UI */}
+
+                {/* Height & Weight — integer only */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative">
                     <Ruler
@@ -282,13 +297,23 @@ const AddCasePage = ({ onClose, onSaved }) => {
                     />
                     <input
                       type="number"
-                      step="0.1"
                       name="height"
                       placeholder="Height (cm)"
+                      min="0"
+                      max="300"
+                      step="1"
                       value={newCase.height}
-                      onChange={handleChange}
+                      onChange={handleIntegerChange}
+                      onKeyDown={(e) => {
+                        if (e.key === "." || e.key === "e" || e.key === "E") {
+                          e.preventDefault();
+                        }
+                      }}
                       className="w-full border border-slate-200 rounded-2xl p-4 pl-12 text-sm outline-none bg-white focus:border-indigo-400"
                     />
+                    <span className="absolute right-4 top-4 text-[10px] font-bold text-slate-400">
+                      CM
+                    </span>
                   </div>
                   <div className="relative">
                     <Scale
@@ -297,15 +322,31 @@ const AddCasePage = ({ onClose, onSaved }) => {
                     />
                     <input
                       type="number"
-                      step="0.1"
                       name="weight"
                       placeholder="Weight (kg)"
+                      min="0"
+                      max="500"
+                      step="1"
                       value={newCase.weight}
-                      onChange={handleChange}
+                      onChange={handleIntegerChange}
+                      onKeyDown={(e) => {
+                        if (e.key === "." || e.key === "e" || e.key === "E") {
+                          e.preventDefault();
+                        }
+                      }}
                       className="w-full border border-slate-200 rounded-2xl p-4 pl-12 text-sm outline-none bg-white focus:border-indigo-400"
                     />
+                    <span className="absolute right-4 top-4 text-[10px] font-bold text-slate-400">
+                      KG
+                    </span>
                   </div>
                 </div>
+
+                {/* Helper note so users know integers are expected */}
+                <p className="text-[10px] text-slate-400 font-semibold ml-1">
+                  Height and weight are recorded in whole numbers only (e.g. 175 cm, 70 kg).
+                </p>
+
                 <textarea
                   name="distinctiveFeatures"
                   placeholder="Distinctive Markings (Scars, Tattoos, Apparel...)"
@@ -316,7 +357,7 @@ const AddCasePage = ({ onClose, onSaved }) => {
               </div>
             </section>
 
-            {/* 03: Response Protocols */}
+            {/* 03: Response Configuration */}
             <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] space-y-6 shadow-xl shadow-slate-200">
               <div className="flex items-center gap-2">
                 <Coins size={16} className="text-yellow-400" />
@@ -328,12 +369,20 @@ const AddCasePage = ({ onClose, onSaved }) => {
                 <label className="block text-[10px] font-black text-slate-500 uppercase ml-1">
                   Asset Bounty (ETB)
                 </label>
+                {/* Reward — integer only */}
                 <input
                   type="number"
                   name="reward"
-                  placeholder="0.00"
+                  placeholder="0"
+                  min="0"
+                  step="1"
                   value={newCase.reward}
-                  onChange={handleChange}
+                  onChange={handleIntegerChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "." || e.key === "e" || e.key === "E") {
+                      e.preventDefault();
+                    }
+                  }}
                   className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-2xl font-black text-yellow-400 focus:bg-white focus:text-slate-900 outline-none transition-all"
                 />
               </div>
@@ -362,13 +411,11 @@ const AddCasePage = ({ onClose, onSaved }) => {
               </div>
             </section>
 
-            {/* 04: Location Intel */}
+            {/* 04: Geospatial Intel */}
             <section className="space-y-5 pb-12">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
-                  03 Geospatial Intel
-                </span>
-              </div>
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
+                03 Geospatial Intel
+              </span>
               <div className="grid grid-cols-2 gap-4">
                 <select
                   required
@@ -429,7 +476,7 @@ const AddCasePage = ({ onClose, onSaved }) => {
               </div>
             </section>
 
-            {/* Glass Action Terminal */}
+            {/* Submit */}
             <div className="fixed bottom-0 right-0 w-full md:w-[600px] p-6 bg-white/80 backdrop-blur-xl border-t border-slate-100 z-50">
               <button
                 type="submit"

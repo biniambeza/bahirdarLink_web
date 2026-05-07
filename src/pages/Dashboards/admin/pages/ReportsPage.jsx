@@ -1,180 +1,182 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
+import { Search, MapPin, User, Calendar, AlertCircle, FileText } from "lucide-react";
 
 const ReportsPage = () => {
   const [reports, setReports] = useState([]);
-  const [filter, setFilter] = useState("all"); // all | registered | guest
+  const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // =========================
-  // FETCH ALL EMERGENCIES (ADMIN)
-  // =========================
+  const API_URL = "http://localhost:5000/api/emergencies/admin/all";
+
   useEffect(() => {
     const fetchReports = async () => {
       setLoading(true);
-      setError("");
-
       try {
         const token = localStorage.getItem("token");
-
-        if (!token) throw new Error("User not logged in");
-
-        const { data } = await axios.get(
-          "http://localhost:5000/api/emergencies/admin/all",
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-
-        if (data.success) {
-          setReports(data.data || []);
-        } else {
-          throw new Error(data.error || "Failed to fetch emergencies");
-        }
+        const { data } = await axios.get(API_URL, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (data.success) setReports(data.data || []);
       } catch (err) {
-        console.error("Fetch emergencies error:", err);
         setError(err.response?.data?.error || err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchReports();
   }, []);
 
-  // Filtered reports (by reporter type + search query)
+  // Safe string converter helper to prevent crashes
+  const safeString = (val) => {
+    if (!val) return "";
+    // If it's a populated object (common in Mongoose), get the name or en field
+    if (typeof val === "object") return val.name || val.en || "";
+    return String(val);
+  };
+
   const filteredReports = useMemo(() => {
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
 
     return reports
-      .filter((report) => {
-        if (filter === "registered") return report.reporterType === "user";
-        if (filter === "guest") return report.reporterType === "guest";
+      .filter((r) => {
+        if (filter === "registered") return r.reporterType === "user";
+        if (filter === "guest") return r.reporterType === "guest";
         return true;
       })
-      .filter((report) =>
-        [
-          report.emergencyType,
-          report.category,
-          report.kebele,
-          report.subdivision,
-          report.street,
-        ]
-          .filter(Boolean)
-          .some((field) => field.toLowerCase().includes(query)),
-      );
+      .filter((r) => {
+        const type = safeString(r.emergencyType).toLowerCase();
+        const category = safeString(r.category).toLowerCase();
+        const reporter = safeString(r.reporterName).toLowerCase();
+        const address = `${r.kebele} ${r.subdivision} ${r.street}`.toLowerCase();
+
+        return (
+          type.includes(query) ||
+          category.includes(query) ||
+          reporter.includes(query) ||
+          address.includes(query)
+        );
+      });
   }, [filter, searchQuery, reports]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 bg-[#F8FAFC] min-h-screen">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#0052CC] mb-2">Reports</h1>
-        <p className="text-sm text-slate-500">
-          View all reported emergencies (Registered & Guest users)
-        </p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Emergency Reports</h1>
+        <p className="text-slate-500 mt-2">Monitor and manage all incident reports from the field.</p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2">
-        {["all", "registered", "guest"].map((type) => (
-          <button
-            key={type}
-            className={`px-4 py-2 rounded-full text-sm font-bold ${
-              filter === type
-                ? "bg-[#0052CC] text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-            onClick={() => setFilter(type)}
-          >
-            {type.toUpperCase()}
-          </button>
-        ))}
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
+        <div className="flex bg-white rounded-lg p-1 shadow-sm border border-slate-200">
+          {["all", "registered", "guest"].map((btn) => (
+            <button
+              key={btn}
+              onClick={() => setFilter(btn)}
+              className={`px-6 py-2 rounded-md text-sm font-bold capitalize transition-all ${
+                filter === btn ? "bg-[#0052CC] text-white" : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search reports..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[#0052CC] outline-none transition-all"
+          />
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative w-full max-w-sm">
-        <input
-          type="text"
-          placeholder="Search by type, category, or address..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white shadow-sm rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0052CC]"
-        />
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {loading ? (
-          <p className="p-6 text-slate-500">Loading reports...</p>
+          <div className="py-20 text-center animate-pulse text-slate-400">Loading Report Data...</div>
         ) : error ? (
-          <p className="p-6 text-red-500">{error}</p>
+          <div className="py-20 text-center text-red-500 flex flex-col items-center gap-2">
+            <AlertCircle size={32} />
+            <p>{error}</p>
+          </div>
         ) : filteredReports.length === 0 ? (
-          <p className="p-6 text-slate-500">No reports found.</p>
+          <div className="py-20 text-center text-slate-400 flex flex-col items-center gap-2">
+            <FileText size={32} />
+            <p>No reports found matching your criteria.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-[#0052CC] to-blue-600 text-white">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="p-4 text-left font-semibold">#</th>
-                  <th className="p-4 text-left font-semibold">Type</th>
-                  <th className="p-4 text-left font-semibold">Category</th>
-                  <th className="p-4 text-left font-semibold">Address</th>
-                  <th className="p-4 text-left font-semibold">Reporter</th>
-                  <th className="p-4 text-left font-semibold">Date</th>
-                  <th className="p-4 text-left font-semibold">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Incident</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Address</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Reporter</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Status</th>
                 </tr>
               </thead>
-
-              <tbody>
-                {filteredReports.map((report, index) => {
-                  const statusLower = report.status?.toLowerCase();
-                  const statusClasses =
-                    statusLower === "resolved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700";
-
-                  return (
-                    <tr
-                      key={report.id}
-                      className="hover:bg-blue-50 transition duration-200"
-                    >
-                      <td className="p-4 text-slate-600">{index + 1}</td>
-                      <td className="p-4 text-slate-500">
-                        {report.emergencyType || "-"}
-                      </td>
-                      <td className="p-4 text-slate-500">
-                        {report.category || "-"}
-                      </td>
-                      <td className="p-4 text-slate-500">
-                        {[report.kebele, report.subdivision, report.street]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </td>
-                      <td className="p-4 text-slate-500 font-bold">
-                        {report.reporterName || "Unknown"}
-                      </td>
-                      <td className="p-4 text-slate-500">
-                        {report.createdAt
-                          ? new Date(report.createdAt).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="p-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${statusClasses}`}
-                        >
-                          {report.status || "-"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="divide-y divide-slate-100">
+                {filteredReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-slate-50/80 transition-colors cursor-default">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900 capitalize">{safeString(report.emergencyType)}</div>
+                      <div className="text-xs text-[#0052CC] font-medium">{safeString(report.category)}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-start gap-1.5 text-slate-600 text-sm">
+                        <MapPin size={14} className="mt-0.5 text-slate-400 flex-shrink-0" />
+                        <span>{[report.kebele, report.subdivision, report.street].filter(Boolean).join(", ") || "No address provided"}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                          <User size={14} />
+                        </div>
+                        <span className="text-sm font-medium text-slate-700">{report.reporterName || "Anonymous"}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={14} />
+                        {report.createdAt ? new Date(report.createdAt).toLocaleDateString() : "-"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <StatusChip status={report.status} />
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
     </div>
+  );
+};
+
+const StatusChip = ({ status }) => {
+  const s = String(status || "pending").toLowerCase();
+  const theme = {
+    resolved: "bg-green-100 text-green-700",
+    in_progress: "bg-blue-100 text-blue-700",
+    escalated: "bg-red-100 text-red-700",
+    pending: "bg-amber-100 text-amber-700",
+  }[s] || "bg-slate-100 text-slate-700";
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${theme}`}>
+      {status || "Pending"}
+    </span>
   );
 };
 

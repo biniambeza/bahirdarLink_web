@@ -14,9 +14,9 @@ import {
 import IncidentDetailPage from "./IncidentDetail";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const API       = "http://localhost:5000/api";
-const getToken  = () => localStorage.getItem("token");
-const authHdrs  = () => ({ Authorization: `Bearer ${getToken()}` });
+const API      = "http://localhost:5000/api";
+const getToken = () => localStorage.getItem("token");
+const authHdrs = () => ({ Authorization: `Bearer ${getToken()}` });
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const DEFAULT_PALETTE = [
@@ -29,83 +29,139 @@ const FORCED_COLORS = {
   flood:"#06B6D4", environment:"#10B981", hazmat:"#F59E0B",
   accident:"#3B82F6", other:"#94A3B8",
 };
-const ICON_MAP = { fire:Flame, crime:Skull, medical:Ambulance, flood:Droplets };
+const ICON_MAP    = { fire:Flame, crime:Skull, medical:Ambulance, flood:Droplets };
 const TEAM_COLORS = ["#F97316","#EF4444","#6366F1","#06B6D4","#10B981","#F59E0B","#3B82F6","#8B5CF6"];
 
 const STATUS_META = {
-  reported:    { label:"Reported",     color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
-  in_progress: { label:"In Progress",  color:"#3B82F6", bg:"#EFF6FF", border:"#BFDBFE" },
-  resolved:    { label:"Resolved",     color:"#10B981", bg:"#ECFDF5", border:"#A7F3D0" },
-  escalated:   { label:"Escalated",    color:"#EF4444", bg:"#FEF2F2", border:"#FECACA" },
-  pending:     { label:"Reported",     color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
-  active:      { label:"Reported",     color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
-  responding:  { label:"In Progress",  color:"#3B82F6", bg:"#EFF6FF", border:"#BFDBFE" },
+  reported:    { label:"Reported",    color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
+  in_progress: { label:"In Progress", color:"#3B82F6", bg:"#EFF6FF", border:"#BFDBFE" },
+  resolved:    { label:"Resolved",    color:"#10B981", bg:"#ECFDF5", border:"#A7F3D0" },
+  escalated:   { label:"Escalated",   color:"#EF4444", bg:"#FEF2F2", border:"#FECACA" },
+  pending:     { label:"Reported",    color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
+  active:      { label:"Reported",    color:"#F59E0B", bg:"#FFFBEB", border:"#FDE68A" },
+  responding:  { label:"In Progress", color:"#3B82F6", bg:"#EFF6FF", border:"#BFDBFE" },
 };
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-const getCatKey = e =>
-  (e.category?.name || e.category || "other").toString().toLowerCase().trim().replace(/\s+/g,"_");
+// ─── CORE EN EXTRACTOR ───────────────────────────────────────────────────────
+/**
+ * toEn — always returns a plain English string, never an object.
+ * Handles every shape the API might return:
+ *   "Fire"
+ *   { en:"Fire", am:"እሳት" }
+ *   { name:"Fire" }
+ *   { name:{ en:"Fire", am:"..." } }
+ */
+const toEn = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return String(value);
+  if (typeof value.en === "string") return value.en;
+  if (value.name !== undefined)    return toEn(value.name);
+  const first = Object.values(value).find((v) => typeof v === "string");
+  return first || "";
+};
 
-const getStatusKey = e => {
-  const r = (e.status || "reported").toLowerCase().replace(/\s+/g,"_");
-  if (r==="active" || r==="pending")  return "reported";
-  if (r==="responding")               return "in_progress";
+/**
+ * getCatName — English display name for a category or category.name field.
+ */
+const getCatName = (catOrName) => {
+  if (!catOrName) return "Other";
+  const raw = catOrName?.name !== undefined ? catOrName.name : catOrName;
+  return toEn(raw) || "Other";
+};
+
+/**
+ * getCatKey — normalised slug: "fire", "medical", "other", etc.
+ */
+const getCatKey = (e) => {
+  const src  = e.category?.name !== undefined ? e.category : (e.category || "other");
+  const name = getCatName(src);
+  return name.toLowerCase().trim().replace(/\s+/g, "_");
+};
+
+const getStatusKey = (e) => {
+  const r = (e.status || "reported").toLowerCase().replace(/\s+/g, "_");
+  if (r === "active" || r === "pending") return "reported";
+  if (r === "responding")               return "in_progress";
   return r;
 };
 
-const isResolved   = e => getStatusKey(e) === "resolved";
-const isReported   = e => getStatusKey(e) === "reported";
-const getInitials  = (n="") => n.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase() || "??";
+const isResolved  = (e) => getStatusKey(e) === "resolved";
+const getInitials = (n = "") =>
+  n.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "??";
 
+// ─── CHART BUILDERS ──────────────────────────────────────────────────────────
 function buildTimeline(emergencies, range) {
   const now = new Date();
-  if (range==="daily") {
-    return Array.from({length:12},(_,i)=>{
-      const h=i*2, label=`${String(h).padStart(2,"0")}:00`;
-      const count = emergencies.filter(e=>{
-        const d=new Date(e.createdAt);
-        return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&
-               d.getDate()===now.getDate()&&d.getHours()>=h&&d.getHours()<h+2;
+  if (range === "daily") {
+    return Array.from({ length: 12 }, (_, i) => {
+      const h     = i * 2;
+      const label = `${String(h).padStart(2, "0")}:00`;
+      const count = emergencies.filter((e) => {
+        const d = new Date(e.createdAt);
+        return (
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth()    === now.getMonth()    &&
+          d.getDate()     === now.getDate()     &&
+          d.getHours()    >= h                  &&
+          d.getHours()    <  h + 2
+        );
       }).length;
-      return {label,count};
+      return { label, count };
     });
   }
-  if (range==="weekly") {
-    return Array.from({length:7},(_,i)=>{
-      const day=subDays(now,6-i), label=format(day,"EEE");
-      const count=emergencies.filter(e=>format(new Date(e.createdAt),"yyyy-MM-dd")===format(day,"yyyy-MM-dd")).length;
-      return {label,count};
+  if (range === "weekly") {
+    return Array.from({ length: 7 }, (_, i) => {
+      const day   = subDays(now, 6 - i);
+      const label = format(day, "EEE");
+      const count = emergencies.filter(
+        (e) => format(new Date(e.createdAt), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+      ).length;
+      return { label, count };
     });
   }
-  return Array.from({length:12},(_,i)=>{
-    const month=subMonths(now,11-i), label=format(month,"MMM");
-    const count=emergencies.filter(e=>{
-      const d=new Date(e.createdAt);
-      return d.getFullYear()===month.getFullYear()&&d.getMonth()===month.getMonth();
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = subMonths(now, 11 - i);
+    const label = format(month, "MMM");
+    const count = emergencies.filter((e) => {
+      const d = new Date(e.createdAt);
+      return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
     }).length;
-    return {label,count};
+    return { label, count };
   });
 }
 
+/**
+ * buildCategoryPie — uses getCatKey (→ getCatName → toEn) so .name is always English.
+ */
 function buildCategoryPie(emergencies, catColorMap) {
-  const counts={};
-  emergencies.forEach(e=>{ const k=getCatKey(e); counts[k]=(counts[k]||0)+1; });
-  return Object.entries(counts).map(([key,value])=>({
-    name: key.charAt(0).toUpperCase()+key.slice(1).replace(/_/g," "),
-    value, color: catColorMap[key]||"#94A3B8", key,
+  const counts = {};
+  emergencies.forEach((e) => {
+    const k = getCatKey(e);          // always an EN slug
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  return Object.entries(counts).map(([key, value]) => ({
+    // English title-case label for display in legend and tooltip
+    name:  key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
+    value,
+    color: catColorMap[key] || "#94A3B8",
+    key,
   }));
 }
 
-// ─── CUSTOM TOOLTIP ──────────────────────────────────────────────────────────
-const BlueTooltip = ({active,payload,label}) => {
-  if (!active||!payload?.length) return null;
+// ─── TOOLTIP ─────────────────────────────────────────────────────────────────
+const BlueTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div style={{background:"#fff",border:"1px solid #DBEAFE",borderRadius:12,padding:"10px 14px",
-      boxShadow:"0 8px 32px rgba(59,130,246,0.15)",fontSize:12,fontFamily:"'DM Mono',monospace"}}>
-      <p style={{color:"#1E40AF",fontWeight:700,marginBottom:4}}>{label}</p>
-      {payload.map((p,i)=>(
-        <p key={i} style={{color:p.color||"#3B82F6",fontWeight:600}}>
-          {p.name||"Count"}: <strong>{p.value}</strong>
+    <div style={{
+      background:"#fff", border:"1px solid #DBEAFE", borderRadius:12,
+      padding:"10px 14px", boxShadow:"0 8px 32px rgba(59,130,246,0.15)",
+      fontSize:12, fontFamily:"'DM Mono',monospace",
+    }}>
+      <p style={{ color:"#1E40AF", fontWeight:700, marginBottom:4 }}>{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color:p.color || "#3B82F6", fontWeight:600 }}>
+          {p.name || "Count"}: <strong>{p.value}</strong>
         </p>
       ))}
     </div>
@@ -113,7 +169,7 @@ const BlueTooltip = ({active,payload,label}) => {
 };
 
 // ─── KPI CARD ────────────────────────────────────────────────────────────────
-const KPICard = ({label,value,sub,trend,trendUp,accent,icon:Icon,delay=0,loading}) => (
+const KPICard = ({ label, value, sub, trend, trendUp, accent, icon: Icon, delay = 0, loading }) => (
   <div style={{
     background:"#fff", borderRadius:20, padding:"22px 24px",
     border:`1px solid ${accent}22`,
@@ -121,155 +177,141 @@ const KPICard = ({label,value,sub,trend,trendUp,accent,icon:Icon,delay=0,loading
     animation:"kpiIn 0.55s cubic-bezier(.22,.68,0,1.2) both",
     animationDelay:`${delay}ms`, position:"relative", overflow:"hidden",
   }}>
-    <div style={{position:"absolute",top:-30,right:-30,width:110,height:110,
-      background:`radial-gradient(circle,${accent}20 0%,transparent 70%)`,pointerEvents:"none"}} />
-    <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,
-      background:`linear-gradient(90deg,${accent}40,transparent)`,borderRadius:"0 0 20px 20px"}} />
-
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-      <span style={{fontSize:9.5,fontWeight:700,letterSpacing:".15em",color:"#94A3B8",
-        fontFamily:"'DM Mono',monospace",textTransform:"uppercase"}}>{label}</span>
-      <div style={{width:36,height:36,borderRadius:11,background:`${accent}14`,
-        display:"flex",alignItems:"center",justifyContent:"center",
-        boxShadow:`0 0 0 4px ${accent}0A`}}>
+    <div style={{
+      position:"absolute", top:-30, right:-30, width:110, height:110,
+      background:`radial-gradient(circle,${accent}20 0%,transparent 70%)`,
+      pointerEvents:"none",
+    }}/>
+    <div style={{
+      position:"absolute", bottom:0, left:0, right:0, height:3,
+      background:`linear-gradient(90deg,${accent}40,transparent)`,
+      borderRadius:"0 0 20px 20px",
+    }}/>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+      <span style={{
+        fontSize:9.5, fontWeight:700, letterSpacing:".15em", color:"#94A3B8",
+        fontFamily:"'DM Mono',monospace", textTransform:"uppercase",
+      }}>{label}</span>
+      <div style={{
+        width:36, height:36, borderRadius:11, background:`${accent}14`,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        boxShadow:`0 0 0 4px ${accent}0A`,
+      }}>
         <Icon size={17} color={accent} strokeWidth={2.2}/>
       </div>
     </div>
-
-    <div style={{fontSize:36,fontWeight:800,color:"#0F172A",letterSpacing:"-.04em",
-      lineHeight:1,marginBottom:10,fontFamily:"'Syne',sans-serif"}}>
-      {loading ? <span style={{fontSize:20,color:"#CBD5E1"}}>—</span> : value}
+    <div style={{
+      fontSize:36, fontWeight:800, color:"#0F172A", letterSpacing:"-.04em",
+      lineHeight:1, marginBottom:10, fontFamily:"'Syne',sans-serif",
+    }}>
+      {loading ? <span style={{ fontSize:20, color:"#CBD5E1" }}>—</span> : value}
     </div>
-
-    <div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontFamily:"'DM Mono',monospace"}}>
-      <span style={{display:"flex",alignItems:"center",gap:3,
-        background:trendUp?"#FEF2F2":"#ECFDF5",
-        color:trendUp?"#EF4444":"#10B981",
-        padding:"2px 8px",borderRadius:6,fontWeight:700}}>
+    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:10, fontFamily:"'DM Mono',monospace" }}>
+      <span style={{
+        display:"flex", alignItems:"center", gap:3,
+        background: trendUp ? "#FEF2F2" : "#ECFDF5",
+        color:       trendUp ? "#EF4444" : "#10B981",
+        padding:"2px 8px", borderRadius:6, fontWeight:700,
+      }}>
         {trendUp ? <TrendingUp size={9}/> : <TrendingDown size={9}/>} {trend}
       </span>
-      <span style={{color:"#94A3B8"}}>{sub}</span>
+      <span style={{ color:"#94A3B8" }}>{sub}</span>
     </div>
   </div>
 );
 
 // ─── SECTION HEADER ──────────────────────────────────────────────────────────
-const SectionHeader = ({title,sub}) => (
-  <div style={{marginBottom:16}}>
-    <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <div style={{width:3,height:18,background:"linear-gradient(180deg,#3B82F6,#1D4ED8)",borderRadius:2}}/>
-      <span style={{fontSize:12,fontWeight:800,letterSpacing:".1em",color:"#0F172A",
-        fontFamily:"'Syne',sans-serif",textTransform:"uppercase"}}>{title}</span>
+const SectionHeader = ({ title, sub }) => (
+  <div style={{ marginBottom:16 }}>
+    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+      <div style={{ width:3, height:18, background:"linear-gradient(180deg,#3B82F6,#1D4ED8)", borderRadius:2 }}/>
+      <span style={{
+        fontSize:12, fontWeight:800, letterSpacing:".1em", color:"#0F172A",
+        fontFamily:"'Syne',sans-serif", textTransform:"uppercase",
+      }}>{title}</span>
     </div>
-    {sub && <p style={{fontSize:9.5,color:"#94A3B8",marginTop:3,marginLeft:11,
-      fontFamily:"'DM Mono',monospace",letterSpacing:".05em"}}>{sub}</p>}
+    {sub && (
+      <p style={{
+        fontSize:9.5, color:"#94A3B8", marginTop:3, marginLeft:11,
+        fontFamily:"'DM Mono',monospace", letterSpacing:".05em",
+      }}>{sub}</p>
+    )}
   </div>
 );
 
 // ─── SKELETON ────────────────────────────────────────────────────────────────
-const Sk = ({h=16,w="100%",r=8}) => (
-  <div style={{height:h,width:w,background:"#EEF4FF",borderRadius:r,animation:"shimmer 1.5s ease infinite"}}/>
+const Sk = ({ h = 16, w = "100%", r = 8 }) => (
+  <div style={{
+    height:h, width:w, background:"#EEF4FF",
+    borderRadius:r, animation:"shimmer 1.5s ease infinite",
+  }}/>
 );
 
 // ─── ERROR BANNER ────────────────────────────────────────────────────────────
-const ErrorBanner = ({msg,onRetry}) => (
-  <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",
-    background:"#FEF2F2",border:"1px solid #FCA5A5",borderRadius:12,marginBottom:16}}>
+const ErrorBanner = ({ msg, onRetry }) => (
+  <div style={{
+    display:"flex", alignItems:"center", gap:10, padding:"10px 16px",
+    background:"#FEF2F2", border:"1px solid #FCA5A5", borderRadius:12, marginBottom:16,
+  }}>
     <AlertCircle size={14} color="#EF4444"/>
-    <span style={{fontSize:11,color:"#B91C1C",flex:1}}>{msg}</span>
-    <button onClick={onRetry} style={{fontSize:10,color:"#3B82F6",background:"none",
-      border:"none",cursor:"pointer",fontWeight:700}}>Retry</button>
+    <span style={{ fontSize:11, color:"#B91C1C", flex:1 }}>{msg}</span>
+    <button onClick={onRetry} style={{
+      fontSize:10, color:"#3B82F6", background:"none",
+      border:"none", cursor:"pointer", fontWeight:700,
+    }}>Retry</button>
   </div>
 );
 
 // ─── SLIDE PANEL ─────────────────────────────────────────────────────────────
 const SlidePanel = ({ incident, onClose }) => {
   const isOpen = !!incident;
-
-  // Lock body scroll when panel open
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = isOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(10,31,68,0.45)",
-          backdropFilter: "blur(3px)",
-          zIndex: 90,
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          transition: "opacity 0.35s cubic-bezier(.4,0,.2,1)",
-        }}
-      />
-
-      {/* Panel */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: "50%",
-          minWidth: 480,
-          background: "linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
-          zIndex: 100,
-          boxShadow: "-8px 0 48px rgba(10,31,68,0.18)",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.38s cubic-bezier(.4,0,.2,1)",
-          overflowY: "auto",
-          overflowX: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Close strip at top-left of panel */}
+      <div onClick={onClose} style={{
+        position:"fixed", inset:0,
+        background:"rgba(10,31,68,0.45)", backdropFilter:"blur(3px)",
+        zIndex:90,
+        opacity:       isOpen ? 1 : 0,
+        pointerEvents: isOpen ? "auto" : "none",
+        transition:"opacity 0.35s cubic-bezier(.4,0,.2,1)",
+      }}/>
+      <div style={{
+        position:"fixed", top:0, right:0, bottom:0,
+        width:"50%", minWidth:480,
+        background:"linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
+        zIndex:100,
+        boxShadow:"-8px 0 48px rgba(10,31,68,0.18)",
+        transform:  isOpen ? "translateX(0)" : "translateX(100%)",
+        transition:"transform 0.38s cubic-bezier(.4,0,.2,1)",
+        overflowY:"auto", overflowX:"hidden",
+        display:"flex", flexDirection:"column",
+      }}>
         <button
           onClick={onClose}
           style={{
-            position: "sticky",
-            top: 12,
-            left: 16,
-            zIndex: 10,
-            alignSelf: "flex-start",
-            marginLeft: 16,
-            marginTop: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "7px 14px",
-            background: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(10px)",
-            border: "1.5px solid #E4EBF5",
-            borderRadius: 11,
-            fontSize: 12,
-            fontWeight: 700,
-            color: "#2563EB",
-            cursor: "pointer",
-            fontFamily: "'Sora','Helvetica Neue',sans-serif",
-            boxShadow: "0 2px 12px rgba(37,99,235,0.1)",
-            transition: "all .15s",
+            position:"sticky", top:12, left:16, zIndex:10,
+            alignSelf:"flex-start", marginLeft:16, marginTop:12,
+            display:"flex", alignItems:"center", gap:6,
+            padding:"7px 14px",
+            background:"rgba(255,255,255,0.92)", backdropFilter:"blur(10px)",
+            border:"1.5px solid #E4EBF5", borderRadius:11,
+            fontSize:12, fontWeight:700, color:"#2563EB",
+            cursor:"pointer", fontFamily:"'Sora','Helvetica Neue',sans-serif",
+            boxShadow:"0 2px 12px rgba(37,99,235,0.1)", transition:"all .15s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#DBEAFE"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.92)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#DBEAFE"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.92)"; }}
         >
-          <X size={13} /> Close Panel
+          <X size={13}/> Close Panel
         </button>
-
-        {/* Incident content rendered inside panel */}
         {incident && (
-          <div style={{ flex: 1 }}>
-            <IncidentDetailPage incidentProp={incident} panelMode />
+          <div style={{ flex:1 }}>
+            <IncidentDetailPage incidentProp={incident} panelMode/>
           </div>
         )}
       </div>
@@ -278,6 +320,8 @@ const SlidePanel = ({ incident, onClose }) => {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  MAIN DASHBOARD
+// ═════════════════════════════════════════════════════════════════════════════
 const DashboardMain = () => {
   const [emergencies, setEmergencies] = useState([]);
   const [teams,       setTeams]       = useState([]);
@@ -285,76 +329,100 @@ const DashboardMain = () => {
   const [categories,  setCategories]  = useState([]);
   const [search,      setSearch]      = useState("");
   const [range,       setRange]       = useState("weekly");
-  const [loading,     setLoading]     = useState({emergencies:true,teams:true,agencies:true,categories:true});
-  const [errors,      setErrors]      = useState({});
-  const [lastSync,    setLastSync]    = useState(null);
-  const [selected,    setSelected]    = useState(null);
+  const [loading,     setLoading]     = useState({
+    emergencies:true, teams:true, agencies:true, categories:true,
+  });
+  const [errors,   setErrors]   = useState({});
+  const [lastSync, setLastSync] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   // ── CATEGORY COLOR MAP ────────────────────────────────────────────────────
   const catColorMap = useMemo(() => {
-    if (categories.length===0) return {...FORCED_COLORS};
-    const map={}, used=new Set(Object.values(FORCED_COLORS));
-    let pi=0;
-    categories.forEach(cat=>{
-      const key=(cat.name||"").toLowerCase().trim().replace(/\s+/g,"_");
-      if (FORCED_COLORS[key]) { map[key]=FORCED_COLORS[key]; }
-      else if (cat.color&&!used.has(cat.color)) { map[key]=cat.color; used.add(cat.color); }
-      else {
-        while (pi<DEFAULT_PALETTE.length&&used.has(DEFAULT_PALETTE[pi])) pi++;
-        const c=DEFAULT_PALETTE[pi%DEFAULT_PALETTE.length]||"#94A3B8";
-        map[key]=c; used.add(c); pi++;
+    if (categories.length === 0) return { ...FORCED_COLORS };
+    const map = {}, used = new Set(Object.values(FORCED_COLORS));
+    let pi = 0;
+    categories.forEach((cat) => {
+      // getCatName→toEn ensures we always get the English string as the key
+      const enName = getCatName(cat);
+      const key    = enName.toLowerCase().trim().replace(/\s+/g, "_");
+      if (FORCED_COLORS[key]) {
+        map[key] = FORCED_COLORS[key];
+      } else if (cat.color && !used.has(cat.color)) {
+        map[key] = cat.color;
+        used.add(cat.color);
+      } else {
+        while (pi < DEFAULT_PALETTE.length && used.has(DEFAULT_PALETTE[pi])) pi++;
+        const c = DEFAULT_PALETTE[pi % DEFAULT_PALETTE.length] || "#94A3B8";
+        map[key] = c;
+        used.add(c);
+        pi++;
       }
     });
-    if (!map.other) map.other="#94A3B8";
+    if (!map.other) map.other = "#94A3B8";
     return map;
   }, [categories]);
 
   // ── FETCHERS ──────────────────────────────────────────────────────────────
-  const fetchEmergencies = useCallback(async()=>{
+  const fetchEmergencies = useCallback(async () => {
     try {
-      const {data}=await axios.get(`${API}/emergencies/admin/all`,{headers:authHdrs()});
-      if (data.success) setEmergencies(data.data||[]);
-      setErrors(p=>({...p,emergencies:null}));
-    } catch { setErrors(p=>({...p,emergencies:"Failed to load emergencies."})); }
-    finally  { setLoading(p=>({...p,emergencies:false})); }
-  },[]);
+      const { data } = await axios.get(`${API}/emergencies/admin/all`, { headers: authHdrs() });
+      if (data.success) setEmergencies(data.data || []);
+      setErrors((p) => ({ ...p, emergencies: null }));
+    } catch {
+      setErrors((p) => ({ ...p, emergencies: "Failed to load emergencies." }));
+    } finally {
+      setLoading((p) => ({ ...p, emergencies: false }));
+    }
+  }, []);
 
-  const fetchTeams = useCallback(async()=>{
+  const fetchTeams = useCallback(async () => {
     try {
-      const {data}=await axios.get(`${API}/responderTeam`,{headers:authHdrs()});
-      setTeams(Array.isArray(data)?data:(data.data||data.teams||[]));
-      setErrors(p=>({...p,teams:null}));
-    } catch { setErrors(p=>({...p,teams:"Failed to load teams."})); }
-    finally  { setLoading(p=>({...p,teams:false})); }
-  },[]);
+      const { data } = await axios.get(`${API}/responderTeam`, { headers: authHdrs() });
+      setTeams(Array.isArray(data) ? data : (data.data || data.teams || []));
+      setErrors((p) => ({ ...p, teams: null }));
+    } catch {
+      setErrors((p) => ({ ...p, teams: "Failed to load teams." }));
+    } finally {
+      setLoading((p) => ({ ...p, teams: false }));
+    }
+  }, []);
 
-  const fetchAgencies = useCallback(async()=>{
+  const fetchAgencies = useCallback(async () => {
     try {
-      const {data}=await axios.get(`${API}/agency`,{headers:authHdrs()});
-      setAgencies(Array.isArray(data)?data:(data.data||data.agencies||[]));
-      setErrors(p=>({...p,agencies:null}));
-    } catch { setErrors(p=>({...p,agencies:"Failed to load agencies."})); }
-    finally  { setLoading(p=>({...p,agencies:false})); }
-  },[]);
+      const { data } = await axios.get(`${API}/agency`, { headers: authHdrs() });
+      setAgencies(Array.isArray(data) ? data : (data.data || data.agencies || []));
+      setErrors((p) => ({ ...p, agencies: null }));
+    } catch {
+      setErrors((p) => ({ ...p, agencies: "Failed to load agencies." }));
+    } finally {
+      setLoading((p) => ({ ...p, agencies: false }));
+    }
+  }, []);
 
-  const fetchCategories = useCallback(async()=>{
+  const fetchCategories = useCallback(async () => {
     try {
-      const {data}=await axios.get(`${API}/category`,{headers:authHdrs()});
-      const list=Array.isArray(data)?data:(data.data||data.categories||[]);
+      const { data } = await axios.get(`${API}/categories`, { headers: authHdrs() });
+      const list = Array.isArray(data) ? data : (data.data || data.categories || []);
       setCategories(list);
-      setErrors(p=>({...p,categories:null}));
-    } catch { setErrors(p=>({...p,categories:"Using default categories."})); }
-    finally  { setLoading(p=>({...p,categories:false})); }
-  },[]);
+      setErrors((p) => ({ ...p, categories: null }));
+    } catch {
+      setErrors((p) => ({ ...p, categories: "Using default categories." }));
+    } finally {
+      setLoading((p) => ({ ...p, categories: false }));
+    }
+  }, []);
 
-  const fetchAll = useCallback(()=>{
+  const fetchAll = useCallback(() => {
     setLastSync(new Date());
-    fetchEmergencies(); fetchTeams(); fetchAgencies(); fetchCategories();
-  },[fetchEmergencies,fetchTeams,fetchAgencies,fetchCategories]);
+    fetchEmergencies();
+    fetchTeams();
+    fetchAgencies();
+    fetchCategories();
+  }, [fetchEmergencies, fetchTeams, fetchAgencies, fetchCategories]);
 
-  useEffect(()=>{
-    const style=document.createElement("style");
-    style.textContent=`
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap');
       @keyframes kpiIn   { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:none} }
       @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
@@ -370,55 +438,73 @@ const DashboardMain = () => {
     `;
     document.head.appendChild(style);
     fetchAll();
-    const id=setInterval(fetchAll,15000);
-    return ()=>{ clearInterval(id); document.head.removeChild(style); };
-  },[fetchAll]);
+    const id = setInterval(fetchAll, 15000);
+    return () => { clearInterval(id); document.head.removeChild(style); };
+  }, [fetchAll]);
 
   // ── DERIVED ───────────────────────────────────────────────────────────────
   const isLoadingAny = Object.values(loading).some(Boolean);
 
-  const stats = useMemo(()=>{
-    const total=emergencies.length;
-    const resolved=emergencies.filter(isResolved).length;
-    const resRate=total?((resolved/total)*100).toFixed(1):"0.0";
-    return {total,resolved,resRate};
-  },[emergencies]);
+  const stats = useMemo(() => {
+    const total    = emergencies.length;
+    const resolved = emergencies.filter(isResolved).length;
+    const resRate  = total ? ((resolved / total) * 100).toFixed(1) : "0.0";
+    return { total, resolved, resRate };
+  }, [emergencies]);
 
-  const catPie    = useMemo(()=>buildCategoryPie(emergencies,catColorMap),[emergencies,catColorMap]);
-  const chartData = useMemo(()=>buildTimeline(emergencies,range),[emergencies,range]);
+  const catPie    = useMemo(() => buildCategoryPie(emergencies, catColorMap), [emergencies, catColorMap]);
+  const chartData = useMemo(() => buildTimeline(emergencies, range),          [emergencies, range]);
 
-  const agencyRows = useMemo(()=>
-    agencies.slice(0,8).map((a,i)=>({
-      initials:getInitials(a.name), name:a.name,
-      role:a.agencyType?.name||a.type||"Response Agency",
-      active:i%4!==2, color:TEAM_COLORS[i%TEAM_COLORS.length],
-    })),[agencies]);
+  // toEn applied at memo-time so render code never touches raw bilingual objects
+  const agencyRows = useMemo(() =>
+    agencies.slice(0, 8).map((a, i) => {
+      const name = toEn(a.name) || "Unknown Agency";
+      const role = toEn(a.agencyType?.name) || toEn(a.type) || "Response Agency";
+      return {
+        initials: getInitials(name),
+        name,
+        role,
+        active: i % 4 !== 2,
+        color:  TEAM_COLORS[i % TEAM_COLORS.length],
+      };
+    }),
+  [agencies]);
 
-  const teamRows = useMemo(()=>
-    teams.slice(0,8).map((t,i)=>({
-      name:t.name,
-      deployed:t.crew?.length??t.crewCount??t.activeCount??0,
-      total:t.capacity??t.maxCrew??Math.max(t.crew?.length??0,t.crewCount??0,6),
-      color:TEAM_COLORS[i%TEAM_COLORS.length],
-    })),[teams]);
+  const teamRows = useMemo(() =>
+    teams.slice(0, 8).map((t, i) => ({
+      name:     toEn(t.name) || "Unknown Team",
+      deployed: t.crew?.length ?? t.crewCount ?? t.activeCount ?? 0,
+      total:    t.capacity ?? t.maxCrew ?? Math.max(t.crew?.length ?? 0, t.crewCount ?? 0, 6),
+      color:    TEAM_COLORS[i % TEAM_COLORS.length],
+    })),
+  [teams]);
 
-  const filtered = useMemo(()=>{
-    const q=search.toLowerCase();
-    const list=emergencies.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,12);
+  const filtered = useMemo(() => {
+    const q    = search.toLowerCase();
+    const list = emergencies
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 12);
     if (!q) return list;
-    return list.filter(r=>`${r.emergencyType?.name||r.emergencyType||""} ${r.category?.name||r.category||""} ${r.kebele?.name||r.kebele||""} ${r.reporterName||""}`.toLowerCase().includes(q));
-  },[emergencies,search]);
+    return list.filter((r) => {
+      const typeStr = toEn(r.emergencyType?.name) || toEn(r.emergencyType) || "";
+      const catStr  = getCatName(r.category);
+      const locStr  = toEn(r.kebele?.name) || toEn(r.kebele) || r.location || "";
+      const repStr  = r.reporterName || "";
+      return `${typeStr} ${catStr} ${locStr} ${repStr}`.toLowerCase().includes(q);
+    });
+  }, [emergencies, search]);
 
-  const getCatMeta = e=>{
-    const key=getCatKey(e), color=catColorMap[key]||"#64748B";
-    return {color, bg:color+"20", Icon:ICON_MAP[key]||Radio};
+  const getCatMeta = (e) => {
+    const key   = getCatKey(e);
+    const color = catColorMap[key] || "#64748B";
+    return { color, bg: color + "20", Icon: ICON_MAP[key] || Radio };
   };
 
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Slide Panel */}
-      <SlidePanel incident={selected} onClose={() => setSelected(null)} />
+      <SlidePanel incident={selected} onClose={() => setSelected(null)}/>
 
       <div style={{
         fontFamily:"'Syne',sans-serif",
@@ -437,102 +523,115 @@ const DashboardMain = () => {
         {errors.agencies     && <ErrorBanner msg={errors.agencies}    onRetry={fetchAgencies}/>}
 
         {/* ── TOP BAR ── */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:28}}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:28 }}>
           <div>
-            <div style={{fontSize:9.5,fontWeight:700,letterSpacing:".18em",color:"#3B82F6",
-              fontFamily:"'DM Mono',monospace",marginBottom:4,textTransform:"uppercase"}}>
-              ● Live Dashboard
-            </div>
-            <h1 style={{fontSize:24,fontWeight:800,color:"#0C1A3E",letterSpacing:"-.03em",lineHeight:1}}>
+            <div style={{
+              fontSize:9.5, fontWeight:700, letterSpacing:".18em", color:"#3B82F6",
+              fontFamily:"'DM Mono',monospace", marginBottom:4, textTransform:"uppercase",
+            }}>● Live Dashboard</div>
+            <h1 style={{ fontSize:24, fontWeight:800, color:"#0C1A3E", letterSpacing:"-.03em", lineHeight:1 }}>
               Emergency Control Center
             </h1>
-            <p style={{fontSize:11,color:"#94A3B8",marginTop:3,fontFamily:"'DM Mono',monospace"}}>
-              {lastSync ? `Last synced ${format(lastSync,"HH:mm:ss")}` : "Loading…"}
+            <p style={{ fontSize:11, color:"#94A3B8", marginTop:3, fontFamily:"'DM Mono',monospace" }}>
+              {lastSync ? `Last synced ${format(lastSync, "HH:mm:ss")}` : "Loading…"}
             </p>
           </div>
 
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {!loading.categories && categories.length>0 && (
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",maxWidth:440,justifyContent:"flex-end"}}>
-                {categories.slice(0,8).map((cat,i)=>{
-                  const key=(cat.name||"").toLowerCase().trim().replace(/\s+/g,"_");
-                  const color=catColorMap[key]||DEFAULT_PALETTE[i%DEFAULT_PALETTE.length];
-                  const Icon=ICON_MAP[key]||Radio;
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            {!loading.categories && categories.length > 0 && (
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap", maxWidth:440, justifyContent:"flex-end" }}>
+                {categories.slice(0, 8).map((cat, i) => {
+                  // Always resolve to English before rendering
+                  const catNameEn = getCatName(cat);
+                  const key       = catNameEn.toLowerCase().trim().replace(/\s+/g, "_");
+                  const color     = catColorMap[key] || DEFAULT_PALETTE[i % DEFAULT_PALETTE.length];
+                  const Icon      = ICON_MAP[key] || Radio;
                   return (
-                    <div key={cat.id||i} className="cat-pill" style={{
-                      display:"flex",alignItems:"center",gap:5,
-                      padding:"5px 11px", background:color+"15",
+                    <div key={cat.id || cat._id || i} className="cat-pill" style={{
+                      display:"flex", alignItems:"center", gap:5,
+                      padding:"5px 11px", background:color + "15",
                       border:`1.5px solid ${color}40`, borderRadius:8,
-                      fontSize:9,color,fontWeight:700,
+                      fontSize:9, color, fontWeight:700,
                       fontFamily:"'DM Mono',monospace",
-                      transition:"all .15s",cursor:"default",
+                      transition:"all .15s", cursor:"default",
                     }}>
-                      <div style={{width:6,height:6,borderRadius:"50%",background:color}}/>
+                      <div style={{ width:6, height:6, borderRadius:"50%", background:color }}/>
                       <Icon size={9} color={color}/>
-                      {cat.name}
+                      {/* English string — never the raw {en,am} object */}
+                      {catNameEn}
                     </div>
                   );
                 })}
               </div>
             )}
+
             <button className="rfrsh-btn" onClick={fetchAll} style={{
-              display:"flex",alignItems:"center",gap:6,padding:"8px 16px",
-              background:"#fff",border:"1.5px solid #DBEAFE",borderRadius:11,
-              fontSize:10,color:"#3B82F6",cursor:"pointer",
-              fontFamily:"'DM Mono',monospace",fontWeight:700,
-              transition:"all .15s",boxShadow:"0 2px 10px rgba(59,130,246,.08)",
+              display:"flex", alignItems:"center", gap:6, padding:"8px 16px",
+              background:"#fff", border:"1.5px solid #DBEAFE", borderRadius:11,
+              fontSize:10, color:"#3B82F6", cursor:"pointer",
+              fontFamily:"'DM Mono',monospace", fontWeight:700,
+              transition:"all .15s", boxShadow:"0 2px 10px rgba(59,130,246,.08)",
             }}>
-              <RefreshCw size={11} style={{animation:isLoadingAny?"spin 1s linear infinite":"none"}}/>
+              <RefreshCw size={11} style={{ animation: isLoadingAny ? "spin 1s linear infinite" : "none" }}/>
               REFRESH
             </button>
           </div>
         </div>
 
         {/* ── KPI ROW ── */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:24}}>
-          <KPICard label="TOTAL INCIDENTS" value={stats.total} sub="in database"
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:24 }}>
+          <KPICard
+            label="TOTAL INCIDENTS" value={stats.total} sub="in database"
             trend={`${stats.total} total`} trendUp={false} accent="#3B82F6"
-            icon={Activity} delay={0} loading={loading.emergencies}/>
-          <KPICard label="RESOLVED" value={stats.resolved} sub="successfully closed"
+            icon={Activity} delay={0} loading={loading.emergencies}
+          />
+          <KPICard
+            label="RESOLVED" value={stats.resolved} sub="successfully closed"
             trend={`${stats.resRate}% rate`} trendUp={false} accent="#10B981"
-            icon={CheckCircle2} delay={80} loading={loading.emergencies}/>
-          <KPICard label="RESPONDER TEAMS" value={teams.length} sub="total registered"
-            trend={`${teamRows.filter(t=>t.deployed>0).length} active`} trendUp={false}
-            accent="#6366F1" icon={Shield} delay={160} loading={loading.teams}/>
-          <KPICard label="AGENCIES" value={agencies.length} sub="registered"
-            trend={`${agencyRows.filter(a=>a.active).length} on duty`} trendUp={false}
-            accent="#F97316" icon={Users} delay={240} loading={loading.agencies}/>
+            icon={CheckCircle2} delay={80} loading={loading.emergencies}
+          />
+          <KPICard
+            label="RESPONDER TEAMS" value={teams.length} sub="total registered"
+            trend={`${teamRows.filter((t) => t.deployed > 0).length} active`} trendUp={false}
+            accent="#6366F1" icon={Shield} delay={160} loading={loading.teams}
+          />
+          <KPICard
+            label="AGENCIES" value={agencies.length} sub="registered"
+            trend={`${agencyRows.filter((a) => a.active).length} on duty`} trendUp={false}
+            accent="#F97316" icon={Users} delay={240} loading={loading.agencies}
+          />
         </div>
 
         {/* ── ROW 2: TIMELINE + DONUT ── */}
-        <div style={{display:"grid",gridTemplateColumns:"1.7fr 1fr",gap:18,marginBottom:18}}>
+        <div style={{ display:"grid", gridTemplateColumns:"1.7fr 1fr", gap:18, marginBottom:18 }}>
 
           {/* Timeline */}
           <div style={{
-            background:"#fff",borderRadius:22,padding:"26px 28px",
+            background:"#fff", borderRadius:22, padding:"26px 28px",
             border:"1px solid #DBEAFE",
             boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
             animation:"fadeUp .5s .1s ease both",
           }}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:22}}>
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:22 }}>
               <SectionHeader title="Incident Timeline" sub="Computed from real records"/>
-              <div style={{display:"flex",background:"#F0F6FF",borderRadius:11,padding:3,gap:2}}>
-                {["daily","weekly","monthly"].map(r=>(
-                  <button key={r} className="range-btn" onClick={()=>setRange(r)} style={{
-                    padding:"5px 13px",borderRadius:8,border:"none",cursor:"pointer",
-                    fontSize:9,fontWeight:700,letterSpacing:".1em",
-                    fontFamily:"'DM Mono',monospace",textTransform:"uppercase",
-                    background:range===r?"#3B82F6":"transparent",
-                    color:range===r?"#fff":"#64748B",
-                    boxShadow:range===r?"0 2px 8px rgba(59,130,246,.3)":"none",
+              <div style={{ display:"flex", background:"#F0F6FF", borderRadius:11, padding:3, gap:2 }}>
+                {["daily","weekly","monthly"].map((r) => (
+                  <button key={r} className="range-btn" onClick={() => setRange(r)} style={{
+                    padding:"5px 13px", borderRadius:8, border:"none", cursor:"pointer",
+                    fontSize:9, fontWeight:700, letterSpacing:".1em",
+                    fontFamily:"'DM Mono',monospace", textTransform:"uppercase",
+                    background:  range === r ? "#3B82F6" : "transparent",
+                    color:       range === r ? "#fff"    : "#64748B",
+                    boxShadow:   range === r ? "0 2px 8px rgba(59,130,246,.3)" : "none",
                     transition:"all .15s",
                   }}>{r}</button>
                 ))}
               </div>
             </div>
+
             {loading.emergencies ? (
-              <div style={{display:"flex",alignItems:"flex-end",gap:5,height:210,paddingBottom:8}}>
-                {[40,80,60,120,90,150,110,180,130,70,100,160].map((h,i)=>(
+              <div style={{ display:"flex", alignItems:"flex-end", gap:5, height:210, paddingBottom:8 }}>
+                {[40,80,60,120,90,150,110,180,130,70,100,160].map((h, i) => (
                   <Sk key={i} h={h} w="100%" r={4}/>
                 ))}
               </div>
@@ -541,21 +640,21 @@ const DashboardMain = () => {
                 <BarChart data={chartData} barSize={range==="monthly"?16:range==="weekly"?34:18}>
                   <defs>
                     <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3B82F6" stopOpacity={1}/>
+                      <stop offset="0%"   stopColor="#3B82F6" stopOpacity={1}/>
                       <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.85}/>
                     </linearGradient>
                     <linearGradient id="barGradLast" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#F97316" stopOpacity={1}/>
+                      <stop offset="0%"   stopColor="#F97316" stopOpacity={1}/>
                       <stop offset="100%" stopColor="#EA580C" stopOpacity={0.85}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EDF2FF" vertical={false}/>
-                  <XAxis dataKey="label" tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{fontSize:10,fill:"#94A3B8",fontFamily:"'DM Mono',monospace"}} axisLine={false} tickLine={false} width={26}/>
-                  <Tooltip content={<BlueTooltip/>} cursor={{fill:"rgba(59,130,246,0.05)",radius:6}}/>
+                  <XAxis dataKey="label" tick={{ fontSize:10, fill:"#94A3B8", fontFamily:"'DM Mono',monospace" }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize:10, fill:"#94A3B8", fontFamily:"'DM Mono',monospace" }} axisLine={false} tickLine={false} width={26}/>
+                  <Tooltip content={<BlueTooltip/>} cursor={{ fill:"rgba(59,130,246,0.05)", radius:6 }}/>
                   <Bar dataKey="count" name="Incidents" radius={[6,6,0,0]}>
-                    {chartData.map((_,i)=>(
-                      <Cell key={i} fill={i===chartData.length-1?"url(#barGradLast)":"url(#barGrad)"}/>
+                    {chartData.map((_, i) => (
+                      <Cell key={i} fill={i === chartData.length - 1 ? "url(#barGradLast)" : "url(#barGrad)"}/>
                     ))}
                   </Bar>
                 </BarChart>
@@ -563,53 +662,66 @@ const DashboardMain = () => {
             )}
           </div>
 
-          {/* Category Donut */}
+          {/* Category Donut — all labels are English via buildCategoryPie */}
           <div style={{
-            background:"#fff",borderRadius:22,padding:"26px 28px",
+            background:"#fff", borderRadius:22, padding:"26px 28px",
             border:"1px solid #DBEAFE",
             boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
             animation:"fadeUp .5s .2s ease both",
           }}>
             <SectionHeader title="By Category" sub={`${categories.length} categories`}/>
-            {loading.emergencies||loading.categories ? (
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {loading.emergencies || loading.categories ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 <Sk h={150} r={14}/>
-                {[1,2,3,4].map(i=><Sk key={i} h={14}/>)}
+                {[1,2,3,4].map((i) => <Sk key={i} h={14}/>)}
               </div>
-            ) : catPie.length===0 ? (
-              <div style={{textAlign:"center",color:"#94A3B8",paddingTop:60,fontSize:12}}>No data yet.</div>
+            ) : catPie.length === 0 ? (
+              <div style={{ textAlign:"center", color:"#94A3B8", paddingTop:60, fontSize:12 }}>No data yet.</div>
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={170}>
                   <PieChart>
-                    <Pie data={catPie} cx="50%" cy="50%" innerRadius={50} outerRadius={76}
-                      paddingAngle={3} dataKey="value" strokeWidth={3} stroke="#fff">
-                      {catPie.map((entry,i)=><Cell key={i} fill={entry.color}/>)}
+                    <Pie
+                      data={catPie} cx="50%" cy="50%"
+                      innerRadius={50} outerRadius={76}
+                      paddingAngle={3} dataKey="value"
+                      strokeWidth={3} stroke="#fff"
+                    >
+                      {catPie.map((entry, i) => <Cell key={i} fill={entry.color}/>)}
                     </Pie>
+                    {/* catPie[].name is always an English string */}
                     <Tooltip content={<BlueTooltip/>}/>
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
-                  {catPie.map((c,i)=>{
-                    const Icon=ICON_MAP[c.key]||Radio;
-                    const pct=catPie.length>0?Math.round((c.value/Math.max(...catPie.map(x=>x.value)))*100):0;
+
+                <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:6 }}>
+                  {catPie.map((c, i) => {
+                    const Icon = ICON_MAP[c.key] || Radio;
+                    const pct  = Math.round((c.value / Math.max(...catPie.map((x) => x.value))) * 100);
                     return (
-                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:7}}>
-                          <div style={{width:9,height:9,borderRadius:3,background:c.color,
-                            boxShadow:`0 0 0 2px ${c.color}30`,flexShrink:0}}/>
-                          <div style={{width:20,height:20,borderRadius:6,background:c.color+"20",
-                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                          <div style={{
+                            width:9, height:9, borderRadius:3, background:c.color,
+                            boxShadow:`0 0 0 2px ${c.color}30`, flexShrink:0,
+                          }}/>
+                          <div style={{
+                            width:20, height:20, borderRadius:6, background:c.color + "20",
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                          }}>
                             <Icon size={10} color={c.color}/>
                           </div>
-                          <span style={{fontSize:10.5,color:"#475569",fontWeight:600}}>{c.name}</span>
+                          {/* c.name is always English — built via getCatKey→toEn chain */}
+                          <span style={{ fontSize:10.5, color:"#475569", fontWeight:600 }}>{c.name}</span>
                         </div>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{width:44,height:5,borderRadius:3,background:"#EEF4FF",overflow:"hidden"}}>
-                            <div style={{width:`${pct}%`,height:"100%",background:c.color,borderRadius:3}}/>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <div style={{ width:44, height:5, borderRadius:3, background:"#EEF4FF", overflow:"hidden" }}>
+                            <div style={{ width:`${pct}%`, height:"100%", background:c.color, borderRadius:3 }}/>
                           </div>
-                          <span style={{fontSize:12,fontWeight:800,color:c.color,
-                            fontFamily:"'DM Mono',monospace",minWidth:18,textAlign:"right"}}>{c.value}</span>
+                          <span style={{
+                            fontSize:12, fontWeight:800, color:c.color,
+                            fontFamily:"'DM Mono',monospace", minWidth:18, textAlign:"right",
+                          }}>{c.value}</span>
                         </div>
                       </div>
                     );
@@ -621,80 +733,109 @@ const DashboardMain = () => {
         </div>
 
         {/* ── ROW 3: INCIDENTS + TEAMS + AGENCIES ── */}
-        <div style={{display:"grid",gridTemplateColumns:"1.55fr 1fr 0.85fr",gap:18}}>
+        <div style={{ display:"grid", gridTemplateColumns:"1.55fr 1fr 0.85fr", gap:18 }}>
 
-          {/* Incident list */}
+          {/* Recent Incidents — every visible string goes through toEn / getCatName */}
           <div style={{
-            background:"#fff",borderRadius:22,padding:"26px 28px",
+            background:"#fff", borderRadius:22, padding:"26px 28px",
             border:"1px solid #DBEAFE",
             boxShadow:"0 4px 32px rgba(59,130,246,0.07),0 1px 4px rgba(59,130,246,.04)",
             animation:"fadeUp .5s .28s ease both",
           }}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
               <SectionHeader title="Recent Incidents" sub="Click a row to view details"/>
-              <div style={{position:"relative"}}>
-                <Search size={12} color="#94A3B8" style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}/>
-                <input className="s-input" value={search} onChange={e=>setSearch(e.target.value)}
-                  placeholder="Search…" style={{
-                    paddingLeft:30,paddingRight:12,paddingTop:8,paddingBottom:8,
-                    background:"#F0F6FF",border:"1.5px solid #DBEAFE",borderRadius:11,
-                    fontSize:11,color:"#0F172A",fontFamily:"'DM Mono',monospace",
-                    width:160,transition:"all .2s",
-                  }}/>
+              <div style={{ position:"relative" }}>
+                <Search size={12} color="#94A3B8" style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)" }}/>
+                <input
+                  className="s-input"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  style={{
+                    paddingLeft:30, paddingRight:12, paddingTop:8, paddingBottom:8,
+                    background:"#F0F6FF", border:"1.5px solid #DBEAFE", borderRadius:11,
+                    fontSize:11, color:"#0F172A", fontFamily:"'DM Mono',monospace",
+                    width:160, transition:"all .2s",
+                  }}
+                />
               </div>
             </div>
 
             {loading.emergencies ? (
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {[1,2,3,4,5,6].map(i=><Sk key={i} h={56} r={13}/>)}
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {[1,2,3,4,5,6].map((i) => <Sk key={i} h={56} r={13}/>)}
               </div>
-            ) : filtered.length===0 ? (
-              <div style={{textAlign:"center",color:"#94A3B8",padding:"40px 0",fontSize:12}}>No incidents found.</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ textAlign:"center", color:"#94A3B8", padding:"40px 0", fontSize:12 }}>
+                No incidents found.
+              </div>
             ) : (
-              <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                {filtered.map(r=>{
-                  const {color,bg,Icon}=getCatMeta(r);
-                  const st=STATUS_META[getStatusKey(r)]||STATUS_META.reported;
-                  const loc=r.kebele?.name||r.kebele||r.location||"Unknown location";
-                  const type=r.emergencyType?.name||r.emergencyType||r.type||"Emergency";
+              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                {filtered.map((r) => {
+                  const { color, bg, Icon } = getCatMeta(r);
+                  const st = STATUS_META[getStatusKey(r)] || STATUS_META.reported;
+
+                  // All user-visible strings — English only, never raw objects
+                  const typeEn = toEn(r.emergencyType?.name) || toEn(r.emergencyType) || toEn(r.type) || "Emergency";
+                  const locEn  = toEn(r.kebele?.name) || toEn(r.kebele) || toEn(r.location) || "Unknown location";
+
+                  // Category badge: English slug title-cased
+                  const catSlug  = getCatKey(r);                         // e.g. "fire", "medical"
+                  const catLabel = catSlug.charAt(0).toUpperCase() + catSlug.slice(1).replace(/_/g, " ");
+
                   return (
                     <div
-                      key={r.id||r._id}
+                      key={r.id || r._id}
                       className="inc-row"
                       onClick={() => setSelected(r)}
                       style={{
-                        display:"flex",alignItems:"center",gap:12,padding:"11px 13px",
-                        background:"#FAFBFF",border:"1.5px solid #E8EFFE",borderRadius:13,
-                        cursor:"pointer",transition:"all .18s ease",
+                        display:"flex", alignItems:"center", gap:12, padding:"11px 13px",
+                        background:"#FAFBFF", border:"1.5px solid #E8EFFE", borderRadius:13,
+                        cursor:"pointer", transition:"all .18s ease",
                       }}
                     >
-                      <div style={{width:36,height:36,borderRadius:11,background:bg,
-                        border:`1.5px solid ${color}30`,display:"flex",alignItems:"center",
-                        justifyContent:"center",flexShrink:0}}>
+                      <div style={{
+                        width:36, height:36, borderRadius:11, background:bg,
+                        border:`1.5px solid ${color}30`,
+                        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                      }}>
                         <Icon size={16} color={color} strokeWidth={2}/>
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                          <div style={{fontSize:12,fontWeight:700,color:"#0F172A",
-                            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{type}</div>
-                          <div style={{fontSize:8,padding:"2px 6px",borderRadius:5,
-                            background:color+"18",color,fontWeight:700,
-                            fontFamily:"'DM Mono',monospace",flexShrink:0}}>
-                            {getCatKey(r).replace(/_/g," ")}
+
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                          {/* Emergency type — EN string */}
+                          <div style={{
+                            fontSize:12, fontWeight:700, color:"#0F172A",
+                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                          }}>{typeEn}</div>
+                          {/* Category pill — EN slug, title-cased */}
+                          <div style={{
+                            fontSize:8, padding:"2px 6px", borderRadius:5,
+                            background:color + "18", color, fontWeight:700,
+                            fontFamily:"'DM Mono',monospace", flexShrink:0,
+                          }}>
+                            {catLabel}
                           </div>
                         </div>
-                        <div style={{fontSize:10,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{loc}</div>
+                        {/* Location — EN string */}
+                        <div style={{ fontSize:10, color:"#94A3B8", fontFamily:"'DM Mono',monospace" }}>{locEn}</div>
                       </div>
-                      <div style={{fontSize:9,color:"#CBD5E1",fontFamily:"'DM Mono',monospace",
-                        whiteSpace:"nowrap",flexShrink:0}}>
-                        {formatDistanceToNow(new Date(r.createdAt),{addSuffix:true})}
+
+                      <div style={{
+                        fontSize:9, color:"#CBD5E1", fontFamily:"'DM Mono',monospace",
+                        whiteSpace:"nowrap", flexShrink:0,
+                      }}>
+                        {formatDistanceToNow(new Date(r.createdAt), { addSuffix:true })}
                       </div>
+
                       <span style={{
-                        fontSize:8,fontWeight:700,padding:"3px 9px",borderRadius:6,
-                        background:st.bg,color:st.color,border:`1px solid ${st.border}`,
-                        letterSpacing:".08em",fontFamily:"'DM Mono',monospace",flexShrink:0,
+                        fontSize:8, fontWeight:700, padding:"3px 9px", borderRadius:6,
+                        background:st.bg, color:st.color, border:`1px solid ${st.border}`,
+                        letterSpacing:".08em", fontFamily:"'DM Mono',monospace", flexShrink:0,
                       }}>{st.label.toUpperCase()}</span>
-                      <ChevronRight size={13} color="#CBD5E1" style={{flexShrink:0}}/>
+
+                      <ChevronRight size={13} color="#CBD5E1" style={{ flexShrink:0 }}/>
                     </div>
                   );
                 })}
@@ -704,47 +845,56 @@ const DashboardMain = () => {
 
           {/* Responder Teams */}
           <div style={{
-            background:"#fff",borderRadius:22,padding:"26px 28px",
+            background:"#fff", borderRadius:22, padding:"26px 28px",
             border:"1px solid #DBEAFE",
             boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
             animation:"fadeUp .5s .36s ease both",
           }}>
             <SectionHeader title="Responder Teams" sub={`${teams.length} teams total`}/>
             {loading.teams ? (
-              <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                {[1,2,3,4,5].map(i=><Sk key={i} h={38} r={10}/>)}
+              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                {[1,2,3,4,5].map((i) => <Sk key={i} h={38} r={10}/>)}
               </div>
-            ) : teamRows.length===0 ? (
-              <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No teams registered.</div>
+            ) : teamRows.length === 0 ? (
+              <div style={{ textAlign:"center", color:"#94A3B8", padding:"32px 0", fontSize:12 }}>
+                No teams registered.
+              </div>
             ) : (
-              <div style={{display:"flex",flexDirection:"column",gap:16}}>
-                {teamRows.map((t,i)=>{
-                  const pct=t.total>0?Math.min(100,Math.round((t.deployed/t.total)*100)):0;
-                  const load=pct>=75?"HIGH":pct>=40?"MOD":"FREE";
-                  const loadColor=pct>=75?"#EF4444":pct>=40?"#F59E0B":"#10B981";
+              <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                {teamRows.map((t, i) => {
+                  const pct       = t.total > 0 ? Math.min(100, Math.round((t.deployed / t.total) * 100)) : 0;
+                  const load      = pct >= 75 ? "HIGH" : pct >= 40 ? "MOD" : "FREE";
+                  const loadColor = pct >= 75 ? "#EF4444" : pct >= 40 ? "#F59E0B" : "#10B981";
                   return (
-                    <div key={i} className="team-row" style={{
-                      padding:"10px 12px",borderRadius:12,transition:"background .15s",
-                    }}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{width:26,height:26,borderRadius:8,background:t.color+"18",
-                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <div key={i} className="team-row" style={{ padding:"10px 12px", borderRadius:12, transition:"background .15s" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <div style={{
+                            width:26, height:26, borderRadius:8, background:t.color + "18",
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                          }}>
                             <Shield size={12} color={t.color} strokeWidth={2.5}/>
                           </div>
-                          <span style={{fontSize:11,fontWeight:700,color:"#1E293B",
-                            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:110}}>{t.name}</span>
+                          {/* t.name already toEn'd in teamRows memo */}
+                          <span style={{
+                            fontSize:11, fontWeight:700, color:"#1E293B",
+                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:110,
+                          }}>{t.name}</span>
                         </div>
-                        <span style={{fontSize:9,color:"#94A3B8",fontFamily:"'DM Mono',monospace"}}>{t.deployed}/{t.total}</span>
+                        <span style={{ fontSize:9, color:"#94A3B8", fontFamily:"'DM Mono',monospace" }}>
+                          {t.deployed}/{t.total}
+                        </span>
                       </div>
-                      <div style={{height:6,background:"#EEF4FF",borderRadius:4,overflow:"hidden"}}>
-                        <div style={{width:`${pct}%`,height:"100%",
+                      <div style={{ height:6, background:"#EEF4FF", borderRadius:4, overflow:"hidden" }}>
+                        <div style={{
+                          width:`${pct}%`, height:"100%",
                           background:`linear-gradient(90deg,${t.color},${t.color}bb)`,
-                          borderRadius:4,transition:"width .8s ease"}}/>
+                          borderRadius:4, transition:"width .8s ease",
+                        }}/>
                       </div>
-                      <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-                        <span style={{fontSize:8,color:loadColor,fontFamily:"'DM Mono',monospace",fontWeight:700}}>{load}</span>
-                        <span style={{fontSize:8,fontWeight:800,color:t.color,fontFamily:"'DM Mono',monospace"}}>{pct}%</span>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                        <span style={{ fontSize:8, color:loadColor, fontFamily:"'DM Mono',monospace", fontWeight:700 }}>{load}</span>
+                        <span style={{ fontSize:8, fontWeight:800, color:t.color, fontFamily:"'DM Mono',monospace" }}>{pct}%</span>
                       </div>
                     </div>
                   );
@@ -755,42 +905,51 @@ const DashboardMain = () => {
 
           {/* Agencies */}
           <div style={{
-            background:"#fff",borderRadius:22,padding:"26px 28px",
+            background:"#fff", borderRadius:22, padding:"26px 28px",
             border:"1px solid #DBEAFE",
             boxShadow:"0 4px 32px rgba(59,130,246,0.07)",
             animation:"fadeUp .5s .44s ease both",
-            display:"flex",flexDirection:"column",
+            display:"flex", flexDirection:"column",
           }}>
             <SectionHeader title="Agencies" sub={`${agencies.length} registered`}/>
             {loading.agencies ? (
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {[1,2,3,4,5].map(i=><Sk key={i} h={44} r={12}/>)}
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {[1,2,3,4,5].map((i) => <Sk key={i} h={44} r={12}/>)}
               </div>
-            ) : agencyRows.length===0 ? (
-              <div style={{textAlign:"center",color:"#94A3B8",padding:"32px 0",fontSize:12}}>No agencies found.</div>
+            ) : agencyRows.length === 0 ? (
+              <div style={{ textAlign:"center", color:"#94A3B8", padding:"32px 0", fontSize:12 }}>
+                No agencies found.
+              </div>
             ) : (
-              <div style={{display:"flex",flexDirection:"column",gap:7,flex:1}}>
-                {agencyRows.map((a,i)=>(
+              <div style={{ display:"flex", flexDirection:"column", gap:7, flex:1 }}>
+                {agencyRows.map((a, i) => (
                   <div key={i} className="agency-row" style={{
-                    display:"flex",alignItems:"center",gap:10,padding:"9px 11px",
-                    background:"#F8FAFF",borderRadius:12,
-                    border:"1px solid #E8EFFE",transition:"all .15s",
+                    display:"flex", alignItems:"center", gap:10, padding:"9px 11px",
+                    background:"#F8FAFF", borderRadius:12,
+                    border:"1px solid #E8EFFE", transition:"all .15s",
                   }}>
-                    <div style={{width:32,height:32,borderRadius:"50%",background:`${a.color}18`,
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:10,fontWeight:800,color:a.color,flexShrink:0,
-                      border:`1.5px solid ${a.color}30`}}>
-                      {a.initials}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"#0F172A",
-                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</div>
-                      <div style={{fontSize:8.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{a.role}</div>
+                    <div style={{
+                      width:32, height:32, borderRadius:"50%", background:`${a.color}18`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:10, fontWeight:800, color:a.color, flexShrink:0,
+                      border:`1.5px solid ${a.color}30`,
+                    }}>{a.initials}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      {/* a.name and a.role already toEn'd in agencyRows memo */}
+                      <div style={{
+                        fontSize:11, fontWeight:700, color:"#0F172A",
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                      }}>{a.name}</div>
+                      <div style={{ fontSize:8.5, color:"#94A3B8", fontFamily:"'DM Mono',monospace", marginTop:1 }}>
+                        {a.role}
+                      </div>
                     </div>
                     <div style={{
-                      width:8,height:8,borderRadius:"50%",flexShrink:0,
-                      background:a.active?"#10B981":"#F59E0B",
-                      boxShadow:a.active?"0 0 0 3px rgba(16,185,129,0.2)":"0 0 0 3px rgba(245,158,11,0.2)",
+                      width:8, height:8, borderRadius:"50%", flexShrink:0,
+                      background:  a.active ? "#10B981" : "#F59E0B",
+                      boxShadow:   a.active
+                        ? "0 0 0 3px rgba(16,185,129,0.2)"
+                        : "0 0 0 3px rgba(245,158,11,0.2)",
                     }}/>
                   </div>
                 ))}
@@ -799,22 +958,24 @@ const DashboardMain = () => {
 
             {/* Summary box */}
             <div style={{
-              marginTop:16,padding:"14px 16px",
+              marginTop:16, padding:"14px 16px",
               background:"linear-gradient(135deg,#EFF6FF,#DBEAFE)",
-              borderRadius:14,border:"1px solid #BFDBFE",
+              borderRadius:14, border:"1px solid #BFDBFE",
             }}>
-              <div style={{fontSize:9,color:"#1D4ED8",fontFamily:"'DM Mono',monospace",
-                letterSpacing:".12em",marginBottom:10,fontWeight:700}}>NETWORK SUMMARY</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div style={{
+                fontSize:9, color:"#1D4ED8", fontFamily:"'DM Mono',monospace",
+                letterSpacing:".12em", marginBottom:10, fontWeight:700,
+              }}>NETWORK SUMMARY</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                 {[
-                  {val:agencies.length, lbl:"AGENCIES", color:"#1D4ED8"},
-                  {val:teams.length,    lbl:"TEAMS",    color:"#0F172A"},
-                  {val:stats.total,     lbl:"INCIDENTS",color:"#3B82F6"},
-                  {val:stats.resolved,  lbl:"RESOLVED", color:"#10B981"},
-                ].map((s,i)=>(
-                  <div key={i} style={{background:"rgba(255,255,255,.7)",borderRadius:9,padding:"8px 10px"}}>
-                    <div style={{fontSize:18,fontWeight:800,color:s.color,letterSpacing:"-.02em"}}>{s.val}</div>
-                    <div style={{fontSize:7.5,color:"#94A3B8",fontFamily:"'DM Mono',monospace",marginTop:1}}>{s.lbl}</div>
+                  { val:agencies.length, lbl:"AGENCIES",  color:"#1D4ED8" },
+                  { val:teams.length,    lbl:"TEAMS",     color:"#0F172A" },
+                  { val:stats.total,     lbl:"INCIDENTS", color:"#3B82F6" },
+                  { val:stats.resolved,  lbl:"RESOLVED",  color:"#10B981" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background:"rgba(255,255,255,.7)", borderRadius:9, padding:"8px 10px" }}>
+                    <div style={{ fontSize:18, fontWeight:800, color:s.color, letterSpacing:"-.02em" }}>{s.val}</div>
+                    <div style={{ fontSize:7.5, color:"#94A3B8", fontFamily:"'DM Mono',monospace", marginTop:1 }}>{s.lbl}</div>
                   </div>
                 ))}
               </div>

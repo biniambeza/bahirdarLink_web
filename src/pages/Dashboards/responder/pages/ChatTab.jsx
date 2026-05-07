@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect, useMemo, useRef, useState, useCallback,
+} from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
 import {
@@ -7,10 +9,8 @@ import {
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Cross-platform WebRTC / media helpers
+   Audio unlock (iOS Safari requires user-gesture before AudioContext)
 ───────────────────────────────────────────────────────────────────────────── */
-
-/** iOS Safari requires a user-gesture unlock for AudioContext */
 let _audioUnlocked = false;
 function unlockAudioContext() {
   if (_audioUnlocked) return;
@@ -26,27 +26,20 @@ function unlockAudioContext() {
   } catch (_) {}
 }
 
-/**
- * getUserMedia with progressive fallback:
- *   1. video+audio (HD preferred)
- *   2. video+audio (basic VGA)
- *   3. audio only
- * Handles iOS Safari's strict getUserMedia constraints.
- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   getUserMedia with progressive fallback (iOS Safari safe)
+───────────────────────────────────────────────────────────────────────────── */
 async function getLocalStream() {
   const attempts = [
     { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: true },
-    { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
+    { video: { width: { ideal: 640  }, height: { ideal: 480  } }, audio: true },
     { video: true, audio: true },
     { video: false, audio: true },
   ];
   let lastErr;
   for (const constraints of attempts) {
-    try {
-      return await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (e) {
-      lastErr = e;
-    }
+    try { return await navigator.mediaDevices.getUserMedia(constraints); }
+    catch (e) { lastErr = e; }
   }
   throw lastErr;
 }
@@ -57,33 +50,34 @@ const STUN_SERVERS = [
   { urls: "stun:stun2.l.google.com:19302" },
 ];
 
-/** Safely play a video element — iOS requires muted + playsInline for autoplay */
-async function safePlay(videoEl) {
-  if (!videoEl) return;
-  try { await videoEl.play(); } catch (_) {}
+async function safePlay(el) {
+  if (!el) return;
+  try { await el.play(); } catch (_) {}
 }
 
-/** Attach a MediaStream to a <video> element, handling already-assigned cases */
-function attachStream(videoEl, stream) {
-  if (!videoEl || !stream) return;
-  if (videoEl.srcObject !== stream) {
-    videoEl.srcObject = stream;
-  }
-  safePlay(videoEl);
+function attachStream(el, stream) {
+  if (!el || !stream) return;
+  if (el.srcObject !== stream) el.srcObject = stream;
+  safePlay(el);
 }
 
 const sdpPayload = (desc) =>
   desc && "sdp" in desc ? { type: desc.type, sdp: desc.sdp } : desc;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   ChatTab component
+   Stable message ID extractor
+───────────────────────────────────────────────────────────────────────────── */
+const getMsgId = (m) => m?._id ?? m?.id ?? null;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ChatTab
 ───────────────────────────────────────────────────────────────────────────── */
 export default function ChatTab({
   emergencyId,
   token,
   apiBaseUrl = "http://localhost:5000",
 }) {
-  /* ── chat state ── */
+  /* ── chat ── */
   const [status,           setStatus]           = useState("idle");
   const [error,            setError]            = useState("");
   const [messages,         setMessages]         = useState([]);
@@ -93,33 +87,36 @@ export default function ChatTab({
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [playingKey,       setPlayingKey]       = useState(null);
 
-  /* ── call state ── */
+  /* ── call ── */
   const [isCallOpen,     setIsCallOpen]     = useState(false);
   const [callStatus,     setCallStatus]     = useState("idle");
   const [reporterUserId, setReporterUserId] = useState(null);
 
-  /* ── refs: DOM ── */
-  const listRef       = useRef(null);
-  const inputRef      = useRef(null);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef= useRef(null);
+  /* ── DOM refs ── */
+  const listRef        = useRef(null);
+  const inputRef       = useRef(null);
+  const localVideoRef  = useRef(null);
+  const remoteVideoRef = useRef(null);
 
-  /* ── refs: socket / recorder ── */
+  /* ── socket / recorder refs ── */
   const socketRef        = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordTimerRef   = useRef(null);
   const mountedRef       = useRef(true);
 
-  /* ── refs: WebRTC ── */
-  const pcRef              = useRef(null);
-  const localStreamRef     = useRef(null);
-  const remoteStreamRef    = useRef(null);
-  const isInitiatorRef     = useRef(false);
-  const peerSocketIdRef    = useRef(null);
-  const reporterUserIdRef  = useRef(null);
-  const offerSentRef       = useRef(false);
-  const emergencyIdRef     = useRef(emergencyId);
-  const pendingIceRef      = useRef([]);
+  /* ── dedup: track every message ID we've already shown ── */
+  const seenIdsRef = useRef(new Set());
+
+  /* ── WebRTC refs ── */
+  const pcRef             = useRef(null);
+  const localStreamRef    = useRef(null);
+  const remoteStreamRef   = useRef(null);
+  const isInitiatorRef    = useRef(false);
+  const peerSocketIdRef   = useRef(null);
+  const reporterUserIdRef = useRef(null);
+  const offerSentRef      = useRef(false);
+  const emergencyIdRef    = useRef(emergencyId);
+  const pendingIceRef     = useRef([]);
 
   useEffect(() => { emergencyIdRef.current = emergencyId; }, [emergencyId]);
 
@@ -138,7 +135,7 @@ export default function ChatTab({
       listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, isRecording]);
 
-  /* ── re-attach video when overlay mounts (React batching safety) ── */
+  /* ── re-attach video when overlay opens ── */
   useEffect(() => {
     if (!isCallOpen) return;
     const id = setTimeout(() => {
@@ -156,18 +153,12 @@ export default function ChatTab({
     attachStream(localVideoRef.current,  localStreamRef.current);
   }, []);
 
-  /**
-   * Create (or return existing) RTCPeerConnection.
-   * Acquires local media if not already done.
-   * Safe to call multiple times.
-   */
   const ensurePeerConnection = useCallback(async (socket) => {
     if (pcRef.current) return pcRef.current;
 
     const pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
     remoteStreamRef.current = new MediaStream();
 
-    /* ontrack — handles both unified-plan and plan-b (older browsers) */
     pc.ontrack = (event) => {
       const rs = remoteStreamRef.current;
       if (!rs) return;
@@ -177,7 +168,6 @@ export default function ChatTab({
       tracks.forEach((t) => {
         if (!rs.getTracks().find((e) => e.id === t.id)) rs.addTrack(t);
       });
-      /* iOS: remote stream may arrive before overlay is mounted; retry */
       attachVideoElements();
       setTimeout(attachVideoElements, 100);
       setTimeout(attachVideoElements, 400);
@@ -196,31 +186,26 @@ export default function ChatTab({
       });
     };
 
-    /* iOS Safari sometimes uses "checking" before connected */
     pc.oniceconnectionstatechange = () => {
       if (!mountedRef.current) return;
-      const state = pc.iceConnectionState;
-      if (state === "connected" || state === "completed") setCallStatus("in-call");
-      if (state === "failed")       setCallStatus("failed");
-      if (state === "disconnected") setCallStatus("disconnected");
+      const st = pc.iceConnectionState;
+      if (st === "connected" || st === "completed") setCallStatus("in-call");
+      if (st === "failed")       setCallStatus("failed");
+      if (st === "disconnected") setCallStatus("disconnected");
     };
 
     pc.onconnectionstatechange = () => {
       if (!mountedRef.current) return;
-      const state = pc.connectionState;
-      if (state === "connected")    setCallStatus("in-call");
-      if (state === "failed")       setCallStatus("failed");
-      if (state === "disconnected") setCallStatus("disconnected");
+      const st = pc.connectionState;
+      if (st === "connected")    setCallStatus("in-call");
+      if (st === "failed")       setCallStatus("failed");
+      if (st === "disconnected") setCallStatus("disconnected");
     };
 
-    /* Acquire local media (with iOS-safe fallback chain) */
-    if (!localStreamRef.current) {
+    if (!localStreamRef.current)
       localStreamRef.current = await getLocalStream();
-    }
 
-    /* Wire local preview */
     attachStream(localVideoRef.current, localStreamRef.current);
-
     localStreamRef.current
       .getTracks()
       .forEach((track) => pc.addTrack(track, localStreamRef.current));
@@ -229,13 +214,12 @@ export default function ChatTab({
     return pc;
   }, [attachVideoElements]);
 
-  /* ── cleanup ── */
   const cleanupCallRefsOnly = useCallback(({ skipState = false } = {}) => {
-    isInitiatorRef.current   = false;
-    offerSentRef.current     = false;
-    peerSocketIdRef.current  = null;
-    reporterUserIdRef.current= null;
-    pendingIceRef.current    = [];
+    isInitiatorRef.current    = false;
+    offerSentRef.current      = false;
+    peerSocketIdRef.current   = null;
+    reporterUserIdRef.current = null;
+    pendingIceRef.current     = [];
 
     try { pcRef.current?.getSenders?.().forEach((s) => s.track?.stop()); } catch (_) {}
     try { pcRef.current?.close?.(); } catch (_) {}
@@ -263,7 +247,7 @@ export default function ChatTab({
   }, [cleanupCallRefsOnly]);
 
   /* ─────────────────────────────────────────────────────────────────────────
-     Socket + signalling (main effect)
+     Main socket + signalling effect
   ───────────────────────────────────────────────────────────────────────── */
   useEffect(() => {
     mountedRef.current = true;
@@ -273,13 +257,17 @@ export default function ChatTab({
       try {
         setStatus("connecting");
         await api.post("/api/message/init", { emergencyId });
+
         const history = await api.get(`/api/message/${emergencyId}`);
-        if (mountedRef.current) setMessages(history.data?.data || []);
+        if (mountedRef.current) {
+          const msgs = history.data?.data || [];
+          /* Seed the dedup set so socket echoes of history are silently dropped */
+          seenIdsRef.current = new Set(msgs.map(getMsgId).filter(Boolean));
+          setMessages(msgs);
+        }
 
         const s = io(apiBaseUrl, {
-          auth: {
-            token: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
-          },
+          auth: { token: token.startsWith("Bearer ") ? token : `Bearer ${token}` },
           transports: ["websocket"],
           reconnection: true,
           reconnectionAttempts: 5,
@@ -289,8 +277,19 @@ export default function ChatTab({
 
         s.on("connect",    () => { s.emit("chat:join", { emergencyId }); if (mountedRef.current) setStatus("ready"); });
         s.on("disconnect", () => { if (mountedRef.current) setStatus("idle"); });
-        s.on("chat:new",   (msg) => { if (mountedRef.current) setMessages((p) => [...p, msg]); });
 
+        /* ── Dedup by message ID — covers text, audio, and every future type ── */
+        s.on("chat:new", (msg) => {
+          if (!mountedRef.current) return;
+          const id = getMsgId(msg);
+          if (id) {
+            if (seenIdsRef.current.has(id)) return; // already shown
+            seenIdsRef.current.add(id);
+          }
+          setMessages((prev) => [...prev, msg]);
+        });
+
+        /* ── Call signalling ── */
         s.on("call:initiated", (p) => {
           if (!mountedRef.current) return;
           const rid = p?.reporterUserId ?? p?.toUserId;
@@ -343,7 +342,6 @@ export default function ChatTab({
               try { await pc.addIceCandidate(cand); } catch (_) {}
             }
             pendingIceRef.current = [];
-            /* iOS: attach video again after answer is applied */
             setTimeout(attachVideoElements, 200);
             if (mountedRef.current) setCallStatus("in-call");
           } catch (err) {
@@ -377,7 +375,7 @@ export default function ChatTab({
         };
         s.on("call:hangup",    endFromRemote);
         s.on("call:peer-left", endFromRemote);
-        s.on("call:error",     (p) => {
+        s.on("call:error", (p) => {
           if (!mountedRef.current) return;
           setError(p?.message || "Call error");
           cleanupCallRefsOnly({ skipState: false });
@@ -387,7 +385,10 @@ export default function ChatTab({
 
       } catch (err) {
         console.error("init failed:", err);
-        if (mountedRef.current) { setStatus("error"); setError("Connection failed — please reload"); }
+        if (mountedRef.current) {
+          setStatus("error");
+          setError("Connection failed — please reload");
+        }
       }
     };
 
@@ -405,13 +406,14 @@ export default function ChatTab({
      Chat actions
   ───────────────────────────────────────────────────────────────────────── */
   const handleSend = useCallback(() => {
-    if (!text.trim() || status !== "ready") return;
-    socketRef.current?.emit("chat:send", { emergencyId, text: text.trim() });
+    const trimmed = text.trim();
+    if (!trimmed || status !== "ready") return;
+    socketRef.current?.emit("chat:send", { emergencyId, text: trimmed });
     setText("");
   }, [text, status, emergencyId]);
 
   const toggleRecording = useCallback(async () => {
-    unlockAudioContext(); /* iOS audio unlock */
+    unlockAudioContext();
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
@@ -464,11 +466,10 @@ export default function ChatTab({
   const startVideoCall = useCallback(async () => {
     const s = socketRef.current;
     if (!s || status !== "ready") return;
-    unlockAudioContext(); /* iOS user-gesture unlock */
+    unlockAudioContext();
 
     try {
       setError("");
-      /* Open overlay FIRST so <video> elements exist in DOM before PC is created */
       setIsCallOpen(true);
       setCallStatus("starting");
       isInitiatorRef.current  = true;
@@ -476,9 +477,7 @@ export default function ChatTab({
       peerSocketIdRef.current = null;
       pendingIceRef.current   = [];
 
-      /* Yield to React so overlay DOM flushes */
       await new Promise((r) => setTimeout(r, 80));
-
       await ensurePeerConnection(s);
 
       s.emit("call:initiate", { emergencyId });
@@ -499,8 +498,8 @@ export default function ChatTab({
     const target = peerSocketIdRef.current;
     const rid    = reporterUserIdRef.current;
     const payload = { emergencyId };
-    if (target)           payload.toSocketId  = target;
-    else if (rid != null) payload.toIdentity  = { senderType: "user", id: Number(rid) };
+    if (target)           payload.toSocketId = target;
+    else if (rid != null) payload.toIdentity = { senderType: "user", id: Number(rid) };
     s?.emit("call:hangup", payload);
     cleanupCall();
   }, [emergencyId, cleanupCall]);
@@ -519,10 +518,11 @@ export default function ChatTab({
      Render
   ───────────────────────────────────────────────────────────────────────── */
   return (
-    <div className="relative flex flex-col h-full w-full overflow-hidden"
-         style={{ background: "#EEF2F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+    <div
+      className="relative flex flex-col h-full w-full overflow-hidden"
+      style={{ background: "#EEF2F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
+    >
+      {/* ── Header ── */}
       <header style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 16px",
@@ -557,6 +557,7 @@ export default function ChatTab({
             </div>
           </div>
         </div>
+
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={startVideoCall}
@@ -589,18 +590,13 @@ export default function ChatTab({
         </div>
       </header>
 
-      {/* ── Video call overlay ───────────────────────────────────────────────
-          NOTE: overlay is always in the DOM tree when isCallOpen=true so that
-          <video> refs (localVideoRef / remoteVideoRef) are available before
-          ensurePeerConnection is called. This is critical for iOS/Android.
-      ── */}
+      {/* ── Video call overlay ── */}
       {isCallOpen && (
         <div style={{
           position: "absolute", inset: 0, zIndex: 50,
           background: "rgba(8,12,24,.93)",
           display: "flex", flexDirection: "column",
         }}>
-          {/* Call header */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "14px 16px",
@@ -642,29 +638,21 @@ export default function ChatTab({
             </button>
           </div>
 
-          {/* Video grid — responsive: stacked on mobile, side-by-side on wider */}
           <div style={{
             flex: 1, display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
             gap: 10, padding: 14, alignContent: "start",
           }}>
-            {/* Remote — Flutter / reporter */}
+            {/* Remote — reporter */}
             <div style={{
               position: "relative", borderRadius: 14,
               overflow: "hidden", background: "#0d1a2e",
               aspectRatio: "4/3", display: "flex",
               alignItems: "center", justifyContent: "center",
             }}>
-              {/*
-                autoPlay + playsInline + muted (only on local) are required for
-                mobile autoplay policies. Remote video is NOT muted.
-                Controls={false} prevents iOS showing native controls overlay.
-              */}
               <video
                 ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                controls={false}
+                autoPlay playsInline controls={false}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
               <span style={{
@@ -694,16 +682,9 @@ export default function ChatTab({
               overflow: "hidden", background: "#0d1a2e",
               aspectRatio: "4/3",
             }}>
-              {/*
-                muted is REQUIRED on the local video to prevent audio feedback.
-                playsInline prevents fullscreen on iOS tap.
-              */}
               <video
                 ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                controls={false}
+                autoPlay muted playsInline controls={false}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
               <span style={{
@@ -716,14 +697,14 @@ export default function ChatTab({
         </div>
       )}
 
-      {/* ── Message list ─────────────────────────────────────────────────── */}
+      {/* ── Message list ── */}
       <div
         ref={listRef}
         style={{
           flex: 1, overflowY: "auto",
           padding: "16px 12px",
           display: "flex", flexDirection: "column", gap: 10,
-          WebkitOverflowScrolling: "touch", /* smooth iOS momentum scroll */
+          WebkitOverflowScrolling: "touch",
         }}
       >
         {messages.length === 0 && status === "ready" && (
@@ -738,7 +719,7 @@ export default function ChatTab({
         {messages.map((m, i) => {
           const isMine = m.senderType === "responderTeam";
           return (
-            <div key={i} style={{
+            <div key={getMsgId(m) ?? i} style={{
               display: "flex",
               justifyContent: isMine ? "flex-end" : "flex-start",
             }}>
@@ -761,7 +742,7 @@ export default function ChatTab({
                     onTogglePlay={() => setPlayingKey(playingKey === i ? null : i)}
                   />
                 ) : (
-                  <p style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>
+                  <p style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", margin: 0 }}>
                     {m.text}
                   </p>
                 )}
@@ -772,7 +753,7 @@ export default function ChatTab({
                   <span style={{ fontSize: 10, fontWeight: 500 }}>
                     {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
-                  {isMine && <CheckCheck size={13} color={isMine ? "rgba(255,255,255,.8)" : "#22C55E"} />}
+                  {isMine && <CheckCheck size={13} color="rgba(255,255,255,.8)" />}
                 </div>
               </div>
             </div>
@@ -785,7 +766,8 @@ export default function ChatTab({
               display: "flex", alignItems: "center", gap: 8,
               background: "#EF4444", color: "#fff",
               padding: "7px 16px", borderRadius: 24,
-              fontSize: 12, fontWeight: 600, boxShadow: "0 2px 8px rgba(239,68,68,.3)",
+              fontSize: 12, fontWeight: 600,
+              boxShadow: "0 2px 8px rgba(239,68,68,.3)",
             }}>
               <X size={13} style={{ cursor: "pointer" }} onClick={() => setError("")} />
               {error}
@@ -794,7 +776,7 @@ export default function ChatTab({
         )}
       </div>
 
-      {/* ── Input bar ────────────────────────────────────────────────────── */}
+      {/* ── Input bar ── */}
       <footer style={{
         padding: "8px 10px",
         background: "#fff",
@@ -815,7 +797,6 @@ export default function ChatTab({
             flex: 1, background: "#EEF2F7", borderRadius: 22,
             display: "flex", alignItems: "center",
             padding: "0 14px", minHeight: 42,
-            transition: "background .2s",
           }}>
             {isRecording ? (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
@@ -867,7 +848,7 @@ export default function ChatTab({
                 WebkitTapHighlightColor: "transparent",
               }}
               onTouchStart={(e) => e.currentTarget.style.transform = "scale(.93)"}
-              onTouchEnd={(e) => e.currentTarget.style.transform = "scale(1)"}
+              onTouchEnd={(e)   => e.currentTarget.style.transform = "scale(1)"}
             >
               {isUploadingAudio
                 ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
@@ -894,29 +875,27 @@ export default function ChatTab({
         </div>
       </footer>
 
-      {/* Global keyframe animations (injected once) */}
       <style>{`
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        @keyframes pulse  { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.45; } }
       `}</style>
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   TelegramAudioPlayer — cross-platform voice note player
-   iOS Safari: Audio() element works fine; no Web Audio API needed here.
+   TelegramAudioPlayer
 ───────────────────────────────────────────────────────────────────────────── */
 function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
-  const audioRef     = useRef(null);
-  const toggleRef    = useRef(onTogglePlay);
-  toggleRef.current  = onTogglePlay;
+  const audioRef    = useRef(null);
+  const toggleRef   = useRef(onTogglePlay);
+  toggleRef.current = onTogglePlay;
 
   const [progress, setProgress] = useState(0);
   const bars = useMemo(
     () => Array.from({ length: 30 }, () => Math.random() * 75 + 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [url]
+    [url],
   );
 
   useEffect(() => {
@@ -943,8 +922,8 @@ function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
     };
   }, [url, isPlaying]);
 
-  const accent = isMine ? "rgba(255,255,255,.9)" : "#1E40AF";
-  const trackBg= isMine ? "rgba(255,255,255,.25)" : "#CBD5E1";
+  const accent  = isMine ? "rgba(255,255,255,.9)" : "#1E40AF";
+  const trackBg = isMine ? "rgba(255,255,255,.25)" : "#CBD5E1";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200, padding: "2px 0" }}>
