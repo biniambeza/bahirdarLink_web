@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Trash2,
   Search,
-  ChevronRight,
   Database,
   ArrowRight,
 } from "lucide-react";
@@ -23,12 +22,17 @@ const SettingsPage = () => {
 
   const API_URL = "http://localhost:5000/api/caseType";
 
+  // Fetch logic handles the nested { success: true, data: [...] } structure
   const fetchCaseTypes = async () => {
     try {
+      setFetchLoading(true);
       const res = await axios.get(API_URL);
-      setCaseTypes(res.data);
+      const incomingData = res.data?.data || res.data;
+      setCaseTypes(Array.isArray(incomingData) ? incomingData : []);
     } catch (err) {
+      console.error("Fetch error:", err);
       setError("Sync failed. Check system logs.");
+      setCaseTypes([]);
     } finally {
       setFetchLoading(false);
     }
@@ -44,7 +48,8 @@ const SettingsPage = () => {
     setLoading(true);
     try {
       const res = await axios.post(API_URL, { name: name.trim() });
-      setCaseTypes([...caseTypes, res.data]);
+      const newType = res.data?.data || res.data;
+      setCaseTypes((prev) => [...prev, newType]);
       setName("");
       setError("");
     } catch (err) {
@@ -54,14 +59,17 @@ const SettingsPage = () => {
     }
   };
 
-  const filteredTypes = caseTypes.filter((t) =>
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // Filter logic specifically targeting the English property
+  const filteredTypes = (caseTypes || []).filter((t) => {
+    const searchStr = searchTerm.toLowerCase();
+    const nameEn = (t.name?.en || t.name || "").toLowerCase();
+    return nameEn.includes(searchStr);
+  });
 
   return (
     <div className="min-h-screen bg-[#FDFDFF] text-slate-800 p-6 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto">
-        {/* --- SIMPLE HEADER --- */}
+        {/* --- HEADER --- */}
         <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <h1 className="text-4xl font-medium tracking-tight text-slate-900">
@@ -80,7 +88,6 @@ const SettingsPage = () => {
 
         {/* --- INTERACTION BAR --- */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-12">
-          {/* Add Form - Prominent */}
           <form
             onSubmit={handleSubmit}
             className="lg:col-span-3 flex bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm focus-within:ring-4 focus-within:ring-blue-500/5 transition-all"
@@ -105,7 +112,6 @@ const SettingsPage = () => {
             </button>
           </form>
 
-          {/* Search Bar - Subtle */}
           <div className="lg:col-span-2 relative">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -143,7 +149,7 @@ const SettingsPage = () => {
             <AnimatePresence mode="popLayout">
               {filteredTypes.map((type) => (
                 <motion.div
-                  key={type.id || type.name}
+                  key={type.id}
                   layout
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -160,11 +166,13 @@ const SettingsPage = () => {
                     </button>
                   </div>
 
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    {type.name}
+                  {/* ONLY ENGLISH NAME DISPLAYED HERE */}
+                  <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight">
+                    {type.name?.en || type.name || "Unknown"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">
-                    ID: {type.id || "---"}
+
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
+                    ID: {type.id}
                   </p>
 
                   <div className="mt-6 flex items-center justify-between">
@@ -188,10 +196,9 @@ const SettingsPage = () => {
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
                   <Search size={32} />
                 </div>
-                <h3 className="text-slate-500 font-medium">No results found</h3>
-                <p className="text-slate-400 text-sm">
-                  Try adjusting your search filters.
-                </p>
+                <h3 className="text-slate-500 font-medium">
+                  No categories found
+                </h3>
               </div>
             )}
           </div>

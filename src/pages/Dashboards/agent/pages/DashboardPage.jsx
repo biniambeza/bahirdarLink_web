@@ -14,7 +14,6 @@ import {
   CheckCircle,
   Activity,
   Shield,
-  Signal,
   Loader2,
   RefreshCw,
   Radio,
@@ -29,12 +28,11 @@ import {
   Wrench,
   ClipboardCheck,
   Zap,
-  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-// Import your existing components
+// Import your fixed IncidentDetails component
 import IncidentDetails from "./IncidentDetailPage";
 
 const API_BASE_URL = "http://localhost:5000/api";
@@ -46,6 +44,15 @@ const COLORS = {
   danger: "#EF4444",
   warning: "#F59E0B",
   slate: "#64748b",
+};
+
+/**
+ * Helper to extract English text from localized objects {en, am}
+ */
+const getEnglish = (val) => {
+  if (!val) return "—";
+  if (typeof val === "object") return val.en || val.name?.en || "—";
+  return String(val);
 };
 
 const DashboardPage = () => {
@@ -60,14 +67,15 @@ const DashboardPage = () => {
     incidents: [],
     units: [],
     totalUnits: 0,
+    categories: [], // Stored for the Side Panel lookup
   });
 
-  // 1. DYNAMIC UI CONFIGURATION (Logic Firewall)
   const uiFlavor = useMemo(() => {
     const storedAgency = JSON.parse(localStorage.getItem("agency") || "{}");
-    const type = (storedAgency?.agencyType?.name || "").toLowerCase();
+    const type = (
+      getEnglish(storedAgency?.agencyType?.name) || ""
+    ).toLowerCase();
 
-    // Check if agency is a Utility/Municipal service
     const isService = [
       "municipal",
       "electric",
@@ -103,28 +111,51 @@ const DashboardPage = () => {
       else setIsSyncing(true);
 
       try {
-        // 2. DYNAMIC ENDPOINT BRANCHING
-        // Service agencies use the /service/ path, others use /emergencies/
         const dataUrl = uiFlavor.isService
           ? `${API_BASE_URL}/service/agency/${storedAgency.id}`
           : `${API_BASE_URL}/emergencies/agency/${storedAgency.id}/emergencies`;
 
-        const [dataRes, teamRes] = await Promise.all([
+        // Try plural first, fallback logic handles the rest
+        const categoryUrl = uiFlavor.isService
+          ? `${API_BASE_URL}/serviceCategories`
+          : `${API_BASE_URL}/categories`;
+
+        // Use .catch on individual requests to prevent a 500 from stopping the whole dashboard
+        const [dataRes, teamRes, catRes] = await Promise.all([
           axios.get(dataUrl, config),
           axios.get(
             `${API_BASE_URL}/responderTeam/agency/${storedAgency.id}`,
             config,
           ),
+          axios.get(categoryUrl, config).catch((err) => {
+            console.warn(
+              "Category fetch failed, using empty list:",
+              err.message,
+            );
+            return { data: { data: [], services: [] } };
+          }),
         ]);
 
-        const allItems = dataRes.data.data || dataRes.data || [];
-        const allTeams = teamRes.data.data || [];
+        let allItems = [];
+        const responseBody = dataRes.data;
 
-        // Unified check for "Closed" status across different agency terminology
+        // Handle the "services" key or "data" key dynamically
+        if (responseBody.services && Array.isArray(responseBody.services)) {
+          allItems = responseBody.services;
+        } else if (responseBody.data && Array.isArray(responseBody.data)) {
+          allItems = responseBody.data;
+        } else if (Array.isArray(responseBody)) {
+          allItems = responseBody;
+        }
+
+        const allTeams = teamRes.data.data || [];
+        const allCategories =
+          catRes.data.data || catRes.data?.categories || catRes.data || [];
+
         const activeCount = allItems.filter(
           (item) =>
             !["resolved", "completed", "fixed", "closed"].includes(
-              item.status?.toLowerCase(),
+              getEnglish(item.status).toLowerCase(),
             ),
         ).length;
 
@@ -159,24 +190,27 @@ const DashboardPage = () => {
           ],
           incidents: allItems.slice(0, 6).map((item) => ({
             id: item._id || item.id,
-            // Handle schema differences between Service and Emergency models
-            category:
-              item.categoryId?.name || item.serviceCategory?.name || "General",
-            type:
-              item.emergencyTypeId?.name ||
+            category: getEnglish(
+              item.serviceCategory?.name ||
+                item.categoryId?.name ||
+                item.category?.name ||
+                "General",
+            ),
+            type: getEnglish(
               item.serviceType?.name ||
-              item.requestType ||
-              (uiFlavor.isService ? "Service Request" : "Emergency"),
+                item.emergencyType?.name ||
+                item.requestType ||
+                (uiFlavor.isService ? "Service Request" : "Emergency"),
+            ),
             location:
-              item.kebele?.name ||
-              item.locationName ||
-              item.address ||
-              "Area Assigned",
+              getEnglish(item.kebele) !== "—"
+                ? `${getEnglish(item.kebele)} • ${getEnglish(item.street)}`
+                : "Area Assigned",
             time: new Date(item.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             }),
-            status: item.status,
+            status: getEnglish(item.status),
             raw: item,
           })),
           units: [
@@ -197,6 +231,7 @@ const DashboardPage = () => {
             },
           ],
           totalUnits: allTeams.length,
+          categories: allCategories,
         });
       } catch (err) {
         console.error("Dashboard Sync Error:", err);
@@ -212,11 +247,8 @@ const DashboardPage = () => {
     fetchDashboardData(true);
     const token = localStorage.getItem("token");
     socketRef.current = io(SOCKET_URL, { auth: { token: `Bearer ${token}` } });
-
-    // Dynamic socket listener based on agency role
     const eventName = uiFlavor.isService ? "newServiceRequest" : "newEmergency";
     socketRef.current.on(eventName, () => fetchDashboardData());
-
     return () => socketRef.current.disconnect();
   }, [fetchDashboardData, uiFlavor.isService]);
 
@@ -238,7 +270,6 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFF] p-4 lg:p-8 font-sans text-slate-900 relative overflow-x-hidden">
-      {/* DYNAMIC HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <div
@@ -250,7 +281,7 @@ const DashboardPage = () => {
             </span>
           </div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            {agencyInfo?.name}
+            {getEnglish(agencyInfo?.name)}
           </h1>
         </div>
 
@@ -283,7 +314,7 @@ const DashboardPage = () => {
         </div>
       </header>
 
-      {/* DYNAMIC TOP STATS */}
+      {/* TOP STATS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         {data.stats.map((stat, i) => (
           <motion.div
@@ -311,7 +342,7 @@ const DashboardPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* RECENT RECORDS LOG */}
+        {/* LOG PANEL */}
         <div className="lg:col-span-8 space-y-6">
           <div className="flex items-center justify-between px-2">
             <h3 className="font-black text-slate-800 flex items-center gap-3 uppercase text-sm tracking-widest">
@@ -344,11 +375,7 @@ const DashboardPage = () => {
                   >
                     <div className="flex items-start gap-5">
                       <div
-                        className={`p-4 rounded-2xl transition-colors ${
-                          uiFlavor.isService
-                            ? "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100"
-                            : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
-                        }`}
+                        className={`p-4 rounded-2xl transition-colors ${uiFlavor.isService ? "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100" : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"}`}
                       >
                         {uiFlavor.isService ? (
                           <Wrench size={24} />
@@ -362,11 +389,7 @@ const DashboardPage = () => {
                             {inc.type}
                           </h4>
                           <span
-                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase flex items-center gap-1 border ${
-                              uiFlavor.isService
-                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                : "bg-blue-50 text-blue-600 border-blue-100"
-                            }`}
+                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase flex items-center gap-1 border ${uiFlavor.isService ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}
                           >
                             <Layers size={10} /> {inc.category}
                           </span>
@@ -382,16 +405,9 @@ const DashboardPage = () => {
                         </div>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-6">
                       <div
-                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                          ["pending", "ongoing", "dispatched"].includes(
-                            inc.status?.toLowerCase(),
-                          )
-                            ? "bg-amber-50 text-amber-600 border-amber-100 animate-pulse"
-                            : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                        }`}
+                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${["pending", "ongoing", "reported", "dispatched"].includes(inc.status?.toLowerCase()) ? "bg-amber-50 text-amber-600 border-amber-100 animate-pulse" : "bg-emerald-50 text-emerald-600 border-emerald-100"}`}
                       >
                         {inc.status}
                       </div>
@@ -406,7 +422,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* CREW/UNIT ANALYTICS */}
+        {/* ANALYTICS ASIDE */}
         <aside className="lg:col-span-4 space-y-8">
           <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100">
             <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-8 flex items-center gap-2">
@@ -461,7 +477,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* PROTOCOL BANNER */}
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
             <div className="relative z-10">
               <div className="bg-blue-600/20 p-3 rounded-2xl w-fit mb-4">
@@ -487,12 +502,11 @@ const DashboardPage = () => {
         </aside>
       </div>
 
-      {/* DETAIL SIDE PANEL */}
       <AnimatePresence>
         {selectedIncident && (
           <IncidentDetails
             incident={selectedIncident}
-            isService={uiFlavor.isService}
+            categories={data.categories}
             onClose={() => setSelectedIncident(null)}
           />
         )}

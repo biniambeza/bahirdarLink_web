@@ -39,6 +39,31 @@ import ChatTab from "./ChatTab";
 
 const API_BASE = "http://localhost:5000";
 
+// Helper to extract language string (defaults to English)
+const getLangStr = (val) => {
+  if (!val) return "";
+  if (typeof val === "string") {
+    // Check if it's a JSON string that needs parsing
+    if (val.trim().startsWith("{") && val.includes('"en"')) {
+      try {
+        const parsed = JSON.parse(val);
+        if (parsed && typeof parsed === "object") {
+          return parsed.en || parsed.am || val;
+        }
+      } catch (e) {
+        // If parsing fails, return the original string
+        return val;
+      }
+    }
+    return val;
+  }
+  // It's an object
+  if (typeof val === "object" && val !== null) {
+    return val.en || val.am || "";
+  }
+  return String(val);
+};
+
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const T = {
   white: "#FFFFFF",
@@ -757,19 +782,19 @@ function Card({ children, style = {} }) {
 }
 
 const resolveCategoryName = (e) =>
-  e.serviceCategory?.name ||
-  e.category?.name ||
-  e.categoryName ||
-  e.serviceCategoryName ||
-  e.category ||
+  getLangStr(e.serviceCategory?.name) ||
+  getLangStr(e.category?.name) ||
+  getLangStr(e.categoryName) ||
+  getLangStr(e.serviceCategoryName) ||
+  getLangStr(e.category) ||
   "General";
 
 const resolveIncidentType = (e) =>
-  e.serviceType?.name ||
-  e.serviceType ||
-  e.emergencyType?.name ||
-  e.emergencyType ||
-  e.type ||
+  getLangStr(e.serviceType?.name) ||
+  getLangStr(e.serviceType) ||
+  getLangStr(e.emergencyType?.name) ||
+  getLangStr(e.emergencyType) ||
+  getLangStr(e.type) ||
   "General";
 
 const resolveReporter = (e) =>
@@ -866,7 +891,7 @@ function DetailsTab({
             letterSpacing: "-.4px",
           }}
         >
-          {e.kebele?.name || "Unknown Location"}
+          {getLangStr(e.kebele?.name) || "Unknown Location"}
         </h2>
         <p
           style={{
@@ -879,9 +904,9 @@ function DetailsTab({
           }}
         >
           <MapPin size={12} color="rgba(255,255,255,.5)" />
-          {e.subdivision ||
-            e.address ||
-            e.specificLocation ||
+          {getLangStr(e.subdivision) ||
+            getLangStr(e.address) ||
+            getLangStr(e.specificLocation) ||
             "No subdivision specified"}
         </p>
 
@@ -939,7 +964,7 @@ function DetailsTab({
                 fontStyle: "italic",
               }}
             >
-              "{e.description}"
+              "{getLangStr(e.description)}"
             </p>
           </div>
         </>
@@ -988,12 +1013,21 @@ function DetailsTab({
       {/* Location */}
       <SectionHead label="Location" icon={MapPin} />
       <Card style={{ marginBottom: 12 }}>
-        <InfoRow icon={MapPin} label="Kebele" value={e.kebele?.name} accent />
-        <InfoRow icon={MapPin} label="Subdivision" value={e.subdivision} />
+        <InfoRow
+          icon={MapPin}
+          label="Kebele"
+          value={getLangStr(e.kebele?.name)}
+          accent
+        />
+        <InfoRow
+          icon={MapPin}
+          label="Subdivision"
+          value={getLangStr(e.subdivision)}
+        />
         <InfoRow
           icon={MapPin}
           label="Specific Location"
-          value={e.specificLocation || e.address}
+          value={getLangStr(e.specificLocation) || getLangStr(e.address)}
           last
         />
       </Card>
@@ -1007,7 +1041,7 @@ function DetailsTab({
             <InfoRow
               icon={User}
               label="Name"
-              value={resolveReporter(e)?.name}
+              value={getLangStr(resolveReporter(e)?.name)}
               accent
             />
             <InfoRow

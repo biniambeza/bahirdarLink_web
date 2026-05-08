@@ -19,6 +19,34 @@ import EmergencyDetailDrawer from "./EmergencyDetailDrawer";
 
 const API_BASE = "http://localhost:5000";
 
+/**
+ * STRICT ENGLISH HELPER - FIXED
+ * Handles objects and raw JSON strings like {"en":"poly","am":"ፖሊ"}
+ */
+const renderEnglish = (val) => {
+  if (val === null || val === undefined || val === "") return "—";
+
+  // Handle Objects
+  if (typeof val === "object") {
+    return val.en || val.name?.en || val.label?.en || val.name || "—";
+  }
+
+  // Handle JSON Strings (Fixes the raw string issue)
+  if (
+    typeof val === "string" &&
+    (val.includes('{"en":') || val.includes('{"am":'))
+  ) {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed.en || "—";
+    } catch (e) {
+      return val;
+    }
+  }
+
+  return String(val);
+};
+
 const ResponderIncidentsPage = () => {
   // --- STATE ---
   const [incidents, setIncidents] = useState([]);
@@ -57,8 +85,8 @@ const ResponderIncidentsPage = () => {
       const agency = agencyRes.data?.data || agencyRes.data;
       setAgencyInfo(agency);
 
-      // 3. Mode Detection Logic
-      const agencyName = (agency?.name || "").toLowerCase();
+      // 3. Mode Detection Logic (Using fixed helper)
+      const agencyName = (renderEnglish(agency?.name) || "").toLowerCase();
       const serviceKeywords = [
         "municipal",
         "electric",
@@ -114,6 +142,16 @@ const ResponderIncidentsPage = () => {
     });
 
     return Array.from(map.values()).filter((incident) => {
+      // FIXED: Exclude resolved/completed incidents
+      const status = (incident.status || "").toLowerCase();
+      if (
+        status === "resolved" ||
+        status === "completed" ||
+        status === "cancelled"
+      ) {
+        return false;
+      }
+
       const incidentCatId =
         incident.serviceCategoryId ||
         incident.categoryId ||
@@ -125,8 +163,9 @@ const ResponderIncidentsPage = () => {
         !selectedCategory || String(incidentCatId) === String(selectedCatId);
 
       const query = searchQuery.toLowerCase();
+      // FIXED: Wrapped location components in renderEnglish for search
       const searchSpace =
-        `${incident.kebele?.name || ""} ${incident.subdivision || ""} ${incident.street || ""}`.toLowerCase();
+        `${renderEnglish(incident.kebele)} ${renderEnglish(incident.subdivision)} ${renderEnglish(incident.street)}`.toLowerCase();
 
       return matchesCat && searchSpace.includes(query);
     });
@@ -153,7 +192,7 @@ const ResponderIncidentsPage = () => {
                   className={`flex h-2 w-2 rounded-full animate-pulse ${isServiceMode ? "bg-emerald-500" : "bg-blue-500"}`}
                 />
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  {agencyInfo?.name || "System Active"}
+                  {renderEnglish(agencyInfo?.name) || "System Active"}
                 </span>
               </div>
             </div>
@@ -225,7 +264,8 @@ const ResponderIncidentsPage = () => {
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {cat.name}
+                  {/* FIXED: Wrapped category name in renderEnglish */}
+                  {renderEnglish(cat.name)}
                 </button>
               ))}
             </div>
@@ -331,8 +371,10 @@ const ResponderIncidentsPage = () => {
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
+                                  {/* FIXED: Wrapped Kebele in renderEnglish */}
                                   <h3 className="font-bold text-slate-900 truncate tracking-tight uppercase text-sm">
-                                    {incident.kebele?.name || "Standard Sector"}
+                                    {renderEnglish(incident.kebele) ||
+                                      "Standard Sector"}
                                   </h3>
                                   {incident.status === "urgent" && (
                                     <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px] font-black uppercase">
@@ -349,16 +391,18 @@ const ResponderIncidentsPage = () => {
                                 <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
                                   <span className="flex items-center gap-1">
                                     <MapPin size={12} />{" "}
-                                    {incident.street ||
-                                      incident.subdivision ||
+                                    {/* FIXED: Wrapped street and subdivision in renderEnglish */}
+                                    {renderEnglish(incident.street) ||
+                                      renderEnglish(incident.subdivision) ||
                                       "Area Zone"}
                                   </span>
                                   <span
                                     className={`flex items-center gap-1 ${isServiceMode ? "text-emerald-600" : "text-blue-600"}`}
                                   >
                                     <Info size={12} />{" "}
-                                    {incident.serviceCategory?.name ||
-                                      incident.category?.name ||
+                                    {/* FIXED: Wrapped category labels in renderEnglish */}
+                                    {renderEnglish(incident.serviceCategory) ||
+                                      renderEnglish(incident.category) ||
                                       "General"}
                                   </span>
                                 </div>

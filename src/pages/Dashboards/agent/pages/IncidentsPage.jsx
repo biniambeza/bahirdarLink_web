@@ -38,7 +38,7 @@ const AGENCY_CONFIG = {
   electric: {
     label: "Electric",
     icon: <Zap className="text-yellow-600" />,
-    color: "bg-yellow-600",
+    color: "bg-yellow- yellow-600",
   },
   water: {
     label: "Water",
@@ -61,7 +61,14 @@ const IncidentsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  const agencyTypeStr = (agencyInfo?.agencyType?.name || "").toLowerCase();
+  // Helper to extract language string (defaults to English)
+  const getLangStr = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val;
+    return val.en || val.am || "";
+  };
+
+  const agencyTypeStr = getLangStr(agencyInfo?.agencyType?.name).toLowerCase();
 
   const isService = useMemo(() => {
     return ["municipal", "electric", "water"].some((t) =>
@@ -76,7 +83,7 @@ const IncidentsPage = () => {
       const storedAgency = JSON.parse(localStorage.getItem("agency") || "{}");
       setAgencyInfo(storedAgency);
 
-      const typeName = (storedAgency?.agencyType?.name || "").toLowerCase();
+      const typeName = getLangStr(storedAgency?.agencyType?.name).toLowerCase();
       const localIsService = ["municipal", "electric", "water"].some((t) =>
         typeName.includes(t),
       );
@@ -86,7 +93,6 @@ const IncidentsPage = () => {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Updated endpoints to match your new Controllers
       const endpoints = localIsService
         ? {
             data: `http://localhost:5000/api/service/agency/${agencyId}`,
@@ -102,11 +108,17 @@ const IncidentsPage = () => {
         axios.get(endpoints.categories, { headers }),
       ]);
 
-      // Logic to handle both wrapped { data: [] } and direct [] responses
-      setEmergencies(dataRes.data.data || dataRes.data || []);
-      setCategories(catRes.data.data || catRes.data || []);
+      // Handle the different backend key formats: result.services or result.data
+      setEmergencies(
+        dataRes.data.services || dataRes.data.data || dataRes.data || [],
+      );
+      setCategories(
+        catRes.data.data || catRes.data.categories || catRes.data || [],
+      );
     } catch (err) {
       console.error("Fetch Error:", err.response?.data || err.message);
+      setEmergencies([]);
+      setCategories([]);
     } finally {
       setIsLoading(false);
     }
@@ -116,34 +128,28 @@ const IncidentsPage = () => {
     fetchData();
   }, [isService]);
 
-  // --- Fixed Filtering Logic ---
   const filteredIncidents = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    return (emergencies || []).filter((incident) => {
-      // 1. Category Filtering
+    const dataArray = Array.isArray(emergencies) ? emergencies : [];
+
+    return dataArray.filter((incident) => {
       const incidentCatId =
         incident.categoryId ||
         incident.serviceCategoryId ||
         incident.serviceCategory?.id;
+
       const selectedCatId = selectedCategory?.id;
       const matchCategory =
         !selectedCategory || String(incidentCatId) === String(selectedCatId);
 
-      // 2. Safe Location Search (Fixes the toLowerCase() crash)
-      const kebele = (incident.kebele?.name || "").toLowerCase();
-      const street = (incident.street || "").toLowerCase();
-
-      // If location is an object (lat/lng), we ignore it for string search to prevent crash
-      // If it's a string, we use it.
-      const locationStr =
-        typeof incident.location === "string"
-          ? incident.location.toLowerCase()
-          : "";
+      const kebele = getLangStr(incident.kebele?.name).toLowerCase();
+      const street = getLangStr(incident.street).toLowerCase();
+      const name = getLangStr(incident.name).toLowerCase();
 
       const matchSearch =
         kebele.includes(query) ||
         street.includes(query) ||
-        locationStr.includes(query);
+        name.includes(query);
 
       return matchCategory && matchSearch;
     });
@@ -197,19 +203,20 @@ const IncidentsPage = () => {
             <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Categories
             </p>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat)}
-                className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all mb-1 ${
-                  selectedCategory?.id === cat.id
-                    ? `${currentUi.color} text-white shadow-md`
-                    : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {Array.isArray(categories) &&
+              categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all mb-1 ${
+                    selectedCategory?.id === cat.id
+                      ? `${currentUi.color} text-white shadow-md`
+                      : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {getLangStr(cat.name)}
+                </button>
+              ))}
           </div>
         </div>
       </aside>
@@ -221,7 +228,7 @@ const IncidentsPage = () => {
               {isService ? "Service Request Feed" : "Incident Feed"}
             </h1>
             <p className="text-slate-500 text-sm font-medium uppercase tracking-wider">
-              {agencyInfo?.agencyType?.name} Department
+              {getLangStr(agencyInfo?.agencyType?.name)} Department
             </p>
           </div>
           <button
@@ -273,17 +280,18 @@ const IncidentsPage = () => {
                       </div>
                       <div>
                         <h3 className="font-black text-slate-800 text-lg">
-                          {incident.kebele?.name || "Specific Location"}
+                          {getLangStr(incident.kebele?.name) ||
+                            "Specific Location"}
                         </h3>
                         <p className="text-sm text-slate-500 font-bold uppercase">
-                          {incident.street || "Unknown Street"}
+                          {getLangStr(incident.street) || "Unknown Street"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-500 uppercase">
-                        {incident.serviceCategory?.name ||
-                          incident.category?.name}
+                        {getLangStr(incident.serviceCategory?.name) ||
+                          getLangStr(incident.category?.name)}
                       </span>
                       <ChevronRight size={18} className="text-slate-300" />
                     </div>
