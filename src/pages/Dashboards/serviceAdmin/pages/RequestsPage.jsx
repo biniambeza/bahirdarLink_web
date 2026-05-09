@@ -3,23 +3,24 @@ import axios from "axios";
 import {
   Search,
   MapPin,
-  User,
   Calendar,
   AlertCircle,
-  FileText,
+  Briefcase,
+  ClipboardList,
 } from "lucide-react";
 
-const ReportsPage = () => {
-  const [reports, setReports] = useState([]);
+const ServiceRequestsPage = () => {
+  const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const API_URL = "http://localhost:5000/api/emergencies/admin/all";
+  // Targeted API for service data
+  const API_URL = "http://localhost:5000/api/service/all";
 
   useEffect(() => {
-    const fetchReports = async () => {
+    const fetchRequests = async () => {
       setLoading(true);
       try {
         const token = localStorage.getItem("token");
@@ -27,8 +28,8 @@ const ReportsPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (data.success) {
-          // Adjust key based on your specific backend response structure
-          setReports(data.data || data.services || data.emergencies || []);
+          // Mapping to the service-specific data structure
+          setRequests(data.data || data.services || []);
         }
       } catch (err) {
         setError(err.response?.data?.error || err.message);
@@ -36,67 +37,58 @@ const ReportsPage = () => {
         setLoading(false);
       }
     };
-    fetchReports();
+    fetchRequests();
   }, []);
 
   /**
    * SMART RENDERER
-   * Automatically detects and parses JSON strings to extract English values
+   * Identical logic to handle your mixed backend data (JSON vs Strings)
    */
   const renderEnglish = (val) => {
     if (!val) return "";
-
-    // Handle standard JavaScript Objects { en: "..." }
     if (typeof val === "object") {
       return val.en || val.name?.en || val.label?.en || val.name || "";
     }
-
-    // Handle "Stringified" JSON: '{"en":"poly","am":"ፖሊ"}'
     if (typeof val === "string") {
       if (val.includes('{"en":') || val.includes('{"am":')) {
         try {
           const parsed = JSON.parse(val);
           return parsed.en || "";
         } catch (e) {
-          return val; // Fallback to raw string if parsing fails
+          return val;
         }
       }
     }
-
-    // Handle Plain Strings: "Kebele 04"
     return String(val);
   };
 
-  const filteredReports = useMemo(() => {
+  const filteredRequests = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
-    return reports
+    return requests
       .filter((r) => {
-        if (filter === "registered") return r.reporterType === "user";
-        if (filter === "guest") return r.reporterType === "guest";
+        if (filter === "pending") return r.status === "pending";
+        if (filter === "completed")
+          return r.status === "completed" || r.status === "resolved";
         return true;
       })
       .filter((r) => {
-        const type = renderEnglish(
-          r.emergencyType || r.serviceType,
-        ).toLowerCase();
+        const type = renderEnglish(r.serviceType).toLowerCase();
         const category = renderEnglish(
           r.category || r.serviceCategory,
         ).toLowerCase();
-        const reporter = renderEnglish(
-          r.reporterName || r.fullName,
-        ).toLowerCase();
-        const fullAddress =
-          `${renderEnglish(r.kebele)} ${renderEnglish(r.subdivision)} ${renderEnglish(r.street)}`.toLowerCase();
+        const user = renderEnglish(r.userName || r.fullName).toLowerCase();
+        const loc =
+          `${renderEnglish(r.kebele)} ${renderEnglish(r.street)}`.toLowerCase();
 
         return (
           type.includes(query) ||
           category.includes(query) ||
-          reporter.includes(query) ||
-          fullAddress.includes(query)
+          user.includes(query) ||
+          loc.includes(query)
         );
       });
-  }, [filter, searchQuery, reports]);
+  }, [filter, searchQuery, requests]);
 
   return (
     <div className="p-8 bg-[#F8FAFC] min-h-screen font-sans antialiased text-slate-900">
@@ -104,19 +96,19 @@ const ReportsPage = () => {
       <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            Emergency Archive
+            Service Registry
           </h1>
           <p className="text-slate-500 mt-2 font-medium">
-            Monitoring finalized reports and field data.
+            Reviewing historical and active service applications.
           </p>
         </div>
         <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Active Filters
+            Total Records
           </p>
           <p className="text-xl font-black text-[#0052CC]">
-            {filteredReports.length}{" "}
-            <span className="text-slate-300 text-sm font-bold">Records</span>
+            {filteredRequests.length}{" "}
+            <span className="text-slate-300 text-sm font-bold">Entries</span>
           </p>
         </div>
       </div>
@@ -124,7 +116,7 @@ const ReportsPage = () => {
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row gap-6 mb-8 items-center justify-between">
         <div className="flex bg-white rounded-2xl p-1.5 shadow-sm border border-slate-200 w-full lg:w-auto">
-          {["all", "registered", "guest"].map((btn) => (
+          {["all", "pending", "completed"].map((btn) => (
             <button
               key={btn}
               onClick={() => setFilter(btn)}
@@ -146,7 +138,7 @@ const ReportsPage = () => {
           />
           <input
             type="text"
-            placeholder="Search incident, location, or reporter..."
+            placeholder="Search service, user, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-[1.25rem] shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-[#0052CC] outline-none transition-all font-medium"
@@ -158,19 +150,17 @@ const ReportsPage = () => {
       <div className="bg-white rounded-[2.5rem] shadow-xl shadow-blue-900/5 border border-slate-100 overflow-hidden">
         {loading ? (
           <div className="py-40 text-center font-black text-[10px] uppercase tracking-[0.4em] text-slate-400 animate-pulse">
-            Syncing Records...
+            Loading Services...
           </div>
         ) : error ? (
           <div className="py-24 text-center text-rose-500 flex flex-col items-center gap-4">
             <AlertCircle size={40} />
             <p className="font-black tracking-tight">{error}</p>
           </div>
-        ) : filteredReports.length === 0 ? (
+        ) : filteredRequests.length === 0 ? (
           <div className="py-24 text-center text-slate-300 flex flex-col items-center gap-4">
-            <FileText size={40} />
-            <p className="font-bold text-sm">
-              No matching reports found in database.
-            </p>
+            <ClipboardList size={40} />
+            <p className="font-bold text-sm">No service logs found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -178,16 +168,16 @@ const ReportsPage = () => {
               <thead>
                 <tr className="bg-slate-50/50">
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Incident Details
+                    Service Info
                   </th>
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Geographic Address
+                    Location
                   </th>
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Reporter
+                    Applicant
                   </th>
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Date
+                    Logged Date
                   </th>
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                     Status
@@ -195,70 +185,61 @@ const ReportsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredReports.map((report) => (
+                {filteredRequests.map((req) => (
                   <tr
-                    key={report.id || report._id}
+                    key={req.id || req._id}
                     className="hover:bg-blue-50/30 transition-colors group"
                   >
                     <td className="px-8 py-6">
                       <div className="font-black text-slate-800 text-lg leading-tight">
-                        {renderEnglish(
-                          report.emergencyType || report.serviceType,
-                        )}
+                        {renderEnglish(req.serviceType)}
                       </div>
                       <div className="text-[10px] text-[#0052CC] font-black uppercase tracking-wider mt-1 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <Briefcase size={10} />
                         {renderEnglish(
-                          report.category || report.serviceCategory,
+                          req.category || req.serviceCategory || "General",
                         )}
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <div className="flex items-start gap-2.5 text-slate-600 text-sm font-bold leading-relaxed">
+                      <div className="flex items-start gap-2.5 text-slate-600 text-sm font-bold">
                         <MapPin
                           size={16}
                           className="mt-0.5 text-slate-300 group-hover:text-blue-600 transition-colors flex-shrink-0"
                         />
-                        <span className="max-w-[240px]">
-                          {/* Mixed Data Logic: Handles Kebele 04, {"en":"poly"}, and giorgis */}
+                        <span className="max-w-[220px]">
                           {[
-                            renderEnglish(report.kebele),
-                            renderEnglish(report.subdivision),
-                            renderEnglish(report.street),
+                            renderEnglish(req.kebele),
+                            renderEnglish(req.street),
                           ]
-                            .filter((val) => val && val.trim() !== "")
-                            .join(", ") || "Location Specified"}
+                            .filter(Boolean)
+                            .join(", ") || "City Center"}
                         </span>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 font-black text-xs group-hover:bg-blue-600 group-hover:text-white transition-all">
-                          {renderEnglish(report.reporterName || "A")?.charAt(0)}
+                          {renderEnglish(req.userName || "U")?.charAt(0)}
                         </div>
-                        <div>
-                          <div className="text-sm font-black text-slate-700">
-                            {renderEnglish(report.reporterName || "Anonymous")}
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">
-                            {report.reporterType || "external"}
-                          </div>
+                        <div className="text-sm font-black text-slate-700">
+                          {renderEnglish(req.userName || "Unknown User")}
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-2 text-xs font-black text-slate-500">
                         <Calendar size={14} className="text-slate-300" />
-                        {report.createdAt
-                          ? new Date(report.createdAt).toLocaleDateString(
+                        {req.createdAt
+                          ? new Date(req.createdAt).toLocaleDateString(
                               undefined,
                               { dateStyle: "medium" },
                             )
-                          : "Recently"}
+                          : "N/A"}
                       </div>
                     </td>
                     <td className="px-8 py-6 text-center">
-                      <StatusChip status={renderEnglish(report.status)} />
+                      <StatusChip status={renderEnglish(req.status)} />
                     </td>
                   </tr>
                 ))}
@@ -273,15 +254,12 @@ const ReportsPage = () => {
 
 const StatusChip = ({ status }) => {
   const s = String(status || "pending").toLowerCase();
-
   const themes = {
     resolved: "bg-emerald-50 text-emerald-600 border-emerald-100",
     completed: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    in_progress: "bg-blue-50 text-blue-600 border-blue-100",
-    ongoing: "bg-blue-50 text-blue-600 border-blue-100",
-    escalated: "bg-rose-50 text-rose-600 border-rose-100",
-    reported: "bg-amber-50 text-amber-600 border-amber-100",
+    approved: "bg-blue-50 text-blue-600 border-blue-100",
     pending: "bg-amber-50 text-amber-600 border-amber-100",
+    rejected: "bg-rose-50 text-rose-600 border-rose-100",
   };
 
   const theme = themes[s] || "bg-slate-50 text-slate-500 border-slate-200";
@@ -297,4 +275,4 @@ const StatusChip = ({ status }) => {
   );
 };
 
-export default ReportsPage;
+export default ServiceRequestsPage;

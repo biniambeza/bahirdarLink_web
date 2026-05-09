@@ -22,9 +22,33 @@ const CategoryPage = () => {
 
   // --- Modal State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // 'add' or 'edit'
+  const [modalMode, setModalMode] = useState("add");
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
+
+  /**
+   * Helper to safely extract English name from potential objects or strings
+   */
+  const getEnName = (item) => {
+    if (!item) return "";
+    const nameData = item.name;
+
+    if (typeof nameData === "object" && nameData !== null) {
+      return nameData.en || nameData.am || Object.values(nameData)[0] || "";
+    }
+
+    // Check if it's a stringified JSON (just in case)
+    if (typeof nameData === "string" && nameData.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(nameData);
+        return parsed.en || parsed.am || Object.values(parsed)[0] || "";
+      } catch (e) {
+        return nameData;
+      }
+    }
+
+    return nameData || "";
+  };
 
   const fetchAllData = async () => {
     try {
@@ -37,8 +61,14 @@ const CategoryPage = () => {
         axios.get("http://localhost:5000/api/serviceType", { headers }),
       ]);
 
-      const fetchedCats = catRes.data.categories || [];
-      const fetchedTypes = Array.isArray(typeRes.data) ? typeRes.data : [];
+      // Adapt based on your API response structure
+      const fetchedCats =
+        catRes.data.categories ||
+        catRes.data.data ||
+        (Array.isArray(catRes.data) ? catRes.data : []);
+      const fetchedTypes = Array.isArray(typeRes.data)
+        ? typeRes.data
+        : typeRes.data.data || [];
 
       setCategories(fetchedCats);
       setServiceTypes(fetchedTypes);
@@ -59,8 +89,12 @@ const CategoryPage = () => {
 
   const currentCategories = useMemo(() => {
     return categories.filter((cat) => {
-      const matchesType = String(cat.serviceTypeId) === String(activeType?.id);
-      const matchesSearch = cat.name
+      const activeId = activeType?.id || activeType?._id;
+      const catTypeId =
+        cat.serviceTypeId || cat.serviceType?.id || cat.serviceType?._id;
+
+      const matchesType = String(catTypeId) === String(activeId);
+      const matchesSearch = getEnName(cat)
         .toLowerCase()
         .includes(search.toLowerCase());
       return matchesType && matchesSearch;
@@ -69,6 +103,7 @@ const CategoryPage = () => {
 
   // --- Form Handlers ---
   const openAddModal = () => {
+    if (!activeType) return alert("Select a service type first");
     setModalMode("add");
     setFormData({ name: "", description: "" });
     setIsModalOpen(true);
@@ -76,8 +111,11 @@ const CategoryPage = () => {
 
   const openEditModal = (cat) => {
     setModalMode("edit");
-    setSelectedCategoryId(cat.id);
-    setFormData({ name: cat.name, description: cat.description || "" });
+    setSelectedCategoryId(cat.id || cat._id);
+    setFormData({
+      name: getEnName(cat),
+      description: getEnName({ name: cat.description }), // Reuse logic for description if localized
+    });
     setIsModalOpen(true);
   };
 
@@ -86,7 +124,13 @@ const CategoryPage = () => {
     try {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
-      const payload = { ...formData, serviceTypeId: activeType.id };
+
+      // Send as object to support the backend localization logic
+      const payload = {
+        name: { en: formData.name },
+        description: { en: formData.description },
+        serviceTypeId: activeType.id || activeType._id,
+      };
 
       if (modalMode === "add") {
         await axios.post("http://localhost:5000/api/serviceCategory", payload, {
@@ -120,7 +164,7 @@ const CategoryPage = () => {
               Service Management
             </h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Hierarchy Control
+              Category Hierarchy
             </p>
           </div>
         </div>
@@ -133,7 +177,7 @@ const CategoryPage = () => {
             />
             <input
               type="text"
-              placeholder="Quick search..."
+              placeholder="Search services..."
               className="pl-9 pr-4 py-2 bg-slate-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -162,27 +206,28 @@ const CategoryPage = () => {
             </h2>
           </div>
           <div className="space-y-2">
-            {serviceTypes.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => setActiveType(type)}
-                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 ${
-                  String(activeType?.id) === String(type.id)
-                    ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]"
-                    : "text-slate-500 hover:bg-slate-50 hover:translate-x-1"
-                }`}
-              >
-                <span className="text-sm font-bold">{type.name}</span>
-                <ChevronRight
-                  size={14}
-                  className={
-                    String(activeType?.id) === String(type.id)
-                      ? "opacity-100"
-                      : "opacity-30"
-                  }
-                />
-              </button>
-            ))}
+            {serviceTypes.map((type) => {
+              const typeId = type.id || type._id;
+              const activeId = activeType?.id || activeType?._id;
+              const isActive = String(activeId) === String(typeId);
+              return (
+                <button
+                  key={typeId}
+                  onClick={() => setActiveType(type)}
+                  className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 ${
+                    isActive
+                      ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]"
+                      : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="text-sm font-bold">{getEnName(type)}</span>
+                  <ChevronRight
+                    size={14}
+                    className={isActive ? "opacity-100" : "opacity-0"}
+                  />
+                </button>
+              );
+            })}
           </div>
         </aside>
 
@@ -191,17 +236,17 @@ const CategoryPage = () => {
           <header className="flex flex-col sm:flex-row justify-between items-end sm:items-center mb-12 gap-6">
             <div>
               <span className="text-blue-600 font-black text-[10px] tracking-widest uppercase mb-2 block">
-                Viewing Categories for
+                Management Console
               </span>
               <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900">
-                {activeType?.name || "Select Type"}
+                {getEnName(activeType) || "Select Type"}
               </h2>
             </div>
             <button
               onClick={openAddModal}
-              className="group flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl text-xs font-black transition-all shadow-lg shadow-blue-100 active:scale-95"
+              className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl text-xs font-black transition-all shadow-lg shadow-blue-100"
             >
-              <Plus size={18} /> ADD NEW CATEGORY
+              <Plus size={18} /> ADD NEW UNIT
             </button>
           </header>
 
@@ -209,17 +254,20 @@ const CategoryPage = () => {
             {currentCategories.length > 0 ? (
               currentCategories.map((cat) => (
                 <div
-                  key={cat.id}
+                  key={cat.id || cat._id}
                   className="group bg-white p-6 rounded-3xl flex items-center justify-between border border-transparent hover:border-blue-100 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors font-bold text-xs">
-                      {cat.id}
+                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 font-bold text-xs">
+                      {cat.id || "#"}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800">{cat.name}</h3>
+                      <h3 className="font-bold text-slate-800">
+                        {getEnName(cat)}
+                      </h3>
                       <p className="text-xs text-slate-400 mt-1 max-w-md line-clamp-1">
-                        {cat.description || "No description provided."}
+                        {getEnName({ name: cat.description }) ||
+                          "No description provided."}
                       </p>
                     </div>
                   </div>
@@ -239,7 +287,7 @@ const CategoryPage = () => {
             ) : (
               <div className="bg-white/50 border-2 border-dashed border-slate-200 rounded-[40px] py-20 flex flex-col items-center justify-center text-slate-400">
                 <p className="font-bold text-sm tracking-tight">
-                  No categories found for this type.
+                  No units found for this category.
                 </p>
               </div>
             )}
@@ -247,26 +295,26 @@ const CategoryPage = () => {
         </main>
       </div>
 
-      {/* --- ADD/EDIT MODAL --- */}
+      {/* --- MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           ></div>
-          <div className="relative bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden p-10 animate-in fade-in zoom-in duration-300">
+          <div className="relative bg-white w-full max-w-lg rounded-[40px] shadow-2xl p-10 animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h3 className="text-2xl font-black tracking-tight">
-                  {modalMode === "add" ? "New Category" : "Edit Category"}
+                  {modalMode === "add" ? "New Unit" : "Edit Unit"}
                 </h3>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
-                  Assigning to {activeType?.name}
+                  Parent: {getEnName(activeType)}
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-full transition-colors"
+                className="p-2 hover:bg-slate-50 rounded-full"
               >
                 <X size={20} />
               </button>
@@ -275,13 +323,13 @@ const CategoryPage = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
-                  Category Name
+                  Unit Name
                 </label>
                 <input
                   required
                   type="text"
-                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all font-bold"
-                  placeholder="e.g. Water Leakage"
+                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 font-bold"
+                  placeholder="e.g. Traffic Management"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -294,8 +342,8 @@ const CategoryPage = () => {
                   Description
                 </label>
                 <textarea
-                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm min-h-[120px]"
-                  placeholder="Describe the type of emergency handled here..."
+                  className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-100 text-sm min-h-[120px]"
+                  placeholder="Explain what this unit handles..."
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
@@ -305,13 +353,10 @@ const CategoryPage = () => {
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-blue-600 text-white py-5 rounded-3xl font-black text-xs transition-all shadow-xl shadow-slate-200 group"
+                className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-blue-600 text-white py-5 rounded-3xl font-black text-xs transition-all shadow-xl shadow-slate-200"
               >
-                <CheckCircle2
-                  size={18}
-                  className="group-hover:scale-110 transition-transform"
-                />
-                {modalMode === "add" ? "SAVE CATEGORY" : "UPDATE CATEGORY"}
+                <CheckCircle2 size={18} />{" "}
+                {modalMode === "add" ? "CREATE UNIT" : "UPDATE UNIT"}
               </button>
             </form>
           </div>

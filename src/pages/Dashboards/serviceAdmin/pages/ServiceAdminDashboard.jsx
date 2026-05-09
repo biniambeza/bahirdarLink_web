@@ -11,6 +11,7 @@ import AgentsPage from "./AgentsPage";
 import SettingsPage from "./SettingsPage";
 import KebelePage from "./KebelePage";
 import CategoryPage from "./CategoryPage";
+import ServiceRequestsPage from "./RequestsPage";
 
 const ServiceAdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -24,8 +25,8 @@ const ServiceAdminDashboard = () => {
       case "users":
         return <UsersPage />;
 
-      case "reports":
-        return <ReportsPage />;
+      case "requests":
+        return <ServiceRequestsPage />;
 
       case "agents":
         return <AgentsPage />;

@@ -57,6 +57,15 @@ const Sidebar = ({
           onClick={() => setSelectedCategory("users")}
         />
 
+        {/* Requests (Service Admin focus) */}
+        <SidebarLink
+          active={selectedCategory === "requests"}
+          icon={<Building />}
+          label="Requests"
+          open={sidebarOpen}
+          onClick={() => setSelectedCategory("requests")}
+        />
+
         {/* Agencies (Service Admin focus) */}
         <SidebarLink
           active={selectedCategory === "agents"}

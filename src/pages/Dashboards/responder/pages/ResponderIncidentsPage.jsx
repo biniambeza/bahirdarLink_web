@@ -163,7 +163,6 @@ const ResponderIncidentsPage = () => {
         !selectedCategory || String(incidentCatId) === String(selectedCatId);
 
       const query = searchQuery.toLowerCase();
-      // FIXED: Wrapped location components in renderEnglish for search
       const searchSpace =
         `${renderEnglish(incident.kebele)} ${renderEnglish(incident.subdivision)} ${renderEnglish(incident.street)}`.toLowerCase();
 
