@@ -1,102 +1,175 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const SettingsPage = () => {
-  // States for Agency Type
-  const [agencyType, setAgencyType] = useState("");
+  // --- AGENCY TYPE STATES ---
+  const [agencyTypeInput, setAgencyTypeInput] = useState("");
+  const [agencyTypeList, setAgencyTypeList] = useState([]); // State name is agencyTypeList
   const [agencyLoading, setAgencyLoading] = useState(false);
-  const [agencyFeedback, setAgencyFeedback] = useState({ error: "", success: "" });
 
-  // States for Emergency Type
-  const [emergencyType, setEmergencyType] = useState("");
+  // --- EMERGENCY TYPE STATES ---
+  const [emergencyTypeInput, setEmergencyTypeInput] = useState("");
+  const [emergencyTypeList, setEmergencyTypeList] = useState([]);
   const [emergencyLoading, setEmergencyLoading] = useState(false);
-  const [emergencyFeedback, setEmergencyFeedback] = useState({ error: "", success: "" });
 
-  const handlePost = async (endpoint, value, setter, setLoader, setFeedback, successMsg) => {
+  // --- 1. FETCH LOGIC ---
+  const fetchAgencyTypes = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.warn("No token found in localStorage");
+        return;
+      }
+
+      const response = await axios.get(
+        "http://localhost:5000/api/agencyType/my-agents",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      // FIXED: Changed setAgencyTypes to setAgencyTypeList to match your state
+      if (response.data.success) {
+        setAgencyTypeList(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching agency types:", error);
+    }
+  };
+
+  const fetchEmergencyTypes = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/emergencyType");
+      // Use logical OR to ensure we always set an array
+      setEmergencyTypeList(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching emergency types:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAgencyTypes();
+    fetchEmergencyTypes();
+  }, []);
+
+  // --- 2. POST LOGIC ---
+  const handlePost = async (endpoint, value, setter, setLoader, refreshFn) => {
     if (!value.trim()) return;
     setLoader(true);
-    setFeedback({ error: "", success: "" });
-
     try {
       const token = localStorage.getItem("token");
       await axios.post(
         `http://localhost:5000/api/${endpoint}`,
         { name: value },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-
-      setFeedback({ error: "", success: successMsg });
-      setter(""); // Clear the specific input
+      setter(""); // Clear input
+      refreshFn(); // Re-fetch the specific list (this calls fetchAgencyTypes/fetchEmergencyTypes)
     } catch (err) {
-      setFeedback({ error: err.response?.data?.message || err.message, success: "" });
+      console.error("Post Error:", err);
+      alert(err.response?.data?.message || "Operation failed");
     } finally {
       setLoader(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-6">
-      <div className="w-full bg-white rounded-3xl shadow-2xl p-8 space-y-10">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-blue-600 mb-2">System Settings</h1>
-          <p className="text-gray-500">Configure global classification types for the tactical network.</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <h1 className="text-3xl font-bold text-slate-800">
+          Classification Settings
+        </h1>
 
-        {/* --- ADD AGENCY TYPE SECTION --- */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-8 bg-blue-600 rounded-full" />
-            <h2 className="text-xl font-semibold text-gray-800">Agency Classification</h2>
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-3">
+        {/* --- AGENCY TYPES SECTION --- */}
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+          <h2 className="text-xl font-semibold text-blue-600 mb-4">
+            Agency Types
+          </h2>
+          <div className="flex gap-3 mb-6">
             <input
               type="text"
-              placeholder="e.g., Police, Fire Department, Medical"
-              value={agencyType}
-              onChange={(e) => setAgencyType(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-2xl bg-blue-50 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-sm transition-all"
+              placeholder="Add Agency Type (e.g., Tactical, Medical)"
+              value={agencyTypeInput}
+              onChange={(e) => setAgencyTypeInput(e.target.value)}
+              className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border focus:ring-2 focus:ring-blue-400 outline-none"
             />
             <button
-              onClick={() => handlePost("agencyType", agencyType, setAgencyType, setAgencyLoading, setAgencyFeedback, "Agency type created!")}
+              onClick={() =>
+                handlePost(
+                  "agencyType",
+                  agencyTypeInput,
+                  setAgencyTypeInput,
+                  setAgencyLoading,
+                  fetchAgencyTypes, // This passes the function to re-fetch after saving
+                )
+              }
               disabled={agencyLoading}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-2xl hover:shadow-lg transform active:scale-95 transition-all disabled:opacity-50"
+              className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium disabled:opacity-50"
             >
-              {agencyLoading ? "Processing..." : "Add Agency"}
+              {agencyLoading ? "Saving..." : "Add Type"}
             </button>
           </div>
-          {agencyFeedback.error && <p className="text-red-500 text-sm font-medium">{agencyFeedback.error}</p>}
-          {agencyFeedback.success && <p className="text-green-600 text-sm font-medium">{agencyFeedback.success}</p>}
+
+          <div className="flex flex-wrap gap-2">
+            {agencyTypeList.length > 0 ? (
+              agencyTypeList.map((item) => (
+                <span
+                  key={item.id}
+                  className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold border border-blue-100"
+                >
+                  {item.name}
+                </span>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No agency types found.</p>
+            )}
+          </div>
         </section>
 
-        <hr className="border-gray-100" />
-
-        {/* --- ADD EMERGENCY TYPE SECTION --- */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-8 bg-red-500 rounded-full" />
-            <h2 className="text-xl font-semibold text-gray-800">Emergency Categories</h2>
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-3">
+        {/* --- EMERGENCY TYPES SECTION --- */}
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">
+            Emergency Types
+          </h2>
+          <div className="flex gap-3 mb-6">
             <input
               type="text"
-              placeholder="e.g., Fire, Road Accident, Armed Robbery"
-              value={emergencyType}
-              onChange={(e) => setEmergencyType(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-2xl bg-red-50 text-gray-700 focus:ring-2 focus:ring-red-400 focus:outline-none shadow-sm transition-all"
+              placeholder="Add Emergency Type (e.g., Critical, Routine)"
+              value={emergencyTypeInput}
+              onChange={(e) => setEmergencyTypeInput(e.target.value)}
+              className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border focus:ring-2 focus:ring-red-400 outline-none"
             />
             <button
-              onClick={() => handlePost("emergencyType", emergencyType, setEmergencyType, setEmergencyLoading, setEmergencyFeedback, "Emergency category added!")}
+              onClick={() =>
+                handlePost(
+                  "emergencyType",
+                  emergencyTypeInput,
+                  setEmergencyTypeInput,
+                  setEmergencyLoading,
+                  fetchEmergencyTypes,
+                )
+              }
               disabled={emergencyLoading}
-              className="px-8 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold rounded-2xl hover:shadow-lg transform active:scale-95 transition-all disabled:opacity-50"
+              className="px-6 py-2 bg-red-600 text-white rounded-xl font-medium disabled:opacity-50"
             >
-              {emergencyLoading ? "Processing..." : "Add Category"}
+              {emergencyLoading ? "Saving..." : "Add Type"}
             </button>
           </div>
-          {emergencyFeedback.error && <p className="text-red-500 text-sm font-medium">{emergencyFeedback.error}</p>}
-          {emergencyFeedback.success && <p className="text-green-600 text-sm font-medium">{emergencyFeedback.success}</p>}
+
+          <div className="flex flex-wrap gap-2">
+            {emergencyTypeList.length > 0 ? (
+              emergencyTypeList.map((item) => (
+                <span
+                  key={item.id}
+                  className="px-4 py-2 bg-red-50 text-red-700 rounded-full text-sm font-semibold border border-red-100"
+                >
+                  {item.name}
+                </span>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No emergency types found.</p>
+            )}
+          </div>
         </section>
       </div>
     </div>

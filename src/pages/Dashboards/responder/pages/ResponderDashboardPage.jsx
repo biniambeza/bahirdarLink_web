@@ -139,7 +139,20 @@ const STATUS_META = {
  */
 const toEn = (value) => {
   if (!value) return "";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (
+      (trimmed.startsWith("{") || trimmed.startsWith("[")) &&
+      trimmed.includes('"en"')
+    ) {
+      try {
+        return toEn(JSON.parse(trimmed));
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
   if (typeof value !== "object") return String(value);
   if (typeof value.en === "string") return value.en;
   if (value.name !== undefined) return toEn(value.name);

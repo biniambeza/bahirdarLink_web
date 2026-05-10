@@ -62,8 +62,18 @@ const AddCasePage = ({ onClose, onSaved }) => {
           }),
         ]);
 
-        setCaseTypes(caseTypeRes.data.caseTypes || caseTypeRes.data || []);
-        setKebeles(kebeleRes.data.kebeles || kebeleRes.data || []);
+        // FIXED: Explicitly target the .data array from your API response structure
+        const caseTypeData =
+          caseTypeRes.data.data ||
+          caseTypeRes.data.caseTypes ||
+          (Array.isArray(caseTypeRes.data) ? caseTypeRes.data : []);
+        const kebeleData =
+          kebeleRes.data.data ||
+          kebeleRes.data.kebeles ||
+          (Array.isArray(kebeleRes.data) ? kebeleRes.data : []);
+
+        setCaseTypes(caseTypeData);
+        setKebeles(kebeleData);
 
         setNewCase((prev) => ({
           ...prev,
@@ -71,6 +81,7 @@ const AddCasePage = ({ onClose, onSaved }) => {
           agencyId: user.agencyId || null,
         }));
       } catch (err) {
+        console.error("Fetch Error:", err);
         setError("Telemetry Sync Failed: Check server connection.");
       } finally {
         setFetchingData(false);
@@ -87,14 +98,12 @@ const AddCasePage = ({ onClose, onSaved }) => {
     }));
   };
 
-  // Clamp and floor any numeric input to a safe integer
   const handleIntegerChange = (e) => {
     const { name, value } = e.target;
     if (value === "") {
       setNewCase((prev) => ({ ...prev, [name]: "" }));
       return;
     }
-    // Strip decimals — take only the integer part
     const intVal = Math.floor(Math.abs(Number(value)));
     setNewCase((prev) => ({ ...prev, [name]: String(intVal) }));
   };
@@ -124,7 +133,6 @@ const AddCasePage = ({ onClose, onSaved }) => {
 
         if (integerFields.includes(key)) {
           if (value !== "") {
-            // Always send as a safe integer — Math.floor ensures no decimals
             data.append(key, Math.floor(Number(value)));
           }
         } else if (typeof value === "boolean") {
@@ -156,7 +164,12 @@ const AddCasePage = ({ onClose, onSaved }) => {
     }
   };
 
-  if (fetchingData) return null;
+  if (fetchingData)
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
+        <Loader2 className="animate-spin text-white" size={40} />
+      </div>
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-md">
@@ -257,22 +270,12 @@ const AddCasePage = ({ onClose, onSaved }) => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Age — integer only */}
                   <input
                     type="number"
                     name="age"
                     placeholder="Age"
-                    min="0"
-                    max="150"
-                    step="1"
                     value={newCase.age}
                     onChange={handleIntegerChange}
-                    onKeyDown={(e) => {
-                      // Block "." and "e" keys so decimals can't be typed
-                      if (e.key === "." || e.key === "e" || e.key === "E") {
-                        e.preventDefault();
-                      }
-                    }}
                     className="border border-slate-200 rounded-2xl p-4 text-sm outline-none"
                   />
                   <select
@@ -287,8 +290,6 @@ const AddCasePage = ({ onClose, onSaved }) => {
                     <option value="female">Female</option>
                   </select>
                 </div>
-
-                {/* Height & Weight — integer only */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative">
                     <Ruler
@@ -299,21 +300,10 @@ const AddCasePage = ({ onClose, onSaved }) => {
                       type="number"
                       name="height"
                       placeholder="Height (cm)"
-                      min="0"
-                      max="300"
-                      step="1"
                       value={newCase.height}
                       onChange={handleIntegerChange}
-                      onKeyDown={(e) => {
-                        if (e.key === "." || e.key === "e" || e.key === "E") {
-                          e.preventDefault();
-                        }
-                      }}
                       className="w-full border border-slate-200 rounded-2xl p-4 pl-12 text-sm outline-none bg-white focus:border-indigo-400"
                     />
-                    <span className="absolute right-4 top-4 text-[10px] font-bold text-slate-400">
-                      CM
-                    </span>
                   </div>
                   <div className="relative">
                     <Scale
@@ -324,68 +314,31 @@ const AddCasePage = ({ onClose, onSaved }) => {
                       type="number"
                       name="weight"
                       placeholder="Weight (kg)"
-                      min="0"
-                      max="500"
-                      step="1"
                       value={newCase.weight}
                       onChange={handleIntegerChange}
-                      onKeyDown={(e) => {
-                        if (e.key === "." || e.key === "e" || e.key === "E") {
-                          e.preventDefault();
-                        }
-                      }}
                       className="w-full border border-slate-200 rounded-2xl p-4 pl-12 text-sm outline-none bg-white focus:border-indigo-400"
                     />
-                    <span className="absolute right-4 top-4 text-[10px] font-bold text-slate-400">
-                      KG
-                    </span>
                   </div>
                 </div>
-
-                {/* Helper note so users know integers are expected */}
-                <p className="text-[10px] text-slate-400 font-semibold ml-1">
-                  Height and weight are recorded in whole numbers only (e.g. 175 cm, 70 kg).
-                </p>
-
-                <textarea
-                  name="distinctiveFeatures"
-                  placeholder="Distinctive Markings (Scars, Tattoos, Apparel...)"
-                  value={newCase.distinctiveFeatures}
-                  onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-2xl p-4 text-sm outline-none h-28 resize-none shadow-inner"
-                />
               </div>
             </section>
 
             {/* 03: Response Configuration */}
-            <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] space-y-6 shadow-xl shadow-slate-200">
+            <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] space-y-6 shadow-xl">
               <div className="flex items-center gap-2">
                 <Coins size={16} className="text-yellow-400" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                   Response Configuration
                 </span>
               </div>
-              <div className="space-y-4">
-                <label className="block text-[10px] font-black text-slate-500 uppercase ml-1">
-                  Asset Bounty (ETB)
-                </label>
-                {/* Reward — integer only */}
-                <input
-                  type="number"
-                  name="reward"
-                  placeholder="0"
-                  min="0"
-                  step="1"
-                  value={newCase.reward}
-                  onChange={handleIntegerChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "." || e.key === "e" || e.key === "E") {
-                      e.preventDefault();
-                    }
-                  }}
-                  className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-2xl font-black text-yellow-400 focus:bg-white focus:text-slate-900 outline-none transition-all"
-                />
-              </div>
+              <input
+                type="number"
+                name="reward"
+                placeholder="0"
+                value={newCase.reward}
+                onChange={handleIntegerChange}
+                className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-2xl font-black text-yellow-400 focus:bg-white focus:text-slate-900 outline-none transition-all"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <select
                   name="priority"
@@ -425,11 +378,13 @@ const AddCasePage = ({ onClose, onSaved }) => {
                   className="border border-slate-200 rounded-2xl p-4 text-sm font-bold outline-none"
                 >
                   <option value="">Type</option>
-                  {caseTypes.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  {/* SAFE MAP: Optional chaining and array check */}
+                  {Array.isArray(caseTypes) &&
+                    caseTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
                 </select>
                 <select
                   required
@@ -439,11 +394,13 @@ const AddCasePage = ({ onClose, onSaved }) => {
                   className="border border-slate-200 rounded-2xl p-4 text-sm font-bold outline-none"
                 >
                   <option value="">Kebele</option>
-                  {kebeles.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.name}
-                    </option>
-                  ))}
+                  {/* SAFE MAP: Optional chaining and array check */}
+                  {Array.isArray(kebeles) &&
+                    kebeles.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <input
@@ -461,19 +418,6 @@ const AddCasePage = ({ onClose, onSaved }) => {
                 onChange={handleChange}
                 className="w-full border border-slate-200 rounded-2xl p-4 text-sm outline-none h-36 resize-none shadow-inner"
               />
-              <div className="relative">
-                <Phone
-                  className="absolute left-4 top-4 text-slate-300"
-                  size={18}
-                />
-                <input
-                  name="contactInfo"
-                  placeholder="Emergency Lead Contact"
-                  value={newCase.contactInfo}
-                  onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-2xl p-4 pl-12 text-sm font-bold outline-none"
-                />
-              </div>
             </section>
 
             {/* Submit */}
@@ -481,15 +425,13 @@ const AddCasePage = ({ onClose, onSaved }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full py-5 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.4em] rounded-[1.5rem] shadow-2xl shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:bg-slate-300"
+                className="w-full py-5 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.4em] rounded-[1.5rem] shadow-2xl transition-all hover:bg-indigo-700 disabled:bg-slate-300"
               >
-                <div className="relative z-10 flex items-center justify-center gap-3">
-                  {loading ? (
-                    <Loader2 className="animate-spin" size={20} />
-                  ) : (
-                    "Authorize & Deploy"
-                  )}
-                </div>
+                {loading ? (
+                  <Loader2 className="animate-spin mx-auto" size={20} />
+                ) : (
+                  "Authorize & Deploy"
+                )}
               </button>
             </div>
           </form>

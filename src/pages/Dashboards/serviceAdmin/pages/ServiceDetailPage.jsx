@@ -456,8 +456,8 @@ function SectionHead({ label, icon: Icon }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-const ServiceDetailPage = ({ incidentProp, panelMode = false }) => {
-  const e = incidentProp;
+const ServiceDetailPage = ({ serviceProp, panelMode = false }) => {
+  const e = serviceProp;
   if (!e)
     return (
       <div style={{ padding: 40, textAlign: "center", color: T.ink4 }}>

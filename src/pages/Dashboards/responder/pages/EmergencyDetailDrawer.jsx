@@ -1905,6 +1905,9 @@ const EmergencyDetailDrawer = ({
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const apiPath = isService ? "service" : "emergencies";
 
+  // Filter tabs based on service type - hide chat for service reports
+  const availableTabs = TABS.filter((tab) => !(isService && tab.id === "chat"));
+
   useEffect(() => {
     if (emergency) {
       setLocalStatus(emergency.status);
@@ -2122,7 +2125,7 @@ const EmergencyDetailDrawer = ({
                 flexShrink: 0,
               }}
             >
-              {TABS.map((tab) => {
+              {availableTabs.map((tab) => {
                 const active = activeTab === tab.id;
                 return (
                   <button
@@ -2191,7 +2194,7 @@ const EmergencyDetailDrawer = ({
                       isService={isService}
                     />
                   )}
-                  {activeTab === "chat" && (
+                  {activeTab === "chat" && !isService && (
                     <ChatTab
                       emergencyId={emergency._id || emergency.id}
                       token={token}
