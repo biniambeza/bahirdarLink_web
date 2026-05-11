@@ -70,6 +70,11 @@ const sdpPayload = (desc) =>
 const getMsgId = (m) => m?._id ?? m?.id ?? null;
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   isMine — message was sent by this responder dashboard.
+───────────────────────────────────────────────────────────────────────────── */
+const isMineMsg = (m) => m?.senderType === "responderTeam";
+
+/* ─────────────────────────────────────────────────────────────────────────────
    ChatTab
 ───────────────────────────────────────────────────────────────────────────── */
 export default function ChatTab({
@@ -104,7 +109,7 @@ export default function ChatTab({
   const recordTimerRef   = useRef(null);
   const mountedRef       = useRef(true);
 
-  /* ── dedup: track every message ID we've already shown ── */
+  /* ── dedup ── */
   const seenIdsRef = useRef(new Set());
 
   /* ── WebRTC refs ── */
@@ -261,7 +266,6 @@ export default function ChatTab({
         const history = await api.get(`/api/message/${emergencyId}`);
         if (mountedRef.current) {
           const msgs = history.data?.data || [];
-          /* Seed the dedup set so socket echoes of history are silently dropped */
           seenIdsRef.current = new Set(msgs.map(getMsgId).filter(Boolean));
           setMessages(msgs);
         }
@@ -275,15 +279,19 @@ export default function ChatTab({
         });
         socketRef.current = s;
 
-        s.on("connect",    () => { s.emit("chat:join", { emergencyId }); if (mountedRef.current) setStatus("ready"); });
-        s.on("disconnect", () => { if (mountedRef.current) setStatus("idle"); });
+        s.on("connect", () => {
+          s.emit("chat:join", { emergencyId });
+          if (mountedRef.current) setStatus("ready");
+        });
+        s.on("disconnect", () => {
+          if (mountedRef.current) setStatus("idle");
+        });
 
-        /* ── Dedup by message ID — covers text, audio, and every future type ── */
         s.on("chat:new", (msg) => {
           if (!mountedRef.current) return;
           const id = getMsgId(msg);
           if (id) {
-            if (seenIdsRef.current.has(id)) return; // already shown
+            if (seenIdsRef.current.has(id)) return;
             seenIdsRef.current.add(id);
           }
           setMessages((prev) => [...prev, msg]);
@@ -299,14 +307,39 @@ export default function ChatTab({
           }
         });
 
+        // FIX ③: loosened identity guard.
+        //
+        // Old code required identity.senderType === "user" AND a matching
+        // identity.id — but if the Flutter socket's identity object has a
+        // slightly different shape (e.g. missing senderType on the first join,
+        // or id as a string vs number mismatch), the guard silently dropped
+        // the event and the offer was never created.
+        //
+        // New logic:
+        //   • If identity is present, accept it when senderType is "user" OR
+        //     when senderType is absent (unknown/legacy clients).
+        //   • The reporterUserId check still runs when both sides have it,
+        //     but we don't reject if one side hasn't received the id yet.
+        //   • We still guard on isInitiatorRef and offerSentRef to prevent
+        //     duplicate offers on reconnect / ghost peer-joined events.
         s.on("call:peer-joined", async (payload) => {
-          if (!mountedRef.current) return;
-          if (!isInitiatorRef.current || offerSentRef.current) return;
+          if (!mountedRef.current || !isInitiatorRef.current || offerSentRef.current) return;
+
           const { socketId, identity } = payload || {};
-          if (!socketId || !identity) return;
-          if (identity.senderType !== "user") return;
+          if (!socketId) return;
+
+          // Accept the join if:
+          //   • no identity at all (anonymous / legacy client), OR
+          //   • senderType is "user" (Flutter reporter), OR
+          //   • senderType is absent (indeterminate)
+          const senderType = identity?.senderType;
+          if (senderType && senderType !== "user") return; // definitely not the reporter
+
+          // Optional: match reporterUserId when both sides know it
           const expected = reporterUserIdRef.current;
-          if (expected != null && Number(identity.id) !== Number(expected)) return;
+          if (expected != null && identity?.id != null) {
+            if (Number(identity.id) !== Number(expected)) return;
+          }
 
           peerSocketIdRef.current = socketId;
           if (mountedRef.current) setCallStatus("connecting");
@@ -408,7 +441,25 @@ export default function ChatTab({
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || status !== "ready") return;
-    socketRef.current?.emit("chat:send", { emergencyId, text: trimmed });
+
+    const s = socketRef.current;
+    if (!s) return;
+
+    const optKey = `opt_${Date.now()}_${Math.random()}`;
+    const optimistic = {
+      id:          optKey,
+      _id:         optKey,
+      emergencyId,
+      senderType:  "responderTeam",
+      messageType: "text",
+      text:        trimmed,
+      audioUrl:    null,
+      createdAt:   new Date().toISOString(),
+    };
+    seenIdsRef.current.add(optKey);
+    setMessages((prev) => [...prev, optimistic]);
+
+    s.emit("chat:send", { emergencyId, text: trimmed });
     setText("");
   }, [text, status, emergencyId]);
 
@@ -452,8 +503,7 @@ export default function ChatTab({
     formData.append("audio", blob);
     formData.append("emergencyId", emergencyId);
     try {
-      const res = await api.post("/api/message/audio", formData);
-      socketRef.current?.emit("chat:send", { emergencyId, audioUrl: res.data.data.audioUrl });
+      await api.post("/api/message/audio", formData);
     } catch {
       setError("Audio upload failed");
     }
@@ -717,45 +767,43 @@ export default function ChatTab({
         )}
 
         {messages.map((m, i) => {
-          const isMine = m.senderType === "responderTeam";
+          const mine = isMineMsg(m);
           return (
             <div key={getMsgId(m) ?? i} style={{
               display: "flex",
-              justifyContent: isMine ? "flex-end" : "flex-start",
+              justifyContent: mine ? "flex-end" : "flex-start",
             }}>
-              <div style={{
-                position: "relative",
-                maxWidth: "78%", minWidth: 90,
-                padding: "8px 12px 6px",
-                borderRadius: 16,
-                borderBottomRightRadius: isMine ? 4 : 16,
-                borderBottomLeftRadius:  isMine ? 16 : 4,
-                background: isMine ? "#1E40AF" : "#fff",
-                color: isMine ? "#fff" : "#1a1a2e",
-                boxShadow: "0 1px 3px rgba(0,0,0,.08)",
-              }}>
-                {m.audioUrl ? (
-                  <TelegramAudioPlayer
-                    url={`${apiBaseUrl}${m.audioUrl}`}
-                    isMine={isMine}
-                    isPlaying={playingKey === i}
-                    onTogglePlay={() => setPlayingKey(playingKey === i ? null : i)}
-                  />
-                ) : (
-                  <p style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", margin: 0 }}>
-                    {m.text}
-                  </p>
-                )}
+              {!mine && (
                 <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "flex-end",
-                  gap: 4, marginTop: 3, opacity: .55,
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", maxWidth: "78%",
                 }}>
-                  <span style={{ fontSize: 10, fontWeight: 500 }}>
-                    {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: "#1E40AF",
+                    marginBottom: 3, marginLeft: 4, letterSpacing: ".03em",
+                    textTransform: "uppercase",
+                  }}>
+                    {m.senderType === "user" ? "Reporter" : m.senderType}
                   </span>
-                  {isMine && <CheckCheck size={13} color="rgba(255,255,255,.8)" />}
+                  <MessageBubble
+                    m={m}
+                    mine={mine}
+                    i={i}
+                    apiBaseUrl={apiBaseUrl}
+                    playingKey={playingKey}
+                    setPlayingKey={setPlayingKey}
+                  />
                 </div>
-              </div>
+              )}
+              {mine && (
+                <MessageBubble
+                  m={m}
+                  mine={mine}
+                  i={i}
+                  apiBaseUrl={apiBaseUrl}
+                  playingKey={playingKey}
+                  setPlayingKey={setPlayingKey}
+                />
+              )}
             </div>
           );
         })}
@@ -884,6 +932,48 @@ export default function ChatTab({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   MessageBubble
+───────────────────────────────────────────────────────────────────────────── */
+function MessageBubble({ m, mine, i, apiBaseUrl, playingKey, setPlayingKey }) {
+  return (
+    <div style={{
+      maxWidth: "78%", minWidth: 90,
+      padding: "8px 12px 6px",
+      borderRadius: 16,
+      borderBottomRightRadius: mine ? 4 : 16,
+      borderBottomLeftRadius:  mine ? 16 : 4,
+      background: mine ? "#1E40AF" : "#fff",
+      color: mine ? "#fff" : "#1a1a2e",
+      boxShadow: "0 1px 3px rgba(0,0,0,.08)",
+    }}>
+      {m.audioUrl ? (
+        <TelegramAudioPlayer
+          url={`${apiBaseUrl}${m.audioUrl}`}
+          isMine={mine}
+          isPlaying={playingKey === i}
+          onTogglePlay={() => setPlayingKey(playingKey === i ? null : i)}
+        />
+      ) : (
+        <p style={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", margin: 0 }}>
+          {m.text}
+        </p>
+      )}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        gap: 4, marginTop: 3, opacity: .55,
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 500 }}>
+          {m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : ""}
+        </span>
+        {mine && <CheckCheck size={13} color="rgba(255,255,255,.8)" />}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    TelegramAudioPlayer
 ───────────────────────────────────────────────────────────────────────────── */
 function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
@@ -944,11 +1034,11 @@ function TelegramAudioPlayer({ url, isMine, isPlaying, onTogglePlay }) {
       </button>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <div style={{ height: 24, display: "flex", alignItems: "center", gap: "2px" }}>
-          {bars.map((h, i) => (
-            <div key={i} style={{
+          {bars.map((h, idx) => (
+            <div key={idx} style={{
               width: 2.5, borderRadius: 2, flexShrink: 0,
               height: `${h}%`,
-              background: (i / bars.length) * 100 < progress ? accent : trackBg,
+              background: (idx / bars.length) * 100 < progress ? accent : trackBg,
               transition: "background .15s",
             }} />
           ))}
