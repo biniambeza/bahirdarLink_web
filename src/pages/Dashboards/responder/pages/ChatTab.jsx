@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import axios from "axios";
 import {
   Send, Shield, Loader2, Mic, Square, Play, Pause,
-  RefreshCw, CheckCheck, Paperclip, Video, PhoneOff, X,
+  RefreshCw, CheckCheck, Paperclip, Video, PhoneOff, X, Monitor,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -27,9 +27,29 @@ function unlockAudioContext() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   getUserMedia with progressive fallback (iOS Safari safe)
+   SINGLE-DEVICE TESTING FIX:
+   React (responder) uses getDisplayMedia (screen share) instead of the webcam.
+   This means the physical camera stays free for Flutter (reporter) to grab.
+
+   In real deployment on separate devices, swap TEST_MODE to false and it will
+   use getUserMedia as normal.
 ───────────────────────────────────────────────────────────────────────────── */
+const TEST_MODE = true; // ← set false for production / separate devices
+
 async function getLocalStream() {
+  if (TEST_MODE) {
+    // Use screen share so the physical camera is free for Flutter
+    try {
+      const screen = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 30 } },
+        audio: true,
+      });
+      return screen;
+    } catch (_) {
+      // User cancelled screen share — fall through to camera
+    }
+  }
+
   const attempts = [
     { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: true },
     { video: { width: { ideal: 640  }, height: { ideal: 480  } }, audio: true },
@@ -42,6 +62,11 @@ async function getLocalStream() {
     catch (e) { lastErr = e; }
   }
   throw lastErr;
+}
+
+function stopStream(stream) {
+  if (!stream) return;
+  try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
 }
 
 const STUN_SERVERS = [
@@ -64,14 +89,7 @@ function attachStream(el, stream) {
 const sdpPayload = (desc) =>
   desc && "sdp" in desc ? { type: desc.type, sdp: desc.sdp } : desc;
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Stable message ID extractor
-───────────────────────────────────────────────────────────────────────────── */
-const getMsgId = (m) => m?._id ?? m?.id ?? null;
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   isMine — message was sent by this responder dashboard.
-───────────────────────────────────────────────────────────────────────────── */
+const getMsgId  = (m) => m?._id ?? m?.id ?? null;
 const isMineMsg = (m) => m?.senderType === "responderTeam";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -96,6 +114,9 @@ export default function ChatTab({
   const [isCallOpen,     setIsCallOpen]     = useState(false);
   const [callStatus,     setCallStatus]     = useState("idle");
   const [reporterUserId, setReporterUserId] = useState(null);
+
+  // TEST_MODE indicator state
+  const [usingScreenShare, setUsingScreenShare] = useState(false);
 
   /* ── DOM refs ── */
   const listRef        = useRef(null);
@@ -122,6 +143,7 @@ export default function ChatTab({
   const offerSentRef      = useRef(false);
   const emergencyIdRef    = useRef(emergencyId);
   const pendingIceRef     = useRef([]);
+  const flutterReadyRef   = useRef(false);
 
   useEffect(() => { emergencyIdRef.current = emergencyId; }, [emergencyId]);
 
@@ -140,14 +162,16 @@ export default function ChatTab({
       listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, isRecording]);
 
-  /* ── re-attach video when overlay opens ── */
+  /* ── Re-attach video when overlay opens ── */
   useEffect(() => {
     if (!isCallOpen) return;
-    const id = setTimeout(() => {
+    let attempts = 0;
+    const tryAttach = () => {
       attachStream(remoteVideoRef.current, remoteStreamRef.current);
       attachStream(localVideoRef.current,  localStreamRef.current);
-    }, 80);
-    return () => clearTimeout(id);
+      if (++attempts < 10) setTimeout(tryAttach, 300);
+    };
+    setTimeout(tryAttach, 80);
   }, [isCallOpen]);
 
   /* ─────────────────────────────────────────────────────────────────────────
@@ -173,9 +197,9 @@ export default function ChatTab({
       tracks.forEach((t) => {
         if (!rs.getTracks().find((e) => e.id === t.id)) rs.addTrack(t);
       });
-      attachVideoElements();
-      setTimeout(attachVideoElements, 100);
-      setTimeout(attachVideoElements, 400);
+      [0, 200, 500, 1000, 2000].forEach((delay) =>
+        setTimeout(attachVideoElements, delay)
+      );
     };
 
     pc.onicecandidate = (event) => {
@@ -194,7 +218,10 @@ export default function ChatTab({
     pc.oniceconnectionstatechange = () => {
       if (!mountedRef.current) return;
       const st = pc.iceConnectionState;
-      if (st === "connected" || st === "completed") setCallStatus("in-call");
+      if (st === "connected" || st === "completed") {
+        setCallStatus("in-call");
+        setTimeout(attachVideoElements, 300);
+      }
       if (st === "failed")       setCallStatus("failed");
       if (st === "disconnected") setCallStatus("disconnected");
     };
@@ -202,13 +229,41 @@ export default function ChatTab({
     pc.onconnectionstatechange = () => {
       if (!mountedRef.current) return;
       const st = pc.connectionState;
-      if (st === "connected")    setCallStatus("in-call");
+      if (st === "connected") {
+        setCallStatus("in-call");
+        setTimeout(attachVideoElements, 300);
+      }
       if (st === "failed")       setCallStatus("failed");
       if (st === "disconnected") setCallStatus("disconnected");
     };
 
-    if (!localStreamRef.current)
-      localStreamRef.current = await getLocalStream();
+    // ── SINGLE-DEVICE FIX: get local stream (screen share in TEST_MODE) ──
+    if (!localStreamRef.current) {
+      const stream = await getLocalStream();
+      localStreamRef.current = stream;
+
+      // Detect if we ended up with a screen share track
+      const hasDisplay = stream.getVideoTracks().some(
+        (t) => t.label.toLowerCase().includes("screen") ||
+               t.label.toLowerCase().includes("display") ||
+               t.label.toLowerCase().includes("entire")
+      );
+      setUsingScreenShare(hasDisplay);
+
+      // When the user stops screen share via the browser's built-in button,
+      // handle gracefully (don't crash the call)
+      stream.getVideoTracks().forEach((t) => {
+        t.onended = () => {
+          setUsingScreenShare(false);
+          // Remove the ended video track from the PC sender
+          pc.getSenders()
+            .filter((s) => s.track?.kind === "video")
+            .forEach((s) => {
+              try { pc.removeTrack(s); } catch (_) {}
+            });
+        };
+      });
+    }
 
     attachStream(localVideoRef.current, localStreamRef.current);
     localStreamRef.current
@@ -225,19 +280,20 @@ export default function ChatTab({
     peerSocketIdRef.current   = null;
     reporterUserIdRef.current = null;
     pendingIceRef.current     = [];
+    flutterReadyRef.current   = false;
 
     try { pcRef.current?.getSenders?.().forEach((s) => s.track?.stop()); } catch (_) {}
     try { pcRef.current?.close?.(); } catch (_) {}
     pcRef.current = null;
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-    }
+    stopStream(localStreamRef.current);
+    localStreamRef.current  = null;
     remoteStreamRef.current = null;
 
     if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+
+    setUsingScreenShare(false);
 
     if (!skipState) {
       setReporterUserId(null);
@@ -307,35 +363,29 @@ export default function ChatTab({
           }
         });
 
-        // FIX ③: loosened identity guard.
-        //
-        // Old code required identity.senderType === "user" AND a matching
-        // identity.id — but if the Flutter socket's identity object has a
-        // slightly different shape (e.g. missing senderType on the first join,
-        // or id as a string vs number mismatch), the guard silently dropped
-        // the event and the offer was never created.
-        //
-        // New logic:
-        //   • If identity is present, accept it when senderType is "user" OR
-        //     when senderType is absent (unknown/legacy clients).
-        //   • The reporterUserId check still runs when both sides have it,
-        //     but we don't reject if one side hasn't received the id yet.
-        //   • We still guard on isInitiatorRef and offerSentRef to prevent
-        //     duplicate offers on reconnect / ghost peer-joined events.
+        // ── SINGLE-DEVICE FIX: when Flutter signals ready, we DON'T need to
+        // release our stream anymore — we're using screen share, not the camera!
+        // We just acknowledge and let Flutter proceed.
+        s.on("call:flutter-ready", (p) => {
+          if (!mountedRef.current) return;
+          const incomingId = p?.emergencyId;
+          if (incomingId != null && Number(incomingId) !== Number(emergencyIdRef.current)) return;
+          flutterReadyRef.current = true;
+          // In TEST_MODE we keep our screen-share stream alive — Flutter can open
+          // the camera freely since we never grabbed it.
+          // In production (separate devices), this is a no-op too since the camera
+          // is on a different physical device.
+        });
+
         s.on("call:peer-joined", async (payload) => {
           if (!mountedRef.current || !isInitiatorRef.current || offerSentRef.current) return;
 
           const { socketId, identity } = payload || {};
           if (!socketId) return;
 
-          // Accept the join if:
-          //   • no identity at all (anonymous / legacy client), OR
-          //   • senderType is "user" (Flutter reporter), OR
-          //   • senderType is absent (indeterminate)
           const senderType = identity?.senderType;
-          if (senderType && senderType !== "user") return; // definitely not the reporter
+          if (senderType && senderType !== "user") return;
 
-          // Optional: match reporterUserId when both sides know it
           const expected = reporterUserIdRef.current;
           if (expected != null && identity?.id != null) {
             if (Number(identity.id) !== Number(expected)) return;
@@ -375,7 +425,9 @@ export default function ChatTab({
               try { await pc.addIceCandidate(cand); } catch (_) {}
             }
             pendingIceRef.current = [];
-            setTimeout(attachVideoElements, 200);
+            [200, 600, 1200, 2000].forEach((delay) =>
+              setTimeout(attachVideoElements, delay)
+            );
             if (mountedRef.current) setCallStatus("in-call");
           } catch (err) {
             console.error("setRemoteDescription failed:", err);
@@ -526,6 +578,7 @@ export default function ChatTab({
       offerSentRef.current    = false;
       peerSocketIdRef.current = null;
       pendingIceRef.current   = [];
+      flutterReadyRef.current = false;
 
       await new Promise((r) => setTimeout(r, 80));
       await ensurePeerConnection(s);
@@ -608,7 +661,18 @@ export default function ChatTab({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* TEST_MODE badge */}
+          {TEST_MODE && (
+            <div style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: ".06em",
+              color: "#FCD34D", background: "rgba(251,191,36,.15)",
+              border: "1px solid rgba(251,191,36,.35)",
+              padding: "3px 8px", borderRadius: 6,
+            }}>
+              TEST MODE · Screen Share
+            </div>
+          )}
           <button
             onClick={startVideoCall}
             disabled={status !== "ready" || isCallOpen}
@@ -693,7 +757,7 @@ export default function ChatTab({
             gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
             gap: 10, padding: 14, alignContent: "start",
           }}>
-            {/* Remote — reporter */}
+            {/* Remote — reporter (Flutter side) — shows reporter's CAMERA */}
             <div style={{
               position: "relative", borderRadius: 14,
               overflow: "hidden", background: "#0d1a2e",
@@ -709,7 +773,9 @@ export default function ChatTab({
                 position: "absolute", bottom: 8, left: 10,
                 fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.85)",
                 background: "rgba(0,0,0,.5)", padding: "3px 9px", borderRadius: 8,
-              }}>Reporter</span>
+              }}>
+                📱 Reporter (camera)
+              </span>
               {callStatus !== "in-call" && (
                 <div style={{
                   position: "absolute", inset: 0,
@@ -726,7 +792,7 @@ export default function ChatTab({
               )}
             </div>
 
-            {/* Local — responder */}
+            {/* Local — responder (React side) — shows screen share in TEST_MODE */}
             <div style={{
               position: "relative", borderRadius: 14,
               overflow: "hidden", background: "#0d1a2e",
@@ -741,9 +807,31 @@ export default function ChatTab({
                 position: "absolute", bottom: 8, left: 10,
                 fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.85)",
                 background: "rgba(0,0,0,.5)", padding: "3px 9px", borderRadius: 8,
-              }}>You</span>
+                display: "flex", alignItems: "center", gap: 5,
+              }}>
+                {usingScreenShare
+                  ? <><Monitor size={9} /> You (screen share)</>
+                  : <>🎥 You (camera)</>
+                }
+              </span>
             </div>
           </div>
+
+          {/* TEST_MODE hint banner */}
+          {TEST_MODE && (
+            <div style={{
+              margin: "0 14px 12px",
+              padding: "10px 14px",
+              background: "rgba(251,191,36,.08)",
+              border: "1px solid rgba(251,191,36,.25)",
+              borderRadius: 10,
+              fontSize: 11, color: "#FCD34D", lineHeight: 1.6,
+            }}>
+              <strong>Single-device test mode:</strong> React uses screen share so Flutter can freely open the camera.
+              Flutter's big frame = Reporter's camera. React's frame = your screen.
+              On real separate devices, set <code>TEST_MODE = false</code>.
+            </div>
+          )}
         </div>
       )}
 
