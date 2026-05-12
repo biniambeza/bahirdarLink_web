@@ -108,6 +108,27 @@ const AddCasePage = ({ onClose, onSaved }) => {
     setNewCase((prev) => ({ ...prev, [name]: String(intVal) }));
   };
 
+  const normalizeCaseField = (key, value) => {
+    if (value === null || value === undefined || value === "") return null;
+    if (
+      [
+        "age",
+        "height",
+        "weight",
+        "reward",
+        "caseTypeId",
+        "lastSeenLocationId",
+        "responderTeamId",
+      ].includes(key)
+    ) {
+      return String(Math.floor(Number(value)));
+    }
+    if (typeof value === "boolean") {
+      return String(value);
+    }
+    return String(value);
+  };
+
   const handleAddCase = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -117,36 +138,16 @@ const AddCasePage = ({ onClose, onSaved }) => {
       const token = localStorage.getItem("token");
       const data = new FormData();
 
-      const integerFields = [
-        "age",
-        "height",
-        "weight",
-        "reward",
-        "caseTypeId",
-        "lastSeenLocationId",
-        "responderTeamId",
-      ];
-
       Object.keys(newCase).forEach((key) => {
-        const value = newCase[key];
-        if (value === null || value === undefined) return;
-
-        if (integerFields.includes(key)) {
-          if (value !== "") {
-            data.append(key, Math.floor(Number(value)));
-          }
-        } else if (typeof value === "boolean") {
-          data.append(key, value);
-        } else if (value !== "") {
-          data.append(key, value);
-        }
+        const value = normalizeCaseField(key, newCase[key]);
+        if (value === null) return;
+        data.append(key, value);
       });
 
       if (imageFile) data.append("media", imageFile);
 
       const res = await axios.post("http://localhost:5000/api/cases", data, {
         headers: {
-          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -417,6 +418,20 @@ const AddCasePage = ({ onClose, onSaved }) => {
                 value={newCase.description}
                 onChange={handleChange}
                 className="w-full border border-slate-200 rounded-2xl p-4 text-sm outline-none h-36 resize-none shadow-inner"
+              />
+              <textarea
+                name="distinctiveFeatures"
+                placeholder="Distinctive Features (scars, marks, clothing...)"
+                value={newCase.distinctiveFeatures}
+                onChange={handleChange}
+                className="w-full border border-slate-200 rounded-2xl p-4 text-sm outline-none h-28 resize-none shadow-inner"
+              />
+              <input
+                name="contactInfo"
+                placeholder="Contact Info"
+                value={newCase.contactInfo}
+                onChange={handleChange}
+                className="w-full border border-slate-200 rounded-2xl p-4 text-sm outline-none"
               />
             </section>
 

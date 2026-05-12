@@ -28,10 +28,17 @@ const CaseDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
+  const getEnglishField = (field) => {
+    if (!field) return null;
+    if (typeof field === "string") return field;
+    return field.en || field?.en || Object.values(field)[0] || null;
+  };
+
   const fetchCaseDetail = async () => {
     try {
       const res = await axios.get(`${BASE_URL}/api/cases/${id}`);
-      setCaseData(res.data);
+      const payload = res.data?.data || res.data;
+      setCaseData(payload);
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
@@ -188,7 +195,7 @@ const CaseDetailPage = () => {
                 )}
               </div>
               <h1 className="text-6xl font-black tracking-tighter leading-none">
-                {caseData.fullName}
+                {getEnglishField(caseData.fullName) || "Unknown Subject"}
               </h1>
             </header>
 
@@ -264,7 +271,7 @@ const CaseDetailPage = () => {
                   Distinctive Features
                 </h4>
                 <p className="text-lg font-bold text-slate-800">
-                  {caseData.distinctiveFeatures ||
+                  {getEnglishField(caseData.distinctiveFeatures) ||
                     "No specific marks reported."}
                 </p>
               </div>
@@ -274,7 +281,8 @@ const CaseDetailPage = () => {
                   Dossier Narrative
                 </h4>
                 <p className="text-xl font-medium text-slate-600 leading-relaxed font-serif italic border-l-4 border-blue-600 pl-6">
-                  {caseData.description}
+                  {getEnglishField(caseData.description) ||
+                    "No narrative available."}
                 </p>
               </div>
             </div>

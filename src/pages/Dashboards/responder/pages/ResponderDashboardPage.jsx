@@ -128,15 +128,6 @@ const STATUS_META = {
   },
 };
 
-// ─── CORE EN EXTRACTOR ───────────────────────────────────────────────────────
-/**
- * toEn — always returns a plain English string, never an object.
- * Handles every shape the API might return:
- *   "Fire"
- *   { en:"Fire", am:"እሳት" }
- *   { name:"Fire" }
- *   { name:{ en:"Fire", am:"..." } }
- */
 const toEn = (value) => {
   if (!value) return "";
   if (typeof value === "string") {
