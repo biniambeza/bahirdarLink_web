@@ -1,77 +1,103 @@
 import React from "react";
 import { 
-  FaMapMarkedAlt, FaUsers, FaBell, 
-  FaShieldAlt, FaAmbulance, FaChartLine 
-} from "react-icons/fa";
-import { ArrowRight } from "lucide-react";
+  Bell, 
+  Users, 
+  Map, 
+  Shield, 
+  Activity, 
+  TrendingUp, 
+  ArrowRight 
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const capabilities = [
   {
-    icon: <FaBell />,
+    icon: <Bell className="w-5 h-5" />,
     title: "Incident Monitoring",
     description: "Track incidents reported from mobile applications in real time with AI-powered diagnostics.",
-    stats: "Real-time tracking",
-    color: "from-blue-500 to-cyan-400"
+    tag: "Real-time tracking",
+    bgAccent: "bg-blue-50 text-blue-600 border-blue-100"
   },
   {
-    icon: <FaUsers />,
+    icon: <Users className="w-5 h-5" />,
     title: "Agency Coordination",
     description: "Unified dispatch for police, fire, and medical units with smart routing protocols.",
-    stats: "Multi-agency",
-    color: "from-indigo-500 to-purple-400"
+    tag: "Multi-agency",
+    bgAccent: "bg-indigo-50 text-indigo-600 border-indigo-100"
   },
   {
-    icon: <FaMapMarkedAlt />,
+    icon: <Map className="w-5 h-5" />,
     title: "Live Map View",
     description: "Geospatial visualization for faster response decisions using advanced heat mapping.",
-    stats: "3D visualization",
-    color: "from-emerald-500 to-teal-400"
+    tag: "3D visualization",
+    bgAccent: "bg-emerald-50 text-emerald-600 border-emerald-100"
   },
   {
-    icon: <FaShieldAlt />,
+    icon: <Shield className="w-5 h-5" />,
     title: "Resource Management",
     description: "Efficiently deploy personnel and equipment with real-time availability updates.",
-    stats: "Resource tracking",
-    color: "from-orange-500 to-amber-400"
+    tag: "Resource tracking",
+    bgAccent: "bg-amber-50 text-amber-600 border-amber-100"
   },
   {
-    icon: <FaAmbulance />,
+    icon: <Activity className="w-5 h-5" />,
     title: "Emergency Dispatch",
     description: "Automated priority-based routing and ETA calculations for critical response.",
-    stats: "Smart dispatch",
-    color: "from-blue-600 to-indigo-500"
+    tag: "Smart dispatch",
+    bgAccent: "bg-sky-50 text-sky-600 border-sky-100"
   },
   {
-    icon: <FaChartLine />,
+    icon: <TrendingUp className="w-5 h-5" />,
     title: "Analytics Dashboard",
     description: "Comprehensive reporting and performance optimization for administrative oversight.",
-    stats: "Real-time insights",
-    color: "from-violet-500 to-fuchsia-400"
+    tag: "Real-time insights",
+    bgAccent: "bg-purple-50 text-purple-600 border-purple-100"
   }
 ];
 
+// Stagger Animation Variants for the Grid Container
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { type: "spring", stiffness: 120, damping: 18 }
+  }
+};
+
 const CapabilitiesSection = () => {
   return (
-    <div className="relative w-full min-h-screen bg-white text-slate-900 overflow-hidden flex flex-col selection:bg-blue-50">
+    <div className="relative w-full min-h-screen bg-slate-50 text-slate-900 overflow-hidden flex flex-col selection:bg-blue-600 selection:text-white">
       
-      {/* SHARED BACKGROUND DECOR */}
+      {/* PREMIUM BRIGHT BACKGROUND GRAPHICS */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
-        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[50%] bg-blue-50 blur-[100px] rounded-full opacity-50" />
+        {/* Subtle geometric dot grid pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px] opacity-40" />
+        {/* Soft, professional gradient glows */}
+        <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[60%] bg-blue-100/50 blur-[130px] rounded-full" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[50%] bg-sky-100/40 blur-[110px] rounded-full" />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-[1200px] mx-auto px-8 pt-32 pb-12 w-full">
+      <div className="relative z-10 flex flex-col h-full max-w-[1280px] mx-auto px-6 md:px-12 pt-32 pb-16 w-full flex-grow justify-between">
         
         {/* HEADER SECTION */}
-        <header className="mb-12 lg:mb-16 relative">
+        <header className="mb-16 md:mb-20 max-w-3xl">
           <motion.div 
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 mb-4"
+            transition={{ duration: 0.4 }}
+            className="flex items-center gap-2.5 mb-4"
           >
-            <span className="w-8 h-[1px] bg-blue-600"></span>
-            <span className="text-blue-600 font-medium uppercase text-[10px] tracking-[0.3em]">
+            <span className="w-2 h-2 bg-blue-600 rounded-full shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
+            <span className="text-blue-600 font-semibold uppercase text-xs tracking-[0.2em]">
               Platform Capabilities
             </span>
           </motion.div>
@@ -79,75 +105,90 @@ const CapabilitiesSection = () => {
           <motion.h1 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-3xl lg:text-5xl text-slate-900 tracking-tight leading-tight font-normal"
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="text-4xl sm:text-5xl md:text-6xl text-slate-900 tracking-tight font-extrabold leading-[1.15] mb-6"
           >
-            Unified Emergency Response <br />
-            <span className="text-slate-400 italic font-light">Advanced infrastructure for public safety.</span>
+            Unified Emergency <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">Response Infrastructure</span>
           </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-lg text-slate-500 font-normal max-w-2xl leading-relaxed"
+          >
+            High-availability tools engineered for public safety agencies. Monitor, coordinate, and dispatch resources with absolute precision.
+          </motion.p>
         </header>
 
         {/* FEATURE GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10 flex-grow">
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
+        >
           {capabilities.map((cap, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="group relative flex flex-col"
+              variants={cardVariants}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              className="group relative flex flex-col justify-between p-6 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/[0.04] transition-all duration-300"
             >
-              {/* Card Index Number (Subtle) */}
-              <span className="absolute -top-4 right-2 text-slate-100 font-bold text-6xl group-hover:text-blue-50 transition-colors duration-500 pointer-events-none">
-                0{index + 1}
-              </span>
-
-              {/* Icon with Color Glow */}
-              <div className="relative mb-6">
-                <div className={`absolute inset-0 bg-gradient-to-br ${cap.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-full w-14 h-14`} />
-                <div className={`relative w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-white transition-all duration-500 overflow-hidden shadow-sm`}>
-                  <div className={`absolute inset-0 bg-gradient-to-br ${cap.color} translate-y-14 group-hover:translate-y-0 transition-transform duration-500`} />
-                  <span className="relative text-xl z-10">{cap.icon}</span>
+              <div>
+                {/* Header Element Inside Card */}
+                <div className="flex justify-between items-start mb-6">
+                  {/* Icon wrapper with soft custom tint colors */}
+                  <div className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${cap.bgAccent}`}>
+                    {cap.icon}
+                  </div>
+                  
+                  {/* Tech-inspired index label */}
+                  <span className="text-xs font-mono font-bold text-slate-300 group-hover:text-blue-400 tracking-wider transition-colors duration-300">
+                    // 0{index + 1}
+                  </span>
                 </div>
+
+                {/* Card Title & Description */}
+                <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-2 group-hover:text-blue-600 transition-colors duration-300">
+                  {cap.title}
+                </h3>
+                <p className="text-sm text-slate-500 font-normal leading-relaxed mb-6">
+                  {cap.description}
+                </p>
               </div>
-              
-              <h3 className="text-xl font-normal text-slate-900 tracking-tight mb-3">
-                {cap.title}
-              </h3>
-              
-              <p className="text-sm text-slate-500 font-light leading-relaxed mb-6 max-w-[90%]">
-                {cap.description}
-              </p>
-              
-              {/* Bottom Interactive Element */}
-              <div className="mt-auto flex items-center gap-4">
-                <div className="h-[1px] flex-grow bg-slate-100 group-hover:bg-blue-100 transition-colors" />
-                <span className="text-[9px] uppercase tracking-[0.2em] text-slate-400 group-hover:text-blue-600 transition-colors font-medium">
-                  {cap.stats}
+
+              {/* Bottom Interactive Area */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
+                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold group-hover:text-slate-600 transition-colors">
+                  {cap.tag}
                 </span>
-                <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 group-hover:border-blue-200 group-hover:bg-blue-50 transition-all duration-300">
-                  <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                
+                <div className="w-7 h-7 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-300 group-hover:bg-blue-50 transition-all duration-200">
+                  <ArrowRight size={13} className="transform group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* SHARED FOOTER */}
+        {/* BRIGHT SCHEME FOOTER */}
         <motion.div 
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="mt-20 pt-8 flex justify-between items-center border-t border-slate-100 text-[10px] text-slate-400 font-medium uppercase tracking-[0.2em]"
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3 }}
+          className="mt-20 pt-8 flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-200 text-[10px] text-slate-400 font-mono tracking-wider w-full"
         >
-          <div className="flex items-center gap-3">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
-            <span>Systems Online // 2026</span>
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
+            <span className="text-slate-600 font-semibold">ALL PROTOCOLS ONLINE // ENCRYPTED LINK</span>
           </div>
-          <div className="flex items-center gap-8">
-            <span className="hidden md:block opacity-50">Ensuring 100% Data Integrity</span>
-            <span className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[9px] tracking-widest">
-              Core Protocol v1.2
+          <div className="flex items-center gap-6">
+            <span className="hidden md:block opacity-60">SYSTEM INTEGRITY SECURED</span>
+            <span className="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-md text-[9px] font-bold shadow-sm">
+              RELAY CORE V1.2
             </span>
           </div>
         </motion.div>
