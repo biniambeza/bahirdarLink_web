@@ -40,15 +40,7 @@ const ResponderHeader = ({ sidebarOpen, setSidebarOpen, active }) => {
           "Responder Unit";
         setAgencyName(rawName);
 
-        const serviceKeywords = [
-          "municipal",
-          "electric",
-          "water",
-          "health",
-          "utility",
-          "medical",
-          "service",
-        ];
+        const serviceKeywords = ["municipal", "electric", "water"];
         setIsServiceMode(
           serviceKeywords.some((kw) => rawName.toLowerCase().includes(kw)),
         );

@@ -533,15 +533,7 @@ const ResponderDashboardPage = () => {
       setAgencyInfo(agency);
 
       const agencyName = (agency?.name || "").toLowerCase();
-      const serviceKeywords = [
-        "municipal",
-        "electric",
-        "water",
-        "health",
-        "utility",
-        "medical",
-        "service",
-      ];
+      const serviceKeywords = ["municipal", "electric", "water"];
       const localIsService = serviceKeywords.some((kw) =>
         agencyName.includes(kw),
       );

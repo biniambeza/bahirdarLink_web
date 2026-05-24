@@ -569,15 +569,7 @@ const ResponderIncidentsPage = () => {
 
       // 3. Mode Detection Logic (Using fixed helper)
       const agencyName = (renderEnglish(agency?.name) || "").toLowerCase();
-      const serviceKeywords = [
-        "municipal",
-        "electric",
-        "water",
-        "health",
-        "utility",
-        "medical",
-        "service",
-      ];
+      const serviceKeywords = ["municipal", "electric", "water"];
       const localIsService = serviceKeywords.some((kw) =>
         agencyName.includes(kw),
       );

@@ -74,9 +74,13 @@ const LogoutModal = ({ onConfirm, onCancel }) => (
 const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
   const navigate = useNavigate();
   const [isServiceMode, setIsServiceMode] = useState(false);
+  const [isPolice, setIsPolice] = useState(false);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+=======
+>>>>>>> a5edcf7 (updated)
   useEffect(() => {
     const checkAgencyType = async () => {
       try {
@@ -86,29 +90,64 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
         const decoded = jwtDecode(token);
         const responderTeamId = decoded.id;
 
+        if (
+          !responderTeamId ||
+          responderTeamId === "agent-login" ||
+          (typeof responderTeamId === "string" &&
+            responderTeamId.includes("-login"))
+        ) {
+          setLoading(false);
+          return;
+        }
+
         const teamRes = await axios.get(
           `${BASE_URL}/api/responderTeam/${responderTeamId}`,
+<<<<<<< HEAD
           { headers: { Authorization: `Bearer ${token}` } }
+=======
+          { headers: { Authorization: `Bearer ${token}` } },
+>>>>>>> a5edcf7 (updated)
         );
-        const agencyId = teamRes.data?.data?.agencyId || teamRes.data?.agencyId;
+
+        const teamData = teamRes.data?.data || teamRes.data || {};
+        const agencyId = teamData.agencyId;
+
+        if (!agencyId || agencyId === "agent-login") {
+          setLoading(false);
+          return;
+        }
 
         const agencyRes = await axios.get(
           `${BASE_URL}/api/agency/${agencyId}`,
+<<<<<<< HEAD
           { headers: { Authorization: `Bearer ${token}` } }
+=======
+          { headers: { Authorization: `Bearer ${token}` } },
+>>>>>>> a5edcf7 (updated)
         );
-        const agencyName = (
-          agencyRes.data?.data?.name ||
-          agencyRes.data?.name ||
-          ""
-        ).toLowerCase();
 
+<<<<<<< HEAD
         const serviceKeywords = [
           "municipal", "electric", "water", "health",
           "utility", "medical", "service",
         ];
         setIsServiceMode(serviceKeywords.some((kw) => agencyName.includes(kw)));
+=======
+        const agencyData = agencyRes.data?.data || agencyRes.data || {};
+
+        const currentAgencyTypeId = Number(agencyData.agencyTypeId);
+
+        setIsServiceMode(currentAgencyTypeId === 5);
+
+        if (currentAgencyTypeId === 2) {
+          setIsPolice(true);
+        } else {
+          setIsPolice(false);
+        }
+>>>>>>> a5edcf7 (updated)
       } catch (error) {
-        console.error("Sidebar Auth Error:", error);
+        console.error("Sidebar System Mapping Error:", error);
+        setIsPolice(false); // Failsafe fallback
       } finally {
         setLoading(false);
       }
@@ -123,6 +162,7 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
   };
 
   return (
+<<<<<<< HEAD
     <>
       {showLogoutModal && (
         <LogoutModal
@@ -163,6 +203,58 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 space-y-2 mt-6">
+=======
+    <motion.aside
+      animate={{ width: sidebarOpen ? 260 : 90 }}
+      className="h-screen flex flex-col shadow-2xl bg-gradient-to-b from-blue-700 to-blue-900 text-white"
+    >
+      {/* Logo Area */}
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+          {loading ? (
+            <Loader2 className="animate-spin text-blue-700" size={20} />
+          ) : (
+            <span className="text-2xl">{isServiceMode ? "⚡" : "🚑"}</span>
+          )}
+        </div>
+
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col"
+          >
+            <span className="font-black text-lg tracking-tight leading-tight uppercase">
+              {isServiceMode ? "Service" : "Responder"}
+            </span>
+            <span className="text-[10px] font-bold opacity-60 tracking-[0.2em]">
+              UNIT HUB
+            </span>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 space-y-2 mt-6">
+        <NavItem
+          icon={<BarChart2 size={22} />}
+          label="Dashboard"
+          active={active === "dashboard"}
+          open={sidebarOpen}
+          onClick={() => setActive("dashboard")}
+        />
+
+        <NavItem
+          icon={isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />}
+          label={isServiceMode ? "Tasks" : "Incidents"}
+          active={active === "incidents"}
+          open={sidebarOpen}
+          onClick={() => setActive("incidents")}
+        />
+
+        {/* Verified Target Point: Cases element injection */}
+        {isPolice && (
+>>>>>>> a5edcf7 (updated)
           <NavItem
             icon={<BarChart2 size={22} />}
             label="Dashboard"
