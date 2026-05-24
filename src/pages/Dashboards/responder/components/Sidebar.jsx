@@ -43,7 +43,8 @@ const LogoutModal = ({ onConfirm, onCancel }) => (
           Sign out?
         </h2>
         <p className="text-sm text-slate-400 font-medium mb-8 leading-relaxed">
-          You'll be returned to the login screen.<br />
+          You'll be returned to the login screen.
+          <br />
           Any unsaved changes will be lost.
         </p>
 
@@ -74,6 +75,7 @@ const LogoutModal = ({ onConfirm, onCancel }) => (
 const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
   const navigate = useNavigate();
   const [isServiceMode, setIsServiceMode] = useState(false);
+  const [isPolice, setIsPolice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -86,29 +88,47 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
         const decoded = jwtDecode(token);
         const responderTeamId = decoded.id;
 
+        if (
+          !responderTeamId ||
+          responderTeamId === "agent-login" ||
+          (typeof responderTeamId === "string" &&
+            responderTeamId.includes("-login"))
+        ) {
+          setLoading(false);
+          return;
+        }
+
         const teamRes = await axios.get(
           `${BASE_URL}/api/responderTeam/${responderTeamId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
-        const agencyId = teamRes.data?.data?.agencyId || teamRes.data?.agencyId;
+
+        const teamData = teamRes.data?.data || teamRes.data || {};
+        const agencyId = teamData.agencyId;
+
+        if (!agencyId || agencyId === "agent-login") {
+          setLoading(false);
+          return;
+        }
 
         const agencyRes = await axios.get(
           `${BASE_URL}/api/agency/${agencyId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
-        const agencyName = (
-          agencyRes.data?.data?.name ||
-          agencyRes.data?.name ||
-          ""
-        ).toLowerCase();
 
-        const serviceKeywords = [
-          "municipal", "electric", "water", "health",
-          "utility", "medical", "service",
-        ];
-        setIsServiceMode(serviceKeywords.some((kw) => agencyName.includes(kw)));
+        const agencyData = agencyRes.data?.data || agencyRes.data || {};
+        const currentAgencyTypeId = Number(agencyData.agencyTypeId);
+
+        setIsServiceMode(currentAgencyTypeId === 5);
+
+        if (currentAgencyTypeId === 2) {
+          setIsPolice(true);
+        } else {
+          setIsPolice(false);
+        }
       } catch (error) {
-        console.error("Sidebar Auth Error:", error);
+        console.error("Sidebar System Mapping Error:", error);
+        setIsPolice(false);
       } finally {
         setLoading(false);
       }
@@ -172,14 +192,16 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
           />
 
           <NavItem
-            icon={isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />}
+            icon={
+              isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />
+            }
             label={isServiceMode ? "Tasks" : "Incidents"}
             active={active === "incidents"}
             open={sidebarOpen}
             onClick={() => setActive("incidents")}
           />
 
-          {!isServiceMode && (
+          {isPolice && (
             <NavItem
               icon={<FileText size={22} />}
               label="Cases"
@@ -228,7 +250,7 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 const NavItem = ({ icon, label, active, open, onClick, danger }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group ${
+    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group relative ${
       active
         ? "bg-white text-blue-900 shadow-xl scale-[1.02]"
         : danger
@@ -238,9 +260,7 @@ const NavItem = ({ icon, label, active, open, onClick, danger }) => (
   >
     <span
       className={`${
-        active
-          ? "text-blue-600"
-          : "group-hover:scale-110 transition-transform"
+        active ? "text-blue-600" : "group-hover:scale-110 transition-transform"
       }`}
     >
       {icon}

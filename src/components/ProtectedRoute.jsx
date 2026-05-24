@@ -26,6 +26,19 @@ const ProtectedRoute = ({ children, role }) => {
     }
   }
 
+  // RESPONDER
+  if (role === "responder") {
+    const responder = JSON.parse(localStorage.getItem("responder"));
+    const sessionRole = localStorage.getItem("role");
+    if (
+      sessionRole !== "responder" &&
+      !responder &&
+      (!user || user.role !== "responder")
+    ) {
+      return <Navigate to="/login" replace />;
+    }
+  }
+
   return children;
 };
 
