@@ -43,7 +43,8 @@ const LogoutModal = ({ onConfirm, onCancel }) => (
           Sign out?
         </h2>
         <p className="text-sm text-slate-400 font-medium mb-8 leading-relaxed">
-          You'll be returned to the login screen.<br />
+          You'll be returned to the login screen.
+          <br />
           Any unsaved changes will be lost.
         </p>
 
@@ -76,11 +77,8 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
   const [isServiceMode, setIsServiceMode] = useState(false);
   const [isPolice, setIsPolice] = useState(false);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-=======
->>>>>>> a5edcf7 (updated)
   useEffect(() => {
     const checkAgencyType = async () => {
       try {
@@ -102,11 +100,7 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 
         const teamRes = await axios.get(
           `${BASE_URL}/api/responderTeam/${responderTeamId}`,
-<<<<<<< HEAD
-          { headers: { Authorization: `Bearer ${token}` } }
-=======
           { headers: { Authorization: `Bearer ${token}` } },
->>>>>>> a5edcf7 (updated)
         );
 
         const teamData = teamRes.data?.data || teamRes.data || {};
@@ -119,22 +113,10 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 
         const agencyRes = await axios.get(
           `${BASE_URL}/api/agency/${agencyId}`,
-<<<<<<< HEAD
-          { headers: { Authorization: `Bearer ${token}` } }
-=======
           { headers: { Authorization: `Bearer ${token}` } },
->>>>>>> a5edcf7 (updated)
         );
 
-<<<<<<< HEAD
-        const serviceKeywords = [
-          "municipal", "electric", "water", "health",
-          "utility", "medical", "service",
-        ];
-        setIsServiceMode(serviceKeywords.some((kw) => agencyName.includes(kw)));
-=======
         const agencyData = agencyRes.data?.data || agencyRes.data || {};
-
         const currentAgencyTypeId = Number(agencyData.agencyTypeId);
 
         setIsServiceMode(currentAgencyTypeId === 5);
@@ -144,10 +126,9 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
         } else {
           setIsPolice(false);
         }
->>>>>>> a5edcf7 (updated)
       } catch (error) {
         console.error("Sidebar System Mapping Error:", error);
-        setIsPolice(false); // Failsafe fallback
+        setIsPolice(false);
       } finally {
         setLoading(false);
       }
@@ -162,7 +143,6 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
   };
 
   return (
-<<<<<<< HEAD
     <>
       {showLogoutModal && (
         <LogoutModal
@@ -203,58 +183,6 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 space-y-2 mt-6">
-=======
-    <motion.aside
-      animate={{ width: sidebarOpen ? 260 : 90 }}
-      className="h-screen flex flex-col shadow-2xl bg-gradient-to-b from-blue-700 to-blue-900 text-white"
-    >
-      {/* Logo Area */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-          {loading ? (
-            <Loader2 className="animate-spin text-blue-700" size={20} />
-          ) : (
-            <span className="text-2xl">{isServiceMode ? "⚡" : "🚑"}</span>
-          )}
-        </div>
-
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col"
-          >
-            <span className="font-black text-lg tracking-tight leading-tight uppercase">
-              {isServiceMode ? "Service" : "Responder"}
-            </span>
-            <span className="text-[10px] font-bold opacity-60 tracking-[0.2em]">
-              UNIT HUB
-            </span>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-2 mt-6">
-        <NavItem
-          icon={<BarChart2 size={22} />}
-          label="Dashboard"
-          active={active === "dashboard"}
-          open={sidebarOpen}
-          onClick={() => setActive("dashboard")}
-        />
-
-        <NavItem
-          icon={isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />}
-          label={isServiceMode ? "Tasks" : "Incidents"}
-          active={active === "incidents"}
-          open={sidebarOpen}
-          onClick={() => setActive("incidents")}
-        />
-
-        {/* Verified Target Point: Cases element injection */}
-        {isPolice && (
->>>>>>> a5edcf7 (updated)
           <NavItem
             icon={<BarChart2 size={22} />}
             label="Dashboard"
@@ -264,14 +192,16 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
           />
 
           <NavItem
-            icon={isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />}
+            icon={
+              isServiceMode ? <Zap size={22} /> : <AlertTriangle size={22} />
+            }
             label={isServiceMode ? "Tasks" : "Incidents"}
             active={active === "incidents"}
             open={sidebarOpen}
             onClick={() => setActive("incidents")}
           />
 
-          {!isServiceMode && (
+          {isPolice && (
             <NavItem
               icon={<FileText size={22} />}
               label="Cases"
@@ -320,7 +250,7 @@ const ResponderSidebar = ({ sidebarOpen, active, setActive }) => {
 const NavItem = ({ icon, label, active, open, onClick, danger }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group ${
+    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group relative ${
       active
         ? "bg-white text-blue-900 shadow-xl scale-[1.02]"
         : danger
@@ -330,9 +260,7 @@ const NavItem = ({ icon, label, active, open, onClick, danger }) => (
   >
     <span
       className={`${
-        active
-          ? "text-blue-600"
-          : "group-hover:scale-110 transition-transform"
+        active ? "text-blue-600" : "group-hover:scale-110 transition-transform"
       }`}
     >
       {icon}
