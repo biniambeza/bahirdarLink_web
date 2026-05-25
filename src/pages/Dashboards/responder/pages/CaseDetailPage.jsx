@@ -1,30 +1,18 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  MapPin,
-  User,
-  MessageSquare,
-  RefreshCcw,
-  AlertCircle,
-  Clock,
-  Calendar,
-  Phone,
-  Ruler,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Hourglass,
-  ShieldCheck,
-  Eye,
+  ArrowLeft, MapPin, User, MessageSquare, RefreshCcw,
+  AlertCircle, Clock, Calendar, Phone, Ruler,
+  AlertTriangle, CheckCircle2, XCircle, Hourglass,
+  ShieldCheck, Eye,
 } from "lucide-react";
 import axios from "axios";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS & CONFIGURATIONS
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const API_ENDPOINTS = {
   caseDetail: (id) => `${BASE_URL}/api/cases/${id}`,
@@ -35,133 +23,256 @@ const API_ENDPOINTS = {
 const STATUS_OPTIONS = ["pending", "approved", "rejected", "resolved"];
 
 const STATUS_META = {
-  resolved: { pill: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", btn: "bg-emerald-600 text-white" },
-  approved: { pill: "bg-blue-100 text-blue-700 border-blue-200",          dot: "bg-blue-500",    btn: "bg-blue-600 text-white"    },
-  rejected: { pill: "bg-red-100 text-red-700 border-red-200",             dot: "bg-red-500",     btn: "bg-red-600 text-white"     },
-  pending:  { pill: "bg-amber-100 text-amber-700 border-amber-200",       dot: "bg-amber-400",   btn: "bg-amber-500 text-white"   },
+  resolved: { accent: "#059669", light: "#ecfdf5", mid: "#a7f3d0", text: "#065f46", label: "Resolved"  },
+  approved: { accent: "#2563eb", light: "#eff6ff", mid: "#bfdbfe", text: "#1e3a8a", label: "Approved"  },
+  rejected: { accent: "#dc2626", light: "#fef2f2", mid: "#fecaca", text: "#7f1d1d", label: "Rejected"  },
+  pending:  { accent: "#d97706", light: "#fffbeb", mid: "#fde68a", text: "#78350f", label: "Pending"   },
 };
 
-const SIGHTING_STATUS_META = {
-  verified: { classes: "bg-emerald-100 text-emerald-700", icon: <CheckCircle2 size={10} /> },
-  rejected: { classes: "bg-red-100 text-red-600",          icon: <XCircle      size={10} /> },
-  pending:  { classes: "bg-slate-100 text-slate-500",      icon: <Hourglass    size={10} /> },
+const SIGHTING_META = {
+  verified: { accent: "#059669", bg: "#ecfdf5", icon: CheckCircle2, label: "Verified" },
+  rejected: { accent: "#dc2626", bg: "#fef2f2", icon: XCircle,      label: "Rejected" },
+  pending:  { accent: "#9ca3af", bg: "#f9fafb", icon: Hourglass,    label: "Pending"  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REFACTOR: CLEAN DEFAULT VALUE PARSER (Expects plain English strings)
+// HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const cleanStr = (field) => {
-  if (field === null || field === undefined) return "";
-  return String(field).trim();
+/**
+ * Extract a plain English string from any field shape the backend may return:
+ *   • null / undefined            → ""
+ *   • plain string                → trimmed (JSON-parsed if it starts with "{")
+ *   • { en, am }                  → en value (falls back to am, then first value)
+ *   • { name: { en, am } }        → en from nested name
+ *   • { name: "plain string" }    → that string
+ */
+const cleanStr = (v, lang = "en") => {
+  if (v == null) return "";
+
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t.startsWith("{")) {
+      try { return cleanStr(JSON.parse(t), lang); } catch (_) {}
+    }
+    return t;
+  }
+
+  if (typeof v === "object") {
+    if (v.name !== undefined) return cleanStr(v.name, lang);
+    if (v[lang])  return String(v[lang]).trim();
+    if (v.en)     return String(v.en).trim();
+    if (v.am)     return String(v.am).trim();
+    const first = Object.values(v).find((x) => typeof x === "string" && x.trim());
+    return first ? first.trim() : "";
+  }
+
+  return String(v).trim();
 };
 
-const formatDate = (iso, opts = { year: "numeric", month: "short", day: "numeric" }) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", opts) : "";
+const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const InfoItem = React.memo(({ icon, label, value }) => (
-  <div className="flex gap-3 items-start">
-    <div className="mt-0.5 p-2 rounded-xl bg-blue-50 text-blue-500 shrink-0">
-      {icon}
-    </div>
-    <div className="min-w-0">
-      <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">{label}</p>
-      <p className="text-sm font-bold text-slate-800 break-words">{value || "—"}</p>
-    </div>
-  </div>
-));
-InfoItem.displayName = "InfoItem";
+const Tag = ({ children, color = "#2563eb", bg = "#eff6ff" }) => (
+  <span style={{
+    display: "inline-flex", alignItems: "center",
+    padding: "4px 12px", borderRadius: 99,
+    background: bg, color,
+    fontSize: 11, fontWeight: 700,
+    letterSpacing: "0.04em",
+    fontFamily: "system-ui, sans-serif",
+  }}>
+    {children}
+  </span>
+);
 
-const SightingSkeleton = () => (
-  <div className="space-y-3">
-    {[1, 2, 3].map((i) => (
-      <div key={i} className="h-28 rounded-2xl bg-slate-100 animate-pulse" />
-    ))}
+const Label = ({ children }) => (
+  <p style={{
+    fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+    textTransform: "uppercase", color: "#9ca3af",
+    marginBottom: 4, fontFamily: "system-ui, sans-serif",
+  }}>{children}</p>
+);
+
+const Value = ({ children, large }) => (
+  <p style={{
+    fontSize: large ? 15 : 14, fontWeight: 600,
+    color: "#111827", lineHeight: 1.5,
+    fontFamily: "system-ui, sans-serif",
+  }}>{children || "—"}</p>
+);
+
+const Divider = () => (
+  <div style={{ height: 1, background: "#f3f4f6", margin: "0 -24px" }} />
+);
+
+const Card = ({ children, style = {} }) => (
+  <div style={{
+    background: "#fff",
+    borderRadius: 16,
+    border: "1px solid #f3f4f6",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)",
+    overflow: "hidden",
+    ...style,
+  }}>
+    {children}
   </div>
 );
 
-const SightingCard = React.memo(({ report }) => {
-  const status = report.status || "pending";
-  const meta   = SIGHTING_STATUS_META[status] ?? SIGHTING_STATUS_META.pending;
+const CardSection = ({ children, style = {} }) => (
+  <div style={{ padding: "20px 24px", ...style }}>{children}</div>
+);
 
-  const description  = cleanStr(report.description);
-  const locationName = cleanStr(report.kebele);
-  const caseTypeName = cleanStr(report.caseType);
+const MetricBox = ({ label, value, accent }) => (
+  <div style={{
+    padding: "16px 18px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px solid #f3f4f6",
+  }}>
+    <Label>{label}</Label>
+    <p style={{
+      fontSize: 20, fontWeight: 800, color: accent || "#111827",
+      fontFamily: "system-ui, sans-serif", lineHeight: 1.2,
+    }}>{value || "—"}</p>
+  </div>
+);
+
+const SightingCard = React.memo(({ report, index }) => {
+  const status = report.status || "pending";
+  const meta   = SIGHTING_META[status] ?? SIGHTING_META.pending;
+  const Icon   = meta.icon;
 
   return (
-    <div className="p-5 bg-white rounded-2xl border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all duration-200">
-      <div className="flex justify-between items-center mb-3 gap-2">
-        <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg shrink-0">
-          {formatDate(report.spottedAt) || "Date unknown"}
+    <div style={{
+      padding: "16px",
+      background: "#fff",
+      borderRadius: 12,
+      border: "1px solid #f3f4f6",
+      borderLeft: `3px solid ${meta.accent}`,
+      marginBottom: 8,
+      animation: `fadeUp 0.25s ease forwards`,
+      animationDelay: `${index * 0.04}s`,
+      opacity: 0,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", fontFamily: "system-ui, sans-serif" }}>
+          {fmt(report.spottedAt)}
         </span>
-        <span className={`flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg ${meta.classes}`}>
-          {meta.icon}
-          {status}
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+          color: meta.accent, background: meta.bg,
+          padding: "2px 8px", borderRadius: 99,
+          fontFamily: "system-ui, sans-serif",
+        }}>
+          <Icon size={9} />
+          {meta.label}
         </span>
       </div>
-
-      {caseTypeName && (
-        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-2">
-          {caseTypeName}
-        </p>
-      )}
-
-      <p className="text-sm font-medium text-slate-700 leading-relaxed mb-3">
-        {description || "No description provided."}
+      <p style={{
+        fontSize: 13, color: "#374151", lineHeight: 1.6,
+        marginBottom: 8, fontFamily: "system-ui, sans-serif",
+      }}>
+        {cleanStr(report.description) || "No description provided."}
       </p>
-
-      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-        <MapPin size={10} className="text-blue-400 shrink-0" />
-        <span className="truncate">{locationName || "Location unknown"}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <MapPin size={10} color="#d1d5db" />
+        <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "system-ui, sans-serif" }}>
+          {cleanStr(report.kebele) || "Location unknown"}
+        </span>
       </div>
-
-      {report.reporterId && (
-        <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-300">
-          Reporter #{report.reporterId}
-        </p>
-      )}
     </div>
   );
 });
 SightingCard.displayName = "SightingCard";
 
 const StatusPanel = React.memo(({ currentStatus, updating, onStatusChange }) => (
-  <div className="p-6 rounded-2xl border border-slate-100 bg-slate-50">
-    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2 mb-4">
-      <RefreshCcw size={11} className={updating ? "animate-spin text-blue-500" : "text-slate-400"} />
-      Update Status
-    </p>
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-      {STATUS_OPTIONS.map((s) => {
-        const meta     = STATUS_META[s] ?? STATUS_META.pending;
-        const isActive = currentStatus === s;
-        return (
-          <button
-            key={s}
-            disabled={updating || isActive}
-            onClick={() => onStatusChange(s)}
-            className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 border flex items-center justify-center gap-1.5
-              ${isActive
-                ? `${meta.btn} border-transparent shadow-md`
-                : "bg-white border-slate-200 text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900"
-              } disabled:cursor-not-allowed`}
-          >
-            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/70" />}
-            {s}
-          </button>
-        );
-      })}
-    </div>
-  </div>
+  <Card>
+    <CardSection>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <RefreshCcw size={13} color="#9ca3af" style={{ animation: updating ? "spin 1s linear infinite" : "none" }} />
+        <Label>Update Case Status</Label>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        {STATUS_OPTIONS.map((s) => {
+          const meta     = STATUS_META[s] ?? STATUS_META.pending;
+          const isActive = currentStatus === s;
+          return (
+            <button
+              key={s}
+              disabled={updating || isActive}
+              onClick={() => onStatusChange(s)}
+              style={{
+                padding: "10px 8px",
+                borderRadius: 10,
+                border: `1.5px solid ${isActive ? meta.accent : "#e5e7eb"}`,
+                background: isActive ? meta.light : "#fff",
+                color: isActive ? meta.accent : "#6b7280",
+                fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.04em",
+                cursor: isActive || updating ? "not-allowed" : "pointer",
+                transition: "all 0.15s ease",
+                fontFamily: "system-ui, sans-serif",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive && !updating) {
+                  e.currentTarget.style.borderColor = meta.accent;
+                  e.currentTarget.style.color = meta.accent;
+                  e.currentTarget.style.background = meta.light;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.color = "#6b7280";
+                  e.currentTarget.style.background = "#fff";
+                }
+              }}
+            >
+              {meta.label}
+            </button>
+          );
+        })}
+      </div>
+    </CardSection>
+  </Card>
 ));
 StatusPanel.displayName = "StatusPanel";
 
+const LoadingScreen = () => (
+  <div style={{
+    minHeight: "100vh", background: "#f9fafb",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center", gap: 20,
+  }}>
+    <div style={{ position: "relative", width: 52, height: 52 }}>
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: "50%",
+        border: "2.5px solid #e5e7eb",
+        borderTop: "2.5px solid #2563eb",
+        animation: "spin 0.9s linear infinite",
+      }} />
+      <Eye size={16} color="#2563eb" style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%,-50%)",
+      }} />
+    </div>
+    <p style={{
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.15em",
+      color: "#9ca3af", textTransform: "uppercase",
+      fontFamily: "system-ui, sans-serif",
+    }}>
+      Loading case file…
+    </p>
+  </div>
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN DETAIL COMPONENT
+// MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CaseDetailPage = () => {
@@ -181,7 +292,6 @@ const CaseDetailPage = () => {
       setCaseData(res.data?.data ?? res.data);
     } catch (err) {
       if (axios.isCancel(err)) return;
-      console.error("Case fetch error:", err);
       setError("Failed to load case details.");
     }
   }, [id]);
@@ -194,7 +304,6 @@ const CaseDetailPage = () => {
       setSightings(Array.isArray(payload) ? payload : []);
     } catch (err) {
       if (axios.isCancel(err)) return;
-      console.error("Sightings fetch error:", err);
       setSightings([]);
     } finally {
       setSightingsLoading(false);
@@ -202,23 +311,14 @@ const CaseDetailPage = () => {
   }, [id]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    
+    const ctrl = new AbortController();
     const load = async () => {
-      setLoading(true);
-      setError(null);
-      await Promise.all([
-        fetchCaseDetail(controller.signal),
-        fetchSightings(controller.signal)
-      ]);
+      setLoading(true); setError(null);
+      await Promise.all([fetchCaseDetail(ctrl.signal), fetchSightings(ctrl.signal)]);
       setLoading(false);
     };
-
     load();
-
-    return () => {
-      controller.abort();
-    };
+    return () => ctrl.abort();
   }, [fetchCaseDetail, fetchSightings]);
 
   const handleStatusChange = async (newStatus) => {
@@ -227,236 +327,342 @@ const CaseDetailPage = () => {
     try {
       await axios.put(API_ENDPOINTS.caseStatus(id), { status: newStatus });
       await fetchCaseDetail();
-    } catch (err) {
-      console.error("Status update error:", err);
+    } catch {
       alert("Status update failed. Please try again.");
     } finally {
       setUpdating(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center space-y-5">
-          <div className="relative w-16 h-16 mx-auto">
-            <div className="absolute inset-0 rounded-full border-2 border-blue-100" />
-            <div className="absolute inset-0 rounded-full border-t-2 border-blue-500 animate-spin" />
-            <div className="absolute inset-3 rounded-full bg-blue-50 flex items-center justify-center">
-              <Eye size={14} className="text-blue-500" />
-            </div>
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-            Loading Dossier
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (error || !caseData) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-white">
-        <AlertCircle size={36} className="text-red-400" />
-        <p className="text-sm font-black uppercase tracking-widest text-slate-500">
-          {error || "Case Not Found"}
+      <div style={{
+        minHeight: "100vh", background: "#f9fafb",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 12,
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%",
+          background: "#fef2f2", display: "flex",
+          alignItems: "center", justifyContent: "center",
+        }}>
+          <AlertCircle size={24} color="#dc2626" />
+        </div>
+        <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", fontFamily: "system-ui, sans-serif" }}>
+          {error || "Case not found"}
         </p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors"
-        >
-          ← Return
+        <button onClick={() => navigate(-1)} style={{
+          marginTop: 8, fontSize: 13, fontWeight: 600,
+          color: "#2563eb", background: "none", border: "none",
+          cursor: "pointer", fontFamily: "system-ui, sans-serif",
+        }}>
+          ← Go back
         </button>
       </div>
     );
   }
 
-  const statusMeta  = STATUS_META[caseData.status] ?? STATUS_META.pending;
-  const fullName    = cleanStr(caseData.fullName) || "Unknown Subject";
-  const description = cleanStr(caseData.description);
-  const features    = cleanStr(caseData.distinctiveFeatures);
-  const location    = cleanStr(caseData.lastSeenLocation || caseData.location);
-  const contactInfo = cleanStr(caseData.contactInfo);
+  const sm       = STATUS_META[caseData.status] ?? STATUS_META.pending;
+  const fullName = cleanStr(caseData.fullName) || "Unknown Subject";
+  const desc     = cleanStr(caseData.description);
+  const features = cleanStr(caseData.distinctiveFeatures);
+  const location = cleanStr(caseData.lastSeenLocation || caseData.location);
+  const contact  = cleanStr(caseData.contactInfo);
+  const imageUrl = caseData.mediaUrl
+    ? (caseData.mediaUrl.startsWith("http") ? caseData.mediaUrl : `${BASE_URL}${caseData.mediaUrl}`)
+    : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24">
-      <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500" />
+    <div style={{ minHeight: "100vh", background: "#f3f4f6", fontFamily: "system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+      `}</style>
 
-      {/* Top Bar Navigation */}
-      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100 px-6 py-3 flex items-center gap-4">
+      {/* Status color bar */}
+      <div style={{ height: 3, background: sm.accent }} />
+
+      {/* Nav */}
+      <nav style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(12px)",
+        borderBottom: "1px solid #e5e7eb",
+        padding: "0 32px",
+        display: "flex", alignItems: "center",
+        height: 56, gap: 16,
+      }}>
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-[10px] font-black uppercase tracking-widest"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, color: "#6b7280",
+            padding: "6px 10px", borderRadius: 8,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; e.currentTarget.style.color = "#111827"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "none";    e.currentTarget.style.color = "#6b7280"; }}
         >
           <ArrowLeft size={14} />
           Back
         </button>
-        <span className="text-slate-200">|</span>
-        <span className="text-[10px] font-mono text-slate-400">CASE #{id}</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${statusMeta.dot}`} />
-          <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">
-            {caseData.status}
-          </span>
+
+        <span style={{ color: "#e5e7eb" }}>|</span>
+
+        <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>
+          Case #{id}
+        </span>
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          {caseData.isDangerous && (
+            <Tag color="#dc2626" bg="#fef2f2">
+              <AlertTriangle size={10} style={{ marginRight: 4 }} />
+              High Risk
+            </Tag>
+          )}
+          <Tag color={sm.text} bg={sm.light}>{sm.label}</Tag>
         </div>
-      </div>
+      </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* Profile Column */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-slate-200 shadow-xl">
-              {caseData.mediaUrl ? (
-                <>
-                  <img
-                    src={caseData.mediaUrl.startsWith('http') ? caseData.mediaUrl : `${BASE_URL}${caseData.mediaUrl}`}
-                    className="w-full h-full object-cover"
-                    alt={fullName}
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100">
-                  <User size={64} strokeWidth={1} />
+      <main style={{ maxWidth: 1160, margin: "0 auto", padding: "32px 24px 80px" }}>
+
+        {/* Page title */}
+        <div style={{ marginBottom: 28, animation: "fadeIn 0.3s ease" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8 }}>
+            Missing Persons · Active Case
+          </p>
+          <h1 style={{
+            fontSize: "clamp(2rem, 5vw, 3.75rem)",
+            fontWeight: 800, letterSpacing: "-0.025em",
+            color: "#111827", lineHeight: 1,
+          }}>
+            {fullName}
+          </h1>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+            <Tag color={sm.text} bg={sm.light}>{sm.label}</Tag>
+            {caseData.priority && (
+              <Tag color="#374151" bg="#f9fafb">Priority {caseData.priority}</Tag>
+            )}
+          </div>
+        </div>
+
+        {/* Grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "300px 1fr",
+          gap: 20,
+          alignItems: "start",
+        }}>
+
+          {/* ── Left ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Photo */}
+            <Card>
+              <div style={{ aspectRatio: "3/4", position: "relative", background: "#f9fafb", overflow: "hidden" }}>
+                {imageUrl ? (
+                  <img src={imageUrl} alt={fullName} loading="lazy"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{
+                    width: "100%", height: "100%",
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center", gap: 10,
+                  }}>
+                    <div style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      background: "#e5e7eb",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <User size={32} color="#9ca3af" strokeWidth={1.5} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af" }}>No photo on file</span>
+                  </div>
+                )}
+
+                {caseData.status === "resolved" && (
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    background: "rgba(5,150,105,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "#059669", color: "#fff",
+                      padding: "8px 16px", borderRadius: 99,
+                      fontSize: 12, fontWeight: 700,
+                    }}>
+                      <ShieldCheck size={14} />
+                      Resolved
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Biometrics */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <Label>Biometrics</Label>
+              </CardSection>
+              <Divider />
+              <CardSection>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[
+                    { label: "Age",    value: caseData.age },
+                    { label: "Gender", value: caseData.gender },
+                    { label: "Height", value: caseData.height },
+                    { label: "Weight", value: caseData.weight },
+                  ].map(({ label, value }) => (
+                    <MetricBox key={label} label={label} value={value} accent={sm.accent} />
+                  ))}
                 </div>
-              )}
+              </CardSection>
+            </Card>
 
-              {caseData.isDangerous && (
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider text-white shadow-lg">
-                  <AlertTriangle size={9} />
-                  High Risk
+            {/* Sightings */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <MessageSquare size={13} color={sm.accent} />
+                    <Label>Sighting Reports</Label>
+                  </div>
+                  <Tag color={sm.text} bg={sm.light}>{sightings.length}</Tag>
                 </div>
-              )}
+              </CardSection>
+              <Divider />
+              <CardSection>
+                {sightingsLoading ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[1,2,3].map((i) => (
+                      <div key={i} style={{
+                        height: 84, borderRadius: 12,
+                        background: "linear-gradient(90deg, #f9fafb 25%, #f3f4f6 50%, #f9fafb 75%)",
+                        backgroundSize: "200% 100%",
+                        animation: "shimmer 1.4s infinite",
+                      }} />
+                    ))}
+                  </div>
+                ) : sightings.length > 0 ? (
+                  <div style={{ maxHeight: 460, overflowY: "auto", paddingRight: 4 }}>
+                    {sightings.map((r, i) => (
+                      <SightingCard key={r.id || r._id} report={r} index={i} />
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "28px 0", textAlign: "center",
+                    border: "1.5px dashed #e5e7eb", borderRadius: 12,
+                  }}>
+                    <AlertCircle size={22} color="#e5e7eb" style={{ margin: "0 auto 8px" }} />
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>No sightings on file</p>
+                  </div>
+                )}
+              </CardSection>
+            </Card>
 
-              {caseData.status === "resolved" && (
-                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-wider text-white shadow-lg">
-                  <ShieldCheck size={9} />
-                  Resolved
+          </div>
+
+          {/* ── Right ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            <StatusPanel currentStatus={caseData.status} updating={updating} onStatusChange={handleStatusChange} />
+
+            {/* Intel grid */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <Label>Case Intelligence</Label>
+              </CardSection>
+              <Divider />
+              <CardSection>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 32px" }}>
+                  {[
+                    { icon: MapPin,   label: "Last Known Location", value: location  },
+                    { icon: Calendar, label: "Last Seen Date",       value: fmt(caseData.lastSeenDate) },
+                    { icon: Phone,    label: "Contact Information",  value: contact   },
+                    { icon: Clock,    label: "Report Date",          value: fmt(caseData.createdAt)    },
+                  ].map(({ icon: Icon, label, value }) => (
+                    <div key={label}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <Icon size={11} color="#9ca3af" />
+                        <Label>{label}</Label>
+                      </div>
+                      <Value>{value}</Value>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </CardSection>
+            </Card>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Age",    value: caseData.age },
-                { label: "Gender", value: caseData.gender, capitalize: true },
-                { label: "Height", value: caseData.height },
-                { label: "Weight", value: caseData.weight },
-              ].map(({ label, value, capitalize }) => (
-                <div key={label} className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-                  <p className={`text-base font-black text-slate-800 ${capitalize ? "capitalize" : ""}`}>
-                    {value || "—"}
+            {/* Distinctive features */}
+            {features && (
+              <Card style={{ borderLeft: `3px solid ${sm.accent}` }}>
+                <CardSection>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <Ruler size={13} color={sm.accent} />
+                    <Label>Distinctive Features</Label>
+                  </div>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", lineHeight: 1.7 }}>
+                    {features}
                   </p>
+                </CardSection>
+              </Card>
+            )}
+
+            {/* Narrative */}
+            {desc && (
+              <Card>
+                <CardSection>
+                  <Label>Case Narrative</Label>
+                  <blockquote style={{
+                    marginTop: 12,
+                    paddingLeft: 16,
+                    borderLeft: `3px solid ${sm.mid}`,
+                  }}>
+                    <p style={{
+                      fontSize: 15, color: "#4b5563",
+                      lineHeight: 1.8, fontStyle: "italic", fontWeight: 400,
+                    }}>
+                      {desc}
+                    </p>
+                  </blockquote>
+                </CardSection>
+              </Card>
+            )}
+
+            {/* Footer strip */}
+            <div style={{
+              padding: "14px 20px",
+              background: "#fff",
+              borderRadius: 12,
+              border: "1px solid #f3f4f6",
+              display: "flex", flexWrap: "wrap", gap: "8px 28px",
+              alignItems: "center",
+            }}>
+              {[
+                { label: "File ID",  value: `CAS-${String(id).padStart(6, "0")}` },
+                { label: "Unit",     value: "Missing Persons Bureau" },
+                { label: "Clearance", value: "Authorized Personnel" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#d1d5db" }}>{label}:</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#6b7280" }}>{value}</span>
                 </div>
               ))}
             </div>
 
-            {/* Sightings Subpanel */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
-                  <MessageSquare size={12} />
-                  Sightings
-                </h3>
-                <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black border border-blue-200">
-                  {sightings.length}
-                </span>
-              </div>
-
-              {sightingsLoading ? (
-                <SightingSkeleton />
-              ) : sightings.length > 0 ? (
-                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1 custom-scroll">
-                  {sightings.map((report) => (
-                    <SightingCard key={report.id || report._id} report={report} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">
-                  <AlertCircle size={24} className="mx-auto mb-2 text-slate-300" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-                    No Sightings
-                  </p>
-                </div>
-              )}
-            </div>
           </div>
-
-          {/* Dossier Descriptions Column */}
-          <div className="lg:col-span-8 space-y-8">
-            <div className="space-y-4 pb-8 border-b border-slate-200">
-              <div className="flex flex-wrap gap-2">
-                <span className={`flex items-center gap-1.5 px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-full border ${statusMeta.pill}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
-                  {caseData.status}
-                </span>
-                {caseData.priority && (
-                  <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-wider rounded-full border border-slate-200">
-                    Priority {caseData.priority}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-5xl lg:text-7xl font-black tracking-[-0.03em] leading-[0.9] text-slate-900">
-                {fullName}
-              </h1>
-            </div>
-
-            {/* Admin Interaction Panel */}
-            <StatusPanel
-              currentStatus={caseData.status}
-              updating={updating}
-              onStatusChange={handleStatusChange}
-            />
-
-            {/* Information Grid Matrix */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <InfoItem icon={<MapPin   size={15} />} label="Last Seen Location" value={location} />
-              <InfoItem icon={<Calendar size={15} />} label="Last Seen Date"     value={formatDate(caseData.lastSeenDate)} />
-              <InfoItem icon={<Phone   size={15} />} label="Contact Info"        value={contactInfo} />
-              <InfoItem icon={<Clock    size={15} />} label="Reported On"         value={formatDate(caseData.createdAt)} />
-            </div>
-
-            {/* Features Info */}
-            {features && (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-2">
-                <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2">
-                  <Ruler size={11} /> Distinctive Features
-                </p>
-                <p className="text-base font-semibold text-slate-700 leading-relaxed">
-                  {features}
-                </p>
-              </div>
-            )}
-
-            {/* Narrative Info Block */}
-            {description && (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
-                  Dossier Narrative
-                </p>
-                <blockquote className="pl-5 border-l-4 border-blue-500">
-                  <p className="text-lg text-slate-600 leading-relaxed font-light italic">
-                    {description}
-                  </p>
-                </blockquote>
-              </div>
-            )}
-          </div>
-
         </div>
       </main>
-
-      <style>{`
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-      `}</style>
     </div>
   );
 };

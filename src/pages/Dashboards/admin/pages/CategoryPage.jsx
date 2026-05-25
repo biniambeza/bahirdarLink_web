@@ -1,15 +1,46 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import {
-  Edit,
-  Trash2,
-  Plus,
-  X,
-  RefreshCw,
-  ChevronRight,
-  Hash,
-  AlertCircle,
-} from "lucide-react";
+import { Edit, Trash2, X, RefreshCw, ChevronRight, Loader2 } from "lucide-react";
+
+const translateToAmharic = async (text) => {
+  if (!text?.trim()) return "";
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=am&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json[0]?.map((seg) => seg[0]).join("") || "";
+  } catch {
+    return "";
+  }
+};
+
+const extractEn = (raw) => {
+  if (!raw) return "";
+  if (typeof raw === "object") return raw.en || raw.am || "";
+  let str = String(raw).trim();
+  if (str.includes('\\"')) str = str.replace(/\\"/g, '"');
+  if (str.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed === "object") return parsed.en || parsed.am || "";
+    } catch {}
+  }
+  return str;
+};
+
+const extractAm = (raw) => {
+  if (!raw) return "";
+  if (typeof raw === "object") return raw.am || "";
+  let str = String(raw).trim();
+  if (str.includes('\\"')) str = str.replace(/\\"/g, '"');
+  if (str.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed === "object") return parsed.am || "";
+    } catch {}
+  }
+  return "";
+};
 
 const CategoryPage = () => {
   const [categories, setCategories] = useState([]);
@@ -20,44 +51,25 @@ const CategoryPage = () => {
   const [modalMode, setModalMode] = useState("add");
   const [activeType, setActiveType] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    emergencyType: "",
-  });
+  const [translating, setTranslating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Helper to safely extract English name from potential objects or old strings
-  const getEnName = (item) => {
-    if (!item) return "";
-    if (typeof item.name === "object" && item.name !== null) {
-      return item.name.en || "";
-    }
-    return item.name || "";
-  };
+  const [formData, setFormData] = useState({ nameEn: "", nameAm: "", emergencyType: "" });
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
-
       const [catRes, typeRes] = await Promise.all([
         axios.get("http://localhost:5000/api/categories", { headers }),
         axios.get("http://localhost:5000/api/emergencyType", { headers }),
       ]);
-
-      const fetchedCats = Array.isArray(catRes.data)
-        ? catRes.data
-        : catRes.data.data || [];
-      const fetchedTypes = Array.isArray(typeRes.data)
-        ? typeRes.data
-        : typeRes.data.data || [];
-
+      const fetchedCats = Array.isArray(catRes.data) ? catRes.data : catRes.data.data || [];
+      const fetchedTypes = Array.isArray(typeRes.data) ? typeRes.data : typeRes.data.data || [];
       setCategories(fetchedCats);
       setEmergencyTypes(fetchedTypes);
-
-      if (fetchedTypes.length > 0 && !activeType) {
-        setActiveType(fetchedTypes[0]);
-      }
+      if (fetchedTypes.length > 0 && !activeType) setActiveType(fetchedTypes[0]);
     } catch (err) {
       console.error("Fetch Error:", err);
     } finally {
@@ -65,9 +77,7 @@ const CategoryPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  useEffect(() => { fetchAllData(); }, []);
 
   const currentUnits = categories.filter((cat) => {
     if (!activeType) return false;
@@ -76,13 +86,19 @@ const CategoryPage = () => {
     return catTypeId === activeId;
   });
 
+  // Silently translate on blur — no indication shown to the user
+  const handleEnBlur = async () => {
+    if (!formData.nameEn.trim() || formData.nameAm) return;
+    setTranslating(true);
+    const am = await translateToAmharic(formData.nameEn);
+    setFormData((prev) => ({ ...prev, nameAm: am }));
+    setTranslating(false);
+  };
+
   const openAddModal = () => {
     if (!activeType) return alert("Please select a category group first");
     setModalMode("add");
-    setFormData({
-      name: "",
-      emergencyType: activeType._id || activeType.id,
-    });
+    setFormData({ nameEn: "", nameAm: "", emergencyType: activeType._id || activeType.id });
     setIsModalOpen(true);
   };
 
@@ -90,47 +106,59 @@ const CategoryPage = () => {
     setModalMode("edit");
     setSelectedCategoryId(cat._id || cat.id);
     const typeId = cat.emergencyType?._id || cat.emergencyType?.id || cat.emergencyType;
-
     setFormData({
-      name: getEnName(cat), // Use helper here to set initial form value
+      nameEn: extractEn(cat.name),
+      nameAm: extractAm(cat.name),
       emergencyType: typeId,
     });
-
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
-
+      let nameAm = formData.nameAm;
+      if (!nameAm.trim() && formData.nameEn.trim()) {
+        nameAm = await translateToAmharic(formData.nameEn);
+      }
       const payload = {
-        name: { en: formData.name }, // Send as object to support DB localization
+        name: { en: formData.nameEn.trim(), am: nameAm.trim() },
         emergencyTypeId: formData.emergencyType,
-        type: formData.name.trim().toUpperCase().replace(/\s+/g, "_"),
+        type: formData.nameEn.trim().toUpperCase().replace(/\s+/g, "_"),
       };
-
       if (modalMode === "add") {
         await axios.post("http://localhost:5000/api/categories", payload, { headers });
       } else {
-        await axios.put(
-          `http://localhost:5000/api/categories/${selectedCategoryId}`,
-          payload,
-          { headers }
-        );
+        await axios.put(`http://localhost:5000/api/categories/${selectedCategoryId}`, payload, { headers });
       }
-
       setIsModalOpen(false);
-      setFormData({ name: "", emergencyType: "" });
+      setFormData({ nameEn: "", nameAm: "", emergencyType: "" });
       fetchAllData();
     } catch (err) {
       alert(`Action Failed: ${err.response?.data?.message || "Server Error"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (cat) => {
+    if (!window.confirm(`Delete "${extractEn(cat.name)}"?`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
+      await axios.delete(`http://localhost:5000/api/categories/${cat._id || cat.id}`, { headers });
+      fetchAllData();
+    } catch (err) {
+      alert(`Delete Failed: ${err.response?.data?.message || "Server Error"}`);
     }
   };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
+      {/* Navbar */}
       <nav className="border-b border-slate-100 px-6 py-4 flex justify-between items-center sticky top-0 bg-white/80 backdrop-blur-md z-30">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-[10px]">CC</div>
@@ -142,11 +170,11 @@ const CategoryPage = () => {
       </nav>
 
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row">
+        {/* Sidebar */}
         <aside className="w-full md:w-80 border-r border-slate-100 min-h-[calc(100vh-70px)] p-6">
           <div className="mb-6 px-2">
             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Emergency Types</h2>
           </div>
-
           <div className="space-y-1">
             {emergencyTypes.map((type) => {
               const typeId = type._id || type.id;
@@ -159,8 +187,7 @@ const CategoryPage = () => {
                     isActive ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50"
                   }`}
                 >
-                  {/* SAFE RENDER: Name object fix */}
-                  <span className="text-sm font-bold">{getEnName(type)}</span>
+                  <span className="text-sm font-bold">{extractEn(type.name)}</span>
                   <ChevronRight size={14} className={isActive ? "opacity-100" : "opacity-0"} />
                 </button>
               );
@@ -168,19 +195,18 @@ const CategoryPage = () => {
           </div>
         </aside>
 
+        {/* Main */}
         <main className="flex-1 p-6 md:p-12 bg-slate-50/30">
           {loading && categories.length === 0 ? (
             <div className="flex items-center justify-center h-64 text-slate-300 animate-pulse font-bold text-xs">LOADING...</div>
           ) : (
             <>
-              <div className="flex justify-between mb-10">
-                <div>
-                  <h2 className="text-4xl font-black">
-                    {/* SAFE RENDER: Active Type Name fix */}
-                    {getEnName(activeType) || "Select Type"}
-                  </h2>
-                </div>
-                <button onClick={openAddModal} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-xs font-black">
+              <div className="flex justify-between items-start mb-10">
+                <h2 className="text-4xl font-black">{extractEn(activeType?.name) || "Select Type"}</h2>
+                <button
+                  onClick={openAddModal}
+                  className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-slate-700 transition-colors"
+                >
                   ADD NEW UNIT
                 </button>
               </div>
@@ -188,17 +214,23 @@ const CategoryPage = () => {
               <div className="grid gap-3">
                 {currentUnits.length > 0 ? (
                   currentUnits.map((cat) => (
-                    <div key={cat._id || cat.id} className="bg-white p-5 rounded-2xl flex justify-between">
-                      {/* SAFE RENDER: Category Name fix */}
-                      <span className="font-bold">{getEnName(cat)}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => openEditModal(cat)}><Edit size={16} /></button>
-                        <button><Trash2 size={16} /></button>
+                    <div
+                      key={cat._id || cat.id}
+                      className="bg-white p-5 rounded-2xl flex justify-between items-center border border-slate-100"
+                    >
+                      <span className="font-bold text-slate-900">{extractEn(cat.name)}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditModal(cat)} className="p-2 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-slate-700">
+                          <Edit size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(cat)} className="p-2 hover:bg-red-50 rounded-xl transition-all text-slate-400 hover:text-red-500">
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-slate-400">No Units Assigned</div>
+                  <div className="text-center py-16 text-slate-300 text-sm font-bold uppercase tracking-widest">No Units Assigned</div>
                 )}
               </div>
             </>
@@ -206,27 +238,46 @@ const CategoryPage = () => {
         </main>
       </div>
 
-      {/* Modal remains largely same, ensure formData.name binds correctly to simple input */}
+      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-xl">
+            <div className="flex justify-between items-center mb-8">
               <h3 className="font-black text-xl uppercase tracking-tighter">
                 {modalMode === "add" ? "New Unit" : "Edit Unit"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-full transition-all text-slate-400">
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Unit Name (English)"
-                className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-              <button type="submit" className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black text-xs uppercase">
-                Save Changes
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  Unit Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Type unit name…"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 font-semibold text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-50 transition-all"
+                  value={formData.nameEn}
+                  onChange={(e) => setFormData({ ...formData, nameEn: e.target.value, nameAm: "" })}
+                  onBlur={handleEnBlur}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving || translating}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                {saving || translating ? (
+                  <><Loader2 size={14} className="animate-spin" /> Saving…</>
+                ) : (
+                  "Save"
+                )}
               </button>
             </form>
           </div>
