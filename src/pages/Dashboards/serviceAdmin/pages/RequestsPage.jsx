@@ -9,6 +9,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 
+const API_BASE = "http://localhost:5000";
+
 const ServiceRequestsPage = () => {
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -17,7 +19,7 @@ const ServiceRequestsPage = () => {
   const [error, setError] = useState("");
 
   // Targeted API for service data
-  const API_URL = "http://localhost:5000/api/service/all";
+  const API_URL = `${API_BASE}/api/service/all`;
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -41,25 +43,40 @@ const ServiceRequestsPage = () => {
   }, []);
 
   /**
-   * SMART RENDERER
-   * Identical logic to handle your mixed backend data (JSON vs Strings)
+   * DEEP SMART RENDERER
+   * Unwraps multi-stringified JSON structures to grab the English value safely
    */
   const renderEnglish = (val) => {
     if (!val) return "";
-    if (typeof val === "object") {
-      return val.en || val.name?.en || val.label?.en || val.name || "";
-    }
-    if (typeof val === "string") {
-      if (val.includes('{"en":') || val.includes('{"am":')) {
+
+    let currentVal = val;
+
+    // Loop to unwrap recursive stringification layers
+    while (typeof currentVal === "string") {
+      const trimmed = currentVal.trim();
+      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
         try {
-          const parsed = JSON.parse(val);
-          return parsed.en || "";
+          currentVal = JSON.parse(trimmed);
         } catch (e) {
-          return val;
+          break; // Stop if it's broken invalid JSON
         }
+      } else {
+        break; // Stop if it's a regular plain text string
       }
     }
-    return String(val);
+
+    // Safely extract from object variants
+    if (typeof currentVal === "object" && currentVal !== null) {
+      return (
+        currentVal.en ||
+        currentVal.name?.en ||
+        currentVal.label?.en ||
+        currentVal.name ||
+        ""
+      );
+    }
+
+    return String(currentVal);
   };
 
   const filteredRequests = useMemo(() => {
@@ -67,19 +84,31 @@ const ServiceRequestsPage = () => {
 
     return requests
       .filter((r) => {
-        if (filter === "pending") return r.status === "pending";
+        const statusStr = renderEnglish(r.status).toLowerCase();
+        if (filter === "pending") return statusStr === "pending";
         if (filter === "completed")
-          return r.status === "completed" || r.status === "resolved";
+          return (
+            statusStr === "completed" ||
+            statusStr === "resolved" ||
+            statusStr === "approved"
+          );
         return true;
       })
       .filter((r) => {
-        const type = renderEnglish(r.serviceType).toLowerCase();
-        const category = renderEnglish(
-          r.category || r.serviceCategory,
+        const type = renderEnglish(
+          r.serviceType?.name || r.serviceType || r.description,
         ).toLowerCase();
-        const user = renderEnglish(r.userName || r.fullName).toLowerCase();
+        const category = renderEnglish(
+          r.serviceCategory?.name ||
+            r.category ||
+            r.serviceCategory ||
+            r.categoryId,
+        ).toLowerCase();
+        const user = renderEnglish(
+          r.userName || r.fullName || r.citizenId,
+        ).toLowerCase();
         const loc =
-          `${renderEnglish(r.kebele)} ${renderEnglish(r.street)}`.toLowerCase();
+          `${renderEnglish(r.kebele?.name || r.kebele)} ${renderEnglish(r.street)} ${renderEnglish(r.subdivision)}`.toLowerCase();
 
         return (
           type.includes(query) ||
@@ -192,12 +221,19 @@ const ServiceRequestsPage = () => {
                   >
                     <td className="px-8 py-6">
                       <div className="font-black text-slate-800 text-lg leading-tight">
-                        {renderEnglish(req.serviceType)}
+                        {renderEnglish(
+                          req.serviceType?.name ||
+                            req.serviceType ||
+                            req.description,
+                        )}
                       </div>
                       <div className="text-[10px] text-[#0052CC] font-black uppercase tracking-wider mt-1 flex items-center gap-1.5">
                         <Briefcase size={10} />
                         {renderEnglish(
-                          req.category || req.serviceCategory || "General",
+                          req.serviceCategory?.name ||
+                            req.category ||
+                            req.serviceCategory ||
+                            "General",
                         )}
                       </div>
                     </td>
@@ -209,8 +245,8 @@ const ServiceRequestsPage = () => {
                         />
                         <span className="max-w-[220px]">
                           {[
-                            renderEnglish(req.kebele),
-                            renderEnglish(req.street),
+                            renderEnglish(req.kebele?.name || req.kebele),
+                            renderEnglish(req.subdivision || req.street),
                           ]
                             .filter(Boolean)
                             .join(", ") || "City Center"}
@@ -220,21 +256,28 @@ const ServiceRequestsPage = () => {
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 font-black text-xs group-hover:bg-blue-600 group-hover:text-white transition-all">
-                          {renderEnglish(req.userName || "U")?.charAt(0)}
+                          {renderEnglish(
+                            req.userName || req.fullName || "U",
+                          )?.charAt(0)}
                         </div>
                         <div className="text-sm font-black text-slate-700">
-                          {renderEnglish(req.userName || "Unknown User")}
+                          {renderEnglish(
+                            req.userName ||
+                              req.fullName ||
+                              `Citizen #${req.citizenId || "Unknown"}`,
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-2 text-xs font-black text-slate-500">
                         <Calendar size={14} className="text-slate-300" />
-                        {req.createdAt
-                          ? new Date(req.createdAt).toLocaleDateString(
-                              undefined,
-                              { dateStyle: "medium" },
-                            )
+                        {req.createdAt || req.time
+                          ? new Date(
+                              req.createdAt || `2026-05-24T${req.time}`,
+                            ).toLocaleDateString(undefined, {
+                              dateStyle: "medium",
+                            })
                           : "N/A"}
                       </div>
                     </td>
@@ -259,6 +302,7 @@ const StatusChip = ({ status }) => {
     completed: "bg-emerald-50 text-emerald-600 border-emerald-100",
     approved: "bg-blue-50 text-blue-600 border-blue-100",
     pending: "bg-amber-50 text-amber-600 border-amber-100",
+    reported: "bg-amber-50 text-amber-600 border-amber-100",
     rejected: "bg-rose-50 text-rose-600 border-rose-100",
   };
 

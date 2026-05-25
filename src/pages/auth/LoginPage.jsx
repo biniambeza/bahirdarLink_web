@@ -326,15 +326,14 @@ const LoginPage = () => {
 
     let endpoints = [];
     if (!isEmail) {
-      // If it's a plain username string, it can ONLY be an agency agent
       endpoints = [
         { url: `${API_BASE}/api/agency/agent-login`, role: "agency" },
       ];
     } else {
-      // If it's an email format, check Admin first, then Agency, then Field Responders
       endpoints = [
         { url: `${API_BASE}/api/users/login`, role: "admin" },
-        { url: `${API_BASE}/api/agency/agent-login`, role: "agency" }, // <-- FIXED: Added here too!
+        { url: `${API_BASE}/api/users/login`, role: "service-admin" },
+        { url: `${API_BASE}/api/agency/agent-login`, role: "agency" },
         { url: `${API_BASE}/api/responderTeam/login`, role: "responder" },
       ];
     }
@@ -346,12 +345,11 @@ const LoginPage = () => {
       for (const ep of endpoints) {
         try {
           const res = await axios.post(ep.url, {
-            username: form.email,
-            email: form.email,
+            username: form.email.trim(),
+            email: form.email.trim(),
             password: form.password,
           });
 
-          // Check if authentication succeeded by checking for a token
           const token = res.data.token || res.data.accessToken;
           if (!token) continue;
 
@@ -380,13 +378,28 @@ const LoginPage = () => {
         const userData = rawUserData || {};
 
         localStorage.setItem("token", token);
-        localStorage.setItem("role", role);
+
+        if (
+          role === "service-admin" ||
+          (role === "admin" && userData?.role === "serviceadmin")
+        ) {
+          localStorage.setItem("role", "service-admin");
+          localStorage.setItem(
+            "user",
+            JSON.stringify({ ...userData, role: "serviceadmin" }),
+          );
+        } else {
+          localStorage.setItem("role", role);
+        }
 
         if (role === "responder") {
           localStorage.setItem("responder", JSON.stringify(userData));
           const teamId = userData?.responderTeamId ?? userData?.id;
           if (teamId) localStorage.setItem("responderTeamId", String(teamId));
-        } else {
+        } else if (
+          role !== "service-admin" &&
+          !(role === "admin" && userData?.role === "serviceadmin")
+        ) {
           localStorage.setItem("user", JSON.stringify({ ...userData, role }));
         }
 
@@ -400,7 +413,8 @@ const LoginPage = () => {
         }
 
         const targetRole =
-          role === "admin" && userData?.role === "serviceadmin"
+          role === "service-admin" ||
+          (role === "admin" && userData?.role === "serviceadmin")
             ? "service-admin"
             : role;
 
@@ -418,22 +432,17 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex items-center justify-center p-4 selection:bg-blue-200 overflow-hidden relative font-['Plus_Jakarta_Sans']">
-      <style>
-        {`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-          .mesh-bg { 
-            position: absolute; 
-            width: 100%; 
-            height: 100%; 
-            background: 
-              radial-gradient(circle at 10% 20%, #dbeafe 0%, transparent 40%),
-              radial-gradient(circle at 90% 80%, #eff6ff 0%, transparent 40%);
-            opacity: 0.8;
-          }
-        `}
-      </style>
-
-      <div className="mesh-bg" />
+    <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex items-center justify-center p-4 selection:bg-blue-200 overflow-hidden relative">
+      {/* Safe Mesh Background with disabled pointer interactions */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-80"
+        style={{
+          background: `
+            radial-gradient(circle at 10% 20%, #dbeafe 0%, transparent 40%),
+            radial-gradient(circle at 90% 80%, #eff6ff 0%, transparent 40%)
+          `,
+        }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -558,7 +567,7 @@ const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-blue-600 transition-all p-1"
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-blue-600 transition-all p-1 z-20"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -584,7 +593,7 @@ const LoginPage = () => {
 
           <button
             onClick={() => navigate("/")}
-            className="mt-10 flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all text-xs font-black uppercase tracking-tighter mx-auto"
+            className="mt-10 flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all text-xs font-black uppercase tracking-tighter mx-auto relative z-20"
           >
             <ArrowLeft size={14} />
             Back to Portal
@@ -593,7 +602,7 @@ const LoginPage = () => {
       </motion.div>
 
       {/* Footer Branding */}
-      <div className="absolute bottom-8 w-full flex justify-center items-center gap-6 text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase">
+      <div className="absolute bottom-8 w-full flex justify-center items-center gap-6 text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase z-20">
         <span className="hover:text-blue-600 cursor-pointer transition-colors">
           Privacy
         </span>

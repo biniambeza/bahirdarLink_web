@@ -3,6 +3,7 @@ import IncidentsPage from "../pages/IncidentsPage";
 import UnitsPage from "../pages/UnitsPage";
 import KebelePage from "../../admin/pages/KebelePage";
 import CategoryPage from "../../admin/pages/CategoryPage"; // <-- import new page
+import AgencySettingsPage from "../pages/SettingsPage";
 
 const MainContent = ({ active }) => {
   const renderContent = () => {
@@ -13,7 +14,8 @@ const MainContent = ({ active }) => {
         return <IncidentsPage />;
       case "units":
         return <UnitsPage />;
-
+      case "settings":
+        return <AgencySettingsPage />;
       default:
         return <DashboardPage />;
     }
