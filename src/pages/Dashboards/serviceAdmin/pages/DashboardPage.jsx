@@ -237,7 +237,7 @@ const BlueTooltip = ({ active, payload, label }) => {
         padding: "10px 14px",
         boxShadow: "0 8px 32px rgba(59,130,246,0.15)",
         fontSize: 12,
-        fontFamily: "'DM Mono',monospace",
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       <p style={{ color: "#1E40AF", fontWeight: 700, marginBottom: 4 }}>
@@ -309,11 +309,11 @@ const KPICard = ({
     >
       <span
         style={{
-          fontSize: 9.5,
-          fontWeight: 700,
-          letterSpacing: ".15em",
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: ".08em",
           color: "#94A3B8",
-          fontFamily: "'DM Mono',monospace",
+          fontFamily: "'Inter', sans-serif",
           textTransform: "uppercase",
         }}
       >
@@ -337,12 +337,12 @@ const KPICard = ({
     <div
       style={{
         fontSize: 36,
-        fontWeight: 800,
+        fontWeight: 700,
         color: "#0F172A",
-        letterSpacing: "-.04em",
+        letterSpacing: "-.03em",
         lineHeight: 1,
         marginBottom: 10,
-        fontFamily: "'Syne',sans-serif",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >
       {loading ? (
@@ -356,8 +356,8 @@ const KPICard = ({
         display: "flex",
         alignItems: "center",
         gap: 6,
-        fontSize: 10,
-        fontFamily: "'DM Mono',monospace",
+        fontSize: 10.5,
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       <span
@@ -369,7 +369,7 @@ const KPICard = ({
           color: trendUp ? "#EF4444" : "#10B981",
           padding: "2px 8px",
           borderRadius: 6,
-          fontWeight: 700,
+          fontWeight: 600,
         }}
       >
         {trendUp ? <TrendingUp size={9} /> : <TrendingDown size={9} />} {trend}
@@ -394,10 +394,10 @@ const SectionHeader = ({ title, sub }) => (
       <span
         style={{
           fontSize: 12,
-          fontWeight: 800,
-          letterSpacing: ".1em",
+          fontWeight: 700,
+          letterSpacing: ".06em",
           color: "#0F172A",
-          fontFamily: "'Syne',sans-serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           textTransform: "uppercase",
         }}
       >
@@ -407,12 +407,12 @@ const SectionHeader = ({ title, sub }) => (
     {sub && (
       <p
         style={{
-          fontSize: 9.5,
+          fontSize: 10,
           color: "#94A3B8",
           marginTop: 3,
           marginLeft: 11,
-          fontFamily: "'DM Mono',monospace",
-          letterSpacing: ".05em",
+          fontFamily: "'Inter', sans-serif",
+          letterSpacing: ".02em",
         }}
       >
         {sub}
@@ -449,16 +449,26 @@ const ErrorBanner = ({ msg, onRetry }) => (
     }}
   >
     <AlertCircle size={14} color="#EF4444" />
-    <span style={{ fontSize: 11, color: "#B91C1C", flex: 1 }}>{msg}</span>
+    <span
+      style={{
+        fontSize: 12,
+        color: "#B91C1C",
+        flex: 1,
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      {msg}
+    </span>
     <button
       onClick={onRetry}
       style={{
-        fontSize: 10,
+        fontSize: 11,
         color: "#3B82F6",
         background: "none",
         border: "none",
         cursor: "pointer",
-        fontWeight: 700,
+        fontWeight: 600,
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       Retry
@@ -483,7 +493,6 @@ const DashboardPage = () => {
   const [errors, setErrors] = useState({});
   const [lastSync, setLastSync] = useState(null);
   const [selected, setSelected] = useState(null);
-  // ─── PALETTE ─────────────────────────────────────────────────────────────────
 
   // ── CATEGORY COLOR MAP ────────────────────────────────────────────────────
   const catColorMap = useMemo(() => {
@@ -546,7 +555,7 @@ const DashboardPage = () => {
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
       @keyframes kpiIn   { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:none} }
       @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
       @keyframes shimmer { 0%,100%{opacity:.7} 50%{opacity:.35} }
@@ -582,7 +591,6 @@ const DashboardPage = () => {
     [services, range],
   );
 
-  // toEn applied at memo-time so render code never touches raw bilingual objects
   const agencyRows = useMemo(
     () =>
       agencies.slice(0, 8).map((a, i) => {
@@ -703,10 +711,10 @@ const DashboardPage = () => {
               border: "1.5px solid #E4EBF5",
               borderRadius: 11,
               fontSize: 12,
-              fontWeight: 700,
+              fontWeight: 600,
               color: "#2563EB",
               cursor: "pointer",
-              fontFamily: "'Sora','Helvetica Neue',sans-serif",
+              fontFamily: "'Inter', sans-serif",
               boxShadow: "0 2px 12px rgba(37,99,235,0.1)",
               transition: "all .15s",
             }}
@@ -734,7 +742,7 @@ const DashboardPage = () => {
       <SlidePanel service={selected} onClose={() => setSelected(null)} />
       <div
         style={{
-          fontFamily: "'Syne',sans-serif",
+          fontFamily: "'Inter', sans-serif",
           background:
             "linear-gradient(160deg,#f0f6ff 0%,#e8f0fe 50%,#f4f8ff 100%)",
           minHeight: "100vh",
@@ -765,11 +773,11 @@ const DashboardPage = () => {
           <div>
             <div
               style={{
-                fontSize: 9.5,
-                fontWeight: 700,
-                letterSpacing: ".18em",
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: ".14em",
                 color: "#3B82F6",
-                fontFamily: "'DM Mono',monospace",
+                fontFamily: "'Inter', sans-serif",
                 marginBottom: 4,
                 textTransform: "uppercase",
               }}
@@ -779,20 +787,21 @@ const DashboardPage = () => {
             <h1
               style={{
                 fontSize: 24,
-                fontWeight: 800,
+                fontWeight: 700,
                 color: "#0C1A3E",
-                letterSpacing: "-.03em",
+                letterSpacing: "-.02em",
                 lineHeight: 1,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
               Service Control Center
             </h1>
             <p
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: "#94A3B8",
-                marginTop: 3,
-                fontFamily: "'DM Mono',monospace",
+                marginTop: 4,
+                fontFamily: "'Inter', sans-serif",
               }}
             >
               {lastSync
@@ -813,11 +822,11 @@ const DashboardPage = () => {
                 background: "#fff",
                 border: "1.5px solid #DBEAFE",
                 borderRadius: 11,
-                fontSize: 10,
+                fontSize: 11,
                 color: "#3B82F6",
                 cursor: "pointer",
-                fontFamily: "'DM Mono',monospace",
-                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
                 transition: "all .15s",
                 boxShadow: "0 2px 10px rgba(59,130,246,.08)",
               }}
@@ -876,7 +885,7 @@ const DashboardPage = () => {
           />
         </div>
 
-        {/* ── ROW 2: TIMELINE + DONUT ── */}
+        {/* ── ROW 2: TIMELINE ── */}
         <div
           style={{
             display: "grid",
@@ -885,7 +894,6 @@ const DashboardPage = () => {
             marginBottom: 18,
           }}
         >
-          {/* Timeline */}
           <div
             style={{
               background: "#fff",
@@ -928,10 +936,10 @@ const DashboardPage = () => {
                       borderRadius: 8,
                       border: "none",
                       cursor: "pointer",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: ".1em",
-                      fontFamily: "'DM Mono',monospace",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: ".06em",
+                      fontFamily: "'Inter', sans-serif",
                       textTransform: "uppercase",
                       background: range === r ? "#3B82F6" : "transparent",
                       color: range === r ? "#fff" : "#64748B",
@@ -1002,18 +1010,18 @@ const DashboardPage = () => {
                   <XAxis
                     dataKey="label"
                     tick={{
-                      fontSize: 10,
+                      fontSize: 11,
                       fill: "#94A3B8",
-                      fontFamily: "'DM Mono',monospace",
+                      fontFamily: "'Inter', sans-serif",
                     }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     tick={{
-                      fontSize: 10,
+                      fontSize: 11,
                       fill: "#94A3B8",
-                      fontFamily: "'DM Mono',monospace",
+                      fontFamily: "'Inter', sans-serif",
                     }}
                     axisLine={false}
                     tickLine={false}
@@ -1079,7 +1087,8 @@ const DashboardPage = () => {
                   textAlign: "center",
                   color: "#94A3B8",
                   padding: "32px 0",
-                  fontSize: 12,
+                  fontSize: 13,
+                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 No agencies found.
@@ -1118,33 +1127,34 @@ const DashboardPage = () => {
                         alignItems: "center",
                         justifyContent: "center",
                         fontSize: 10,
-                        fontWeight: 800,
+                        fontWeight: 700,
                         color: a.color,
                         flexShrink: 0,
                         border: `1.5px solid ${a.color}30`,
+                        fontFamily: "'Inter', sans-serif",
                       }}
                     >
                       {a.initials}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* a.name and a.role already toEn'd in agencyRows memo */}
                       <div
                         style={{
-                          fontSize: 11,
-                          fontWeight: 700,
+                          fontSize: 12,
+                          fontWeight: 600,
                           color: "#0F172A",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
+                          fontFamily: "'Inter', sans-serif",
                         }}
                       >
                         {a.name}
                       </div>
                       <div
                         style={{
-                          fontSize: 8.5,
+                          fontSize: 10,
                           color: "#94A3B8",
-                          fontFamily: "'DM Mono',monospace",
+                          fontFamily: "'Inter', sans-serif",
                           marginTop: 1,
                         }}
                       >
@@ -1180,12 +1190,12 @@ const DashboardPage = () => {
             >
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   color: "#1D4ED8",
-                  fontFamily: "'DM Mono',monospace",
-                  letterSpacing: ".12em",
+                  fontFamily: "'Inter', sans-serif",
+                  letterSpacing: ".08em",
                   marginBottom: 10,
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}
               >
                 NETWORK SUMMARY
@@ -1218,18 +1228,19 @@ const DashboardPage = () => {
                     <div
                       style={{
                         fontSize: 18,
-                        fontWeight: 800,
+                        fontWeight: 700,
                         color: s.color,
                         letterSpacing: "-.02em",
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
                       }}
                     >
                       {s.val}
                     </div>
                     <div
                       style={{
-                        fontSize: 7.5,
+                        fontSize: 9,
                         color: "#94A3B8",
-                        fontFamily: "'DM Mono',monospace",
+                        fontFamily: "'Inter', sans-serif",
                         marginTop: 1,
                       }}
                     >
@@ -1270,7 +1281,8 @@ const DashboardPage = () => {
                   textAlign: "center",
                   color: "#94A3B8",
                   padding: "32px 0",
-                  fontSize: 12,
+                  fontSize: 13,
+                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 No teams found.
@@ -1316,10 +1328,11 @@ const DashboardPage = () => {
                           alignItems: "center",
                           justifyContent: "center",
                           fontSize: 10,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           color: t.color,
                           flexShrink: 0,
                           border: `1.5px solid ${t.color}30`,
+                          fontFamily: "'Inter', sans-serif",
                         }}
                       >
                         {getInitials(t.name)}
@@ -1327,21 +1340,22 @@ const DashboardPage = () => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 11,
-                            fontWeight: 700,
+                            fontSize: 12,
+                            fontWeight: 600,
                             color: "#0F172A",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
+                            fontFamily: "'Inter', sans-serif",
                           }}
                         >
                           {t.name}
                         </div>
                         <div
                           style={{
-                            fontSize: 8.5,
+                            fontSize: 10,
                             color: "#94A3B8",
-                            fontFamily: "'DM Mono',monospace",
+                            fontFamily: "'Inter', sans-serif",
                             marginTop: 1,
                           }}
                         >
@@ -1384,20 +1398,20 @@ const DashboardPage = () => {
                         >
                           <span
                             style={{
-                              fontSize: 8,
+                              fontSize: 9,
                               color: loadColor,
-                              fontFamily: "'DM Mono',monospace",
-                              fontWeight: 700,
+                              fontFamily: "'Inter', sans-serif",
+                              fontWeight: 600,
                             }}
                           >
                             {load}
                           </span>
                           <span
                             style={{
-                              fontSize: 8,
-                              fontWeight: 800,
+                              fontSize: 9,
+                              fontWeight: 700,
                               color: t.color,
-                              fontFamily: "'DM Mono',monospace",
+                              fontFamily: "'Inter', sans-serif",
                             }}
                           >
                             {pct}%
@@ -1461,9 +1475,9 @@ const DashboardPage = () => {
                     background: "#F0F6FF",
                     border: "1.5px solid #DBEAFE",
                     borderRadius: 11,
-                    fontSize: 11,
+                    fontSize: 12,
                     color: "#0F172A",
-                    fontFamily: "'DM Mono',monospace",
+                    fontFamily: "'Inter', sans-serif",
                     width: 160,
                     transition: "all .2s",
                   }}
@@ -1483,7 +1497,8 @@ const DashboardPage = () => {
                   textAlign: "center",
                   color: "#94A3B8",
                   padding: "40px 0",
-                  fontSize: 12,
+                  fontSize: 13,
+                  fontFamily: "'Inter', sans-serif",
                 }}
               >
                 No services found.
@@ -1562,25 +1577,26 @@ const DashboardPage = () => {
                         >
                           <div
                             style={{
-                              fontSize: 12,
-                              fontWeight: 700,
+                              fontSize: 13,
+                              fontWeight: 600,
                               color: "#0F172A",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
+                              fontFamily: "'Inter', sans-serif",
                             }}
                           >
                             {typeEn}
                           </div>
                           <div
                             style={{
-                              fontSize: 8,
+                              fontSize: 9,
                               padding: "2px 6px",
                               borderRadius: 5,
                               background: color + "18",
                               color,
-                              fontWeight: 700,
-                              fontFamily: "'DM Mono',monospace",
+                              fontWeight: 600,
+                              fontFamily: "'Inter', sans-serif",
                               flexShrink: 0,
                             }}
                           >
@@ -1589,9 +1605,9 @@ const DashboardPage = () => {
                         </div>
                         <div
                           style={{
-                            fontSize: 10,
+                            fontSize: 11,
                             color: "#94A3B8",
-                            fontFamily: "'DM Mono',monospace",
+                            fontFamily: "'Inter', sans-serif",
                           }}
                         >
                           {locEn}
@@ -1600,9 +1616,9 @@ const DashboardPage = () => {
 
                       <div
                         style={{
-                          fontSize: 9,
+                          fontSize: 10,
                           color: "#CBD5E1",
-                          fontFamily: "'DM Mono',monospace",
+                          fontFamily: "'Inter', sans-serif",
                           whiteSpace: "nowrap",
                           flexShrink: 0,
                         }}
@@ -1614,15 +1630,15 @@ const DashboardPage = () => {
 
                       <span
                         style={{
-                          fontSize: 8,
-                          fontWeight: 700,
+                          fontSize: 9,
+                          fontWeight: 600,
                           padding: "3px 9px",
                           borderRadius: 6,
                           background: st.bg,
                           color: st.color,
                           border: `1px solid ${st.border}`,
-                          letterSpacing: ".08em",
-                          fontFamily: "'DM Mono',monospace",
+                          letterSpacing: ".05em",
+                          fontFamily: "'Inter', sans-serif",
                           flexShrink: 0,
                         }}
                       >
