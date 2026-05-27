@@ -12,6 +12,9 @@ import {
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Hardcoded directly to production backend service environment
+const API_BASE = "https://bahirlink-backend-1.onrender.com";
+
 const KebelePage = () => {
   const [kebeles, setKebeles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,15 +27,14 @@ const KebelePage = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const API_URL = "http://localhost:5000/api/kebele";
+  const API_URL = `${API_BASE}/api/kebele`;
 
-  // Fetch all kebeles
   const fetchKebeles = async () => {
     try {
       setLoading(true);
       const res = await axios.get(API_URL);
       setKebeles(res.data);
-    } catch (err) {
+    } catch {
       setFetchError("Database synchronization failed.");
     } finally {
       setLoading(false);
@@ -43,7 +45,6 @@ const KebelePage = () => {
     fetchKebeles();
   }, []);
 
-  // Open panel for adding a new kebele
   const handleOpenAdd = () => {
     setEditMode(false);
     setFormData({ name: "", description: "" });
@@ -51,7 +52,6 @@ const KebelePage = () => {
     setShowPanel(true);
   };
 
-  // Open panel for editing a kebele
   const handleOpenEdit = (kebele) => {
     setEditMode(true);
     setSelectedId(kebele.id);
@@ -60,25 +60,19 @@ const KebelePage = () => {
     setShowPanel(true);
   };
 
-  // Submit handler for add/edit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
       setFormError("Kebele designation name is required");
       return;
     }
-
     try {
       setSaving(true);
       if (editMode) {
-        // Update kebele
         await axios.put(`${API_URL}/${selectedId}`, formData);
       } else {
-        // Add new kebele
         await axios.post(API_URL, formData);
       }
-
-      // Close panel and refresh kebeles
       setShowPanel(false);
       fetchKebeles();
     } catch (err) {
@@ -160,7 +154,7 @@ const KebelePage = () => {
                       <td
                         colSpan={4}
                         className="px-8 py-6 h-16 bg-slate-50/30"
-                      ></td>
+                      />
                     </tr>
                   ))
                 ) : filteredKebeles.length === 0 ? (
@@ -219,7 +213,7 @@ const KebelePage = () => {
         </div>
       </div>
 
-      {/* Side Panel for Add/Edit */}
+      {/* Side Panel */}
       <AnimatePresence>
         {showPanel && (
           <>

@@ -2,22 +2,30 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Shield,
-  Lock,
   Loader2,
   AlertCircle,
   CheckCircle2,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Mail,
-  User,
-  Building2,
   ChevronRight,
   Fingerprint,
-  Sparkles,
+  Building2,
+  User,
+  Mail,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-/* ─── helpers ───────────────────────────────────────────────── */
+/* ─── API CONFIGURATION ─────────────────────────────────────── */
+const API = axios.create({
+  baseURL: "http://localhost:5000/api",
+});
+
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+/* ─── UTILITIES ─────────────────────────────────────────────── */
 const decodeToken = (token) => {
   try {
     if (!token) return null;
@@ -29,8 +37,8 @@ const decodeToken = (token) => {
           .atob(base64)
           .split("")
           .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-          .join(""),
-      ),
+          .join("")
+      )
     );
   } catch {
     return null;
@@ -49,73 +57,276 @@ const parseLocalizedText = (val) => {
   return String(val);
 };
 
-/* ─── sub-components ────────────────────────────────────────── */
-const Alert = ({ type, children }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 9,
-      padding: "11px 15px",
-      borderRadius: 10,
-      fontSize: 13,
-      fontWeight: 500,
-      lineHeight: 1.5,
-      background: type === "error" ? "#fff1f2" : "#f0fdf4",
-      border: `1px solid ${type === "error" ? "#fecdd3" : "#bbf7d0"}`,
-      color: type === "error" ? "#be123c" : "#15803d",
-    }}
-  >
-    {type === "error" ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
-    <span>{children}</span>
-  </div>
-);
+const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-const Label = ({ children }) => (
-  <div
-    style={{
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: ".07em",
-      textTransform: "uppercase",
-      color: "#64748b",
-      marginBottom: 6,
-    }}
-  >
+/* ─── SHARED UI COMPONENTS ──────────────────────────────────── */
+const Alert = ({ type, children }) => {
+  const isError = type === "error";
+  return (
+    <div
+      className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium border ${
+        isError
+          ? "bg-rose-50 border-rose-200 text-rose-700"
+          : "bg-emerald-50 border-emerald-200 text-emerald-700"
+      }`}
+    >
+      {isError ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+      <span>{children}</span>
+    </div>
+  );
+};
+
+const FieldLabel = ({ children }) => (
+  <label className="block text-xs font-bold tracking-wider text-slate-500 uppercase mb-1.5">
     {children}
-  </div>
+  </label>
 );
 
-const InputWrap = ({ children }) => (
-  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-    {children}
-  </div>
+const FormInput = ({ type = "text", ...props }) => (
+  <input
+    type={type}
+    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-60 disabled:bg-slate-100"
+    {...props}
+  />
 );
 
-/* ─── main ──────────────────────────────────────────────────── */
-const ResponderTeamSettingsPage = () => {
-  const [teamProfile, setTeamProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState("");
+/* ─── ISOLATED FEATURE FORMS ────────────────────────────────── */
+const EmailForm = ({ initialEmail, username, teamId, onUpdateSuccess }) => {
+  const [email, setEmail] = useState(initialEmail || "");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: null, message: "" });
 
+  useEffect(() => {
+    setEmail(initialEmail || "");
+  } , [initialEmail]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setStatus({ type: null, message: "" });
+    
+    const trimmed = email.trim();
+    if (!trimmed) return setStatus({ type: "error", message: "Please enter an email address." });
+    if (!isValidEmail(trimmed)) return setStatus({ type: "error", message: "Invalid email address." });
+
+    try {
+      setLoading(true);
+      await API.put(`/responderTeam/${teamId}`, { email: trimmed });
+      setStatus({ type: "success", message: "Email updated successfully." });
+      onUpdateSuccess(trimmed);
+    } catch (err) {
+      setStatus({ type: "error", message: err.response?.data?.message || "Unable to update email." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex items-center gap-3.5 px-6 py-5 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+          <Mail size={18} />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-slate-900">Contact Information</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Update your notification email.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <FieldLabel>System Username</FieldLabel>
+            <div className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-medium text-slate-400 cursor-not-allowed">
+              {username || "Not assigned"}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Primary Email</FieldLabel>
+            <FormInput
+              type="email"
+              value={email}
+              placeholder="name@example.com"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setStatus({ type: null, message: "" });
+              }}
+            />
+          </div>
+        </div>
+
+        {status.type && <Alert type={status.type}>{status.message}</Alert>}
+
+        <div className="flex justify-end mt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 hover:to-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            Save Email <ChevronRight size={14} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const PasswordForm = ({ teamId }) => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-
-  const [email, setEmail] = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailSuccess, setEmailSuccess] = useState(false);
-  const [emailError, setEmailError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: null, message: "" });
 
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const BASE_URL = "http://localhost:5000/api/responderTeam";
-  const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setStatus({ type: null, message: "" });
+
+    if (newPassword !== confirmPassword) {
+      return setStatus({ type: "error", message: "New passwords do not match." });
+    }
+    if (newPassword.length < 6) {
+      return setStatus({ type: "error", message: "Password must be at least 6 characters." });
+    }
+
+    try {
+      setLoading(true);
+      await API.put(`/responderTeam/${teamId}`, { oldPassword, password: newPassword });
+      setStatus({ type: "success", message: "Password updated successfully." });
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setStatus({
+        type: "error",
+        message: err.response?.data?.message || "Failed to update password.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStrength = () => {
+    if (newPassword.length === 0) return null;
+    if (newPassword.length < 6) return { label: "Weak", color: "bg-rose-500", text: "text-rose-500", width: "w-[30%]" };
+    if (newPassword.length < 10) return { label: "Fair", color: "bg-amber-500", text: "text-amber-500", width: "w-[60%]" };
+    return { label: "Strong", color: "bg-emerald-500", text: "text-emerald-500", width: "w-full" };
+  };
+
+  const strength = getStrength();
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex items-center gap-3.5 px-6 py-5 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+          <Fingerprint size={18} />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-slate-900">Password Rotation</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Secure your team control panel.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <div>
+          <FieldLabel>Current Password</FieldLabel>
+          <div className="relative flex items-center">
+            <FormInput
+              type={showOld ? "text" : "password"}
+              value={oldPassword}
+              placeholder="Enter current password"
+              onChange={(e) => setOldPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowOld(!showOld)}
+              className="absolute right-0 h-full px-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {showOld ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <FieldLabel>New Password</FieldLabel>
+            <div className="relative flex items-center">
+              <FormInput
+                type={showNew ? "text" : "password"}
+                value={newPassword}
+                placeholder="Min. 6 chars"
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-0 h-full px-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Confirm Password</FieldLabel>
+            <div className="relative flex items-center">
+              <FormInput
+                type={showConfirm ? "text" : "password"}
+                value={confirmPassword}
+                placeholder="Repeat password"
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute right-0 h-full px-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {strength && (
+          <div className="flex items-center gap-2.5 mt-1">
+            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className={`h-full ${strength.color} rounded-full transition-all duration-300 ${strength.width}`} />
+            </div>
+            <span className={`text-[10px] font-bold tracking-wider uppercase min-w-[42px] ${strength.text}`}>
+              {strength.label}
+            </span>
+          </div>
+        )}
+
+        {status.type && <Alert type={status.type}>{status.message}</Alert>}
+
+        <div className="flex justify-end mt-2">
+          <button
+            type="submit"
+            disabled={loading || !oldPassword || !newPassword || !confirmPassword}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 hover:to-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            Update Password <ChevronRight size={14} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+/* ─── MAIN COMPONENT ────────────────────────────────────────── */
+const ResponderTeamSettingsPage = () => {
+  const [teamProfile, setTeamProfile] = useState(null);
+  const [teamId, setTeamId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const getAgencyTypeLabel = () => {
     const name =
@@ -135,804 +346,118 @@ const ResponderTeamSettingsPage = () => {
     return "Unknown agency type";
   };
 
-  const fetchTeamProfile = async () => {
-    try {
-      setProfileLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = decodeToken(token);
-      const teamId = decoded?.id || decoded?.userId;
-      if (!teamId) throw new Error("Could not extract team ID from token.");
-
-      const res = await axios.get(`${BASE_URL}/${teamId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const teamData = res.data?.data || res.data;
-      let detail = teamData;
-      const agencyId =
-        teamData?.agencyId || teamData?.agency?.id || teamData?.agency?._id;
-      if (agencyId) {
-        try {
-          const ar = await axios.get(
-            `http://localhost:5000/api/agency/${agencyId}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          detail = { ...teamData, agency: ar.data?.data || ar.data };
-        } catch {}
-      }
-      setTeamProfile(detail);
-      setEmail(detail?.email || "");
-      setProfileError("");
-    } catch (err) {
-      setProfileError(err.message || "Failed to retrieve team data.");
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchTeamProfile = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        const decoded = decodeToken(token);
+        const extractedId = decoded?.id || decoded?.userId;
+        if (!extractedId) throw new Error("Could not extract team ID from token.");
+        setTeamId(extractedId);
+
+        const res = await API.get(`/responderTeam/${extractedId}`);
+        const teamData = res.data?.data || res.data;
+        let detail = teamData;
+        
+        const agencyId = teamData?.agencyId || teamData?.agency?.id || teamData?.agency?._id;
+        if (agencyId) {
+          try {
+            const ar = await API.get(`/agency/${agencyId}`);
+            detail = { ...teamData, agency: ar.data?.data || ar.data };
+          } catch (agencyErr) {
+            console.error("Failed to append agency details details:", agencyErr);
+          }
+        }
+        setTeamProfile(detail);
+        setError("");
+      } catch (err) {
+        setError(err.message || "Failed to retrieve team data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchTeamProfile();
   }, []);
 
-  const handleEmailUpdate = async (e) => {
-    e.preventDefault();
-    setEmailError("");
-    setEmailSuccess(false);
-    const trimmed = email.trim();
-    if (!trimmed) return setEmailError("Please enter an email address.");
-    if (!isValidEmail(trimmed)) return setEmailError("Invalid email address.");
-    try {
-      setEmailLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = decodeToken(token);
-      const teamId = decoded?.id || decoded?.userId;
-      if (!teamId) throw new Error("Identity lookup failed.");
-      await axios.put(
-        `${BASE_URL}/${teamId}`,
-        { email: trimmed },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      setTeamProfile((p) => ({ ...p, email: trimmed }));
-      setEmailSuccess(true);
-    } catch (err) {
-      setEmailError(err.response?.data?.message || "Unable to update email.");
-    } finally {
-      setEmailLoading(false);
-    }
-  };
-
-  const handlePasswordUpdate = async (e) => {
-    e.preventDefault();
-    setPasswordError("");
-    setPasswordSuccess(false);
-    if (newPassword !== confirmPassword)
-      return setPasswordError("New passwords do not match.");
-    if (newPassword.length < 6)
-      return setPasswordError("Password must be at least 6 characters.");
-    try {
-      setPasswordLoading(true);
-      const token = localStorage.getItem("token");
-      const decoded = decodeToken(token);
-      const teamId = decoded?.id || decoded?.userId;
-      if (!teamId) throw new Error("Identity lookup failed.");
-      await axios.put(
-        `${BASE_URL}/${teamId}`,
-        { oldPassword, password: newPassword },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      setPasswordSuccess(true);
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err) {
-      setPasswordError(
-        err.response?.data?.message || "Failed to update password.",
-      );
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  /* strength calc */
-  const strength =
-    newPassword.length === 0
-      ? null
-      : newPassword.length < 6
-        ? { label: "Weak", color: "#f87171", w: "30%" }
-        : newPassword.length < 10
-          ? { label: "Fair", color: "#fbbf24", w: "60%" }
-          : { label: "Strong", color: "#34d399", w: "100%" };
-
-  const initials = (
-    teamProfile?.name ? parseLocalizedText(teamProfile.name) : "TU"
-  )
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  /* input base style */
-  const inp = (extra = {}) => ({
-    width: "100%",
-    padding: "11px 14px",
-    background: "#f8fafc",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
-    fontFamily: "'Plus Jakarta Sans', sans-serif",
-    fontSize: 13.5,
-    fontWeight: 500,
-    color: "#0f172a",
-    outline: "none",
-    transition: "border-color .18s, box-shadow .18s",
-    ...extra,
-  });
-
-  /* ── loader ── */
-  if (profileLoading)
+  if (loading) {
     return (
-      <>
-        <style>{GLOBAL_CSS}</style>
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 16,
-            background: "linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%)",
-            fontFamily: "'Plus Jakarta Sans',sans-serif",
-            color: "#64748b",
-            fontSize: 14,
-          }}
-        >
-          <div className="rts-spin-ring" />
-          <p style={{ fontWeight: 600, letterSpacing: ".04em" }}>
-            Loading profile…
-          </p>
-        </div>
-      </>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-slate-50 font-sans text-slate-400">
+        <div className="w-9 h-9 border-3 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+        <p className="font-semibold tracking-wide text-sm">Loading profile…</p>
+      </div>
     );
+  }
+
+  const metadataRows = [
+    { icon: <Building2 size={13} />, label: "Agency Type", value: getAgencyTypeLabel() },
+    { icon: <User size={13} />, label: "Username", value: teamProfile?.username || "Not assigned" },
+    { icon: <Mail size={13} />, label: "Email", value: teamProfile?.email || "No email on file", mono: true },
+  ];
 
   return (
-    <>
-      <style>{GLOBAL_CSS}</style>
-      <div
-        style={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(155deg,#eff6ff 0%,#f8fafc 55%,#f1f5f9 100%)",
-          fontFamily: "'Plus Jakarta Sans',sans-serif",
-          color: "#0f172a",
-          padding: "48px 24px 80px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 860,
-            margin: "0 auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 28,
-          }}
-        >
-          {/* ── HERO CARD ── */}
-          <div
-            style={{
-              borderRadius: 28,
-              background:
-                "linear-gradient(135deg,#1d4ed8 0%,#2563eb 45%,#1a56c4 100%)",
-              padding: "40px 44px",
-              color: "#fff",
-              position: "relative",
-              overflow: "hidden",
-              boxShadow:
-                "0 20px 60px rgba(37,99,235,.28), 0 4px 16px rgba(0,0,0,.06)",
-            }}
-          >
-            {/* decorative blobs */}
-            <div
-              style={{
-                position: "absolute",
-                top: -60,
-                right: -60,
-                width: 240,
-                height: 240,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,.07)",
-                pointerEvents: "none",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                bottom: -40,
-                left: 160,
-                width: 160,
-                height: 160,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,.05)",
-                pointerEvents: "none",
-              }}
-            />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-slate-100 font-sans text-slate-900 px-6 py-12 md:pb-20">
+      <div className="max-w-4xl mx-auto flex flex-col gap-7">
+        
+        {/* ── HERO BANNER ── */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-10 text-white shadow-xl shadow-blue-600/20">
+          {/* Decorative shapes */}
+          <div className="absolute -top-16 -right-16 w-60 h-60 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute -bottom-10 left-40 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
 
-            <div
-              style={{
-                position: "relative",
-                zIndex: 1,
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                gap: 28,
-                flexWrap: "wrap",
-              }}
-            >
-              {/* left */}
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 7,
-                    background: "rgba(255,255,255,.15)",
-                    border: "1px solid rgba(255,255,255,.2)",
-                    borderRadius: 100,
-                    padding: "5px 14px",
-                    backdropFilter: "blur(6px)",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: ".1em",
-                    textTransform: "uppercase",
-                    color: "rgba(255,255,255,.9)",
-                    marginBottom: 18,
-                  }}
-                >
-                  <Shield size={12} /> Responder Settings
-                </div>
-                <h1
-                  style={{
-                    fontSize: "clamp(24px,4vw,34px)",
-                    fontWeight: 800,
-                    letterSpacing: "-.025em",
-                    lineHeight: 1.15,
-                    marginBottom: 12,
-                  }}
-                >
-                  {teamProfile?.name
-                    ? parseLocalizedText(teamProfile.name)
-                    : "Tactical Response Unit"}
-                </h1>
-                <p
-                  style={{
-                    fontSize: 13.5,
-                    lineHeight: 1.75,
-                    color: "rgba(255,255,255,.72)",
-                    maxWidth: 400,
-                    fontWeight: 400,
-                  }}
-                >
-                  Manage credentials and contact details for your responder
-                  unit.
-                </p>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-7">
+            <div className="flex-1 min-w-[220px]">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-[10px] font-bold tracking-widest uppercase text-white/90 backdrop-blur-md mb-4.5">
+                <Shield size={12} /> Responder Settings
               </div>
-
-              {/* right — profile chips */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  minWidth: 220,
-                }}
-              >
-                {[
-                  {
-                    icon: <Building2 size={13} />,
-                    label: "Agency Type",
-                    value: getAgencyTypeLabel(),
-                  },
-                  {
-                    icon: <User size={13} />,
-                    label: "Username",
-                    value: teamProfile?.username || "Not assigned",
-                  },
-                  {
-                    icon: <Mail size={13} />,
-                    label: "Email",
-                    value: teamProfile?.email || "No email on file",
-                    mono: true,
-                  },
-                ].map(({ icon, label, value, mono }) => (
-                  <div
-                    key={label}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 11,
-                      background: "rgba(255,255,255,.12)",
-                      border: "1px solid rgba(255,255,255,.17)",
-                      borderRadius: 12,
-                      padding: "10px 14px",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <span
-                      style={{ color: "rgba(255,255,255,.65)", flexShrink: 0 }}
-                    >
-                      {icon}
-                    </span>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: ".09em",
-                          textTransform: "uppercase",
-                          color: "rgba(255,255,255,.55)",
-                        }}
-                      >
-                        {label}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: mono ? 11.5 : 13,
-                          fontWeight: 700,
-                          fontFamily: mono ? "'DM Mono',monospace" : "inherit",
-                          color: "#fff",
-                          marginTop: 2,
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        {value}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* profile error */}
-          {profileError && <Alert type="error">{profileError}</Alert>}
-
-          {/* ── TWO SECTION CARDS ── */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}
-            className="rts-grid"
-          >
-            {/* ── CONTACT CARD ── */}
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: 22,
-                overflow: "hidden",
-                boxShadow: "0 2px 12px rgba(0,0,0,.05)",
-              }}
-            >
-              {/* card header */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 13,
-                  padding: "22px 26px 20px",
-                  borderBottom: "1px solid #f1f5f9",
-                }}
-              >
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 11,
-                    background: "linear-gradient(135deg,#eff6ff,#dbeafe)",
-                    color: "#2563eb",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Mail size={17} />
-                </div>
-                <div>
-                  <div
-                    style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}
-                  >
-                    Contact Information
-                  </div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-                    Update your notification email.
-                  </div>
-                </div>
-              </div>
-
-              {/* card body */}
-              <div style={{ padding: "22px 26px" }}>
-                <form
-                  onSubmit={handleEmailUpdate}
-                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 14,
-                    }}
-                    className="rts-row"
-                  >
-                    {/* username (readonly) */}
-                    <div>
-                      <Label>System Username</Label>
-                      <div
-                        style={{
-                          ...inp(),
-                          color: "#94a3b8",
-                          background: "#f1f5f9",
-                          cursor: "default",
-                        }}
-                      >
-                        {teamProfile?.username || "Not assigned"}
-                      </div>
-                    </div>
-                    {/* email */}
-                    <div>
-                      <Label>Primary Email</Label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          setEmailSuccess(false);
-                          setEmailError("");
-                        }}
-                        placeholder="name@example.com"
-                        className="rts-input"
-                        style={inp()}
-                      />
-                    </div>
-                  </div>
-
-                  {emailError && <Alert type="error">{emailError}</Alert>}
-                  {emailSuccess && (
-                    <Alert type="success">Email updated successfully.</Alert>
-                  )}
-
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="submit"
-                      disabled={emailLoading}
-                      className="rts-btn"
-                    >
-                      {emailLoading && (
-                        <Loader2 size={13} className="rts-spin" />
-                      )}
-                      Save Email <ChevronRight size={13} />
-                    </button>
-                  </div>
-                </form>
-              </div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-none mb-3">
+                {teamProfile?.name ? parseLocalizedText(teamProfile.name) : "Tactical Response Unit"}
+              </h1>
+              <p className="text-sm leading-relaxed text-blue-100/70 max-w-md font-normal">
+                Manage credentials and contact details for your responder unit.
+              </p>
             </div>
 
-            {/* ── PASSWORD CARD ── */}
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: 22,
-                overflow: "hidden",
-                boxShadow: "0 2px 12px rgba(0,0,0,.05)",
-              }}
-            >
-              {/* card header */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 13,
-                  padding: "22px 26px 20px",
-                  borderBottom: "1px solid #f1f5f9",
-                }}
-              >
+            {/* Quick Metadata Info Container */}
+            <div className="flex flex-col gap-2 min-w-[240px]">
+              {metadataRows.map(({ icon, label, value, mono }) => (
                 <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 11,
-                    background: "linear-gradient(135deg,#eff6ff,#dbeafe)",
-                    color: "#2563eb",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
+                  key={label}
+                  className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-xl p-3 backdrop-blur-md"
                 >
-                  <Fingerprint size={17} />
-                </div>
-                <div>
-                  <div
-                    style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}
-                  >
-                    Password Rotation
-                  </div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-                    Secure your team control panel.
-                  </div>
-                </div>
-              </div>
-
-              {/* card body */}
-              <div style={{ padding: "22px 26px" }}>
-                <form
-                  onSubmit={handlePasswordUpdate}
-                  style={{ display: "flex", flexDirection: "column", gap: 14 }}
-                >
-                  {/* current password */}
+                  <span className="text-white/60 shrink-0">{icon}</span>
                   <div>
-                    <Label>Current Password</Label>
-                    <InputWrap>
-                      <input
-                        type={showOld ? "text" : "password"}
-                        value={oldPassword}
-                        onChange={(e) => setOldPassword(e.target.value)}
-                        placeholder="Enter current password"
-                        required
-                        className="rts-input"
-                        style={inp({ paddingRight: 44 })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowOld(!showOld)}
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: 0,
-                          height: "100%",
-                          padding: "0 13px",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "#94a3b8",
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
-                        {showOld ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </InputWrap>
-                  </div>
-
-                  {/* new / confirm */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 12,
-                    }}
-                    className="rts-row"
-                  >
-                    <div>
-                      <Label>New Password</Label>
-                      <InputWrap>
-                        <input
-                          type={showNew ? "text" : "password"}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Min. 6 chars"
-                          required
-                          className="rts-input"
-                          style={inp({ paddingRight: 44 })}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNew(!showNew)}
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 0,
-                            height: "100%",
-                            padding: "0 13px",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#94a3b8",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </InputWrap>
-                    </div>
-                    <div>
-                      <Label>Confirm Password</Label>
-                      <InputWrap>
-                        <input
-                          type={showConfirm ? "text" : "password"}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Repeat password"
-                          required
-                          className="rts-input"
-                          style={inp({ paddingRight: 44 })}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirm(!showConfirm)}
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 0,
-                            height: "100%",
-                            padding: "0 13px",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#94a3b8",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          {showConfirm ? (
-                            <EyeOff size={15} />
-                          ) : (
-                            <Eye size={15} />
-                          )}
-                        </button>
-                      </InputWrap>
+                    <div className="text-[9px] font-bold tracking-widest uppercase text-white/50">{label}</div>
+                    <div className={`text-sm font-bold text-white mt-0.5 break-all ${mono ? "font-mono text-xs" : ""}`}>
+                      {value}
                     </div>
                   </div>
-
-                  {/* strength bar */}
-                  {strength && (
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <div
-                        style={{
-                          flex: 1,
-                          height: 4,
-                          background: "#f1f5f9",
-                          borderRadius: 100,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            width: strength.w,
-                            background: strength.color,
-                            borderRadius: 100,
-                            transition: "width .35s, background .35s",
-                          }}
-                        />
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: strength.color,
-                          letterSpacing: ".06em",
-                          textTransform: "uppercase",
-                          minWidth: 42,
-                        }}
-                      >
-                        {strength.label}
-                      </span>
-                    </div>
-                  )}
-
-                  {passwordError && <Alert type="error">{passwordError}</Alert>}
-                  {passwordSuccess && (
-                    <Alert type="success">Password updated successfully.</Alert>
-                  )}
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      paddingTop: 2,
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      disabled={
-                        passwordLoading ||
-                        !oldPassword ||
-                        !newPassword ||
-                        !confirmPassword
-                      }
-                      className="rts-btn"
-                    >
-                      {passwordLoading && (
-                        <Loader2 size={13} className="rts-spin" />
-                      )}
-                      Update Password <ChevronRight size={13} />
-                    </button>
-                  </div>
-                </form>
-              </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* ── footer note ── */}
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: 12,
-              color: "#94a3b8",
-              fontWeight: 500,
-            }}
-          >
-            Changes are saved immediately to your account.
-          </p>
         </div>
+
+        {error && <Alert type="error">{error}</Alert>}
+
+        {/* ── ACTIONS GRIDS ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <EmailForm
+            initialEmail={teamProfile?.email}
+            username={teamProfile?.username}
+            teamId={teamId}
+            onUpdateSuccess={(updatedEmail) => setTeamProfile((prev) => ({ ...prev, email: updatedEmail }))}
+          />
+          <PasswordForm teamId={teamId} />
+        </div>
+
+        <p className="text-center text-xs font-medium text-slate-400">
+          Changes are saved immediately to your account.
+        </p>
       </div>
-    </>
+    </div>
   );
 };
-
-/* ─── global CSS (minimal) ──────────────────────────────────── */
-const GLOBAL_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
-
-.rts-spin-ring {
-  width: 38px; height: 38px;
-  border: 3px solid #dbeafe;
-  border-top-color: #2563eb;
-  border-radius: 50%;
-  animation: rts-spin .75s linear infinite;
-}
-
-.rts-spin { animation: rts-spin .7s linear infinite; }
-
-@keyframes rts-spin { to { transform: rotate(360deg); } }
-
-.rts-input:focus {
-  border-color: #60a5fa !important;
-  background: #fff !important;
-  box-shadow: 0 0 0 3px rgba(96,165,250,.18) !important;
-}
-
-.rts-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37,99,235,.32);
-  transition: transform .16s, box-shadow .16s, opacity .16s;
-}
-
-.rts-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(37,99,235,.38);
-}
-
-.rts-btn:disabled {
-  opacity: .4;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-@media (max-width: 700px) {
-  .rts-grid { grid-template-columns: 1fr !important; }
-  .rts-row  { grid-template-columns: 1fr !important; }
-}
-`;
 
 export default ResponderTeamSettingsPage;

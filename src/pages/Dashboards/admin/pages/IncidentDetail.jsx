@@ -24,7 +24,10 @@ import {
   Radio,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://bahirlink-backend-1.onrender.com";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -70,13 +73,9 @@ const T = {
 // ─── Helper: Smart Localization Parser ────────────────────────────────────────
 const renderEnglish = (val) => {
   if (!val) return "";
-
-  // If it's already an object
   if (typeof val === "object") {
     return val.en || val.name?.en || val.label?.en || val.name || "";
   }
-
-  // If it's a string that looks like JSON (handling your "poly" case)
   if (
     typeof val === "string" &&
     (val.includes('{"en":') || val.includes('{"am":'))
@@ -84,11 +83,10 @@ const renderEnglish = (val) => {
     try {
       const parsed = JSON.parse(val);
       return parsed.en || "";
-    } catch (e) {
+    } catch {
       return val;
     }
   }
-
   return String(val);
 };
 
@@ -346,7 +344,6 @@ function MapPreview({ lat, lng }) {
   if (lat == null || lng == null) return null;
   const pad = 0.005;
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}&z=16`;
-
   return (
     <div>
       <div
@@ -535,7 +532,6 @@ const IncidentDetailPage = ({ incidentProp, panelMode = false }) => {
         <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>
           <MapPin size={12} /> {renderEnglish(e.subdivision)}
         </p>
-
         {e.mergedCount > 1 && (
           <div
             style={{

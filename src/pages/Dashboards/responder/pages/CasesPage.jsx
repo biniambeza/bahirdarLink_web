@@ -21,8 +21,12 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import AddCasePage from "./AddCasePage";
 
-const BASE_URL = "http://localhost:5000";
-const API_URL = `${BASE_URL}/api/caseType`;
+// Dynamic Environment Base Routing Strategy
+const LOCAL_URL = "http://localhost:5000";
+const RENDER_URL = "https://your-render-api-subdomain.onrender.com"; // Replace with your actual Render URL
+
+let BASE_URL = LOCAL_URL;
+let API_URL = `${BASE_URL}/api/caseType`;
 
 const parseEnglish = (val) => {
   if (!val) return "";
@@ -60,6 +64,22 @@ const ResponderCasesPage = () => {
 
   const navigate = useNavigate();
 
+  // --- DYNAMIC HEALTH CHECK SYNC ---
+  const verifyBackendConnectivity = useCallback(async () => {
+    try {
+      // Fast timeout ping to check local server availability
+      await axios.get(`${LOCAL_URL}/api/caseType`, { timeout: 1500 });
+      BASE_URL = LOCAL_URL;
+      API_URL = `${LOCAL_URL}/api/caseType`;
+    } catch (err) {
+      // If local is rejected or timed out, route permanently to Render
+      if (!err.response) {
+        BASE_URL = RENDER_URL;
+        API_URL = `${RENDER_URL}/api/caseType`;
+      }
+    }
+  }, []);
+
   // --- FETCH CASES LOGIC ---
   const fetchCases = useCallback(async () => {
     try {
@@ -94,10 +114,15 @@ const ResponderCasesPage = () => {
     }
   };
 
+  // --- MAIN SYSTEM SYNC ---
   useEffect(() => {
-    fetchCases();
-    fetchCaseTypes();
-  }, [fetchCases]);
+    const initializePortalData = async () => {
+      await verifyBackendConnectivity();
+      await fetchCases();
+      await fetchCaseTypes();
+    };
+    initializePortalData();
+  }, [fetchCases, verifyBackendConnectivity]);
 
   // --- CATEGORY SUBMIT LOGIC ---
   const handleCategorySubmit = async (e) => {

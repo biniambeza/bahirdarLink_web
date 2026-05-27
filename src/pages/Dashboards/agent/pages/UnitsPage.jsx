@@ -40,8 +40,9 @@ const ResponseTeamPage = () => {
     if (!agencyId) return;
     setLoading(true);
     try {
+      // Configured directly to production backend cloud service
       const res = await fetch(
-        `http://localhost:5000/api/responderTeam/agency/${agencyId}`,
+        `https://bahirlink-backend-1.onrender.com/api/responderTeam/agency/${agencyId}`,
       );
       const data = await res.json();
       setTeams(data.data || []);

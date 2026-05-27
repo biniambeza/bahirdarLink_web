@@ -4,7 +4,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   X, MapPin, Clock, User, ExternalLink, FileText,
-  Shield, Activity, Calendar, Hash, Wrench,
+  Shield, Activity, Calendar, Hash, Wrench, Eye, Info
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════
@@ -19,18 +19,9 @@ const renderEnglish = (val) => {
   return String(val);
 };
 
-/**
- * Resolve category name from all possible shapes:
- *   1. incident.resolvedCategory  — pre-enriched by IncidentsPage (most reliable)
- *   2. categories[] prop          — full list passed from parent
- *   3. incident.category / serviceCategory nested object
- *   4. incident.categoryName flat field
- */
 const resolveDisplayCategory = (incident, categories = []) => {
-  // 1. Already enriched by the list page
   if (incident.resolvedCategory?.name) return incident.resolvedCategory.name;
 
-  // 2. Look up in the passed categories array
   const rawId =
     incident.categoryId ??
     incident.serviceCategoryId ??
@@ -45,13 +36,11 @@ const resolveDisplayCategory = (incident, categories = []) => {
     if (found) return renderEnglish(found.name);
   }
 
-  // 3. Nested object on the incident
   const nested =
     renderEnglish(incident.serviceCategory?.name) ||
     renderEnglish(incident.category?.name);
   if (nested && nested !== "—") return nested;
 
-  // 4. Flat field
   if (incident.categoryName) return renderEnglish(incident.categoryName);
 
   return "General";
@@ -67,10 +56,10 @@ const panelVariants = {
 };
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { y: 15, opacity: 0 },
   visible: (i) => ({
     y: 0, opacity: 1,
-    transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" },
+    transition: { delay: i * 0.08, duration: 0.35, ease: "easeOut" },
   }),
 };
 
@@ -84,12 +73,13 @@ const ImageViewer = ({ src, onClose }) => (
     onClick={onClose}
   >
     <motion.img
-      initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.95, opacity: 0 }}
       src={src}
-      className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
+      className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl border border-white/10"
     />
-    <button className="absolute top-6 right-6 text-white/50 hover:text-white">
-      <X size={32} />
+    <button className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-full transition-colors">
+      <X size={24} />
     </button>
   </motion.div>
 );
@@ -97,29 +87,33 @@ const ImageViewer = ({ src, onClose }) => (
 const DetailSection = ({ title, children, icon: Icon, customIdx }) => (
   <motion.div
     variants={itemVariants} custom={customIdx}
-    className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
+    className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between"
   >
-    <div className="flex items-center gap-2 mb-5">
-      <div className="p-2 bg-slate-50 rounded-lg">
-        {Icon && <Icon size={18} className="text-blue-600" />}
+    <div>
+      <div className="flex items-center gap-2 mb-5">
+        <div className="p-2 bg-slate-50 rounded-lg">
+          {Icon && <Icon size={18} className="text-blue-600" />}
+        </div>
+        <h3 className="font-bold text-slate-800 text-[11px] uppercase tracking-widest">{title}</h3>
       </div>
-      <h3 className="font-bold text-slate-800 text-[11px] uppercase tracking-widest">{title}</h3>
+      <div className="grid grid-cols-1 gap-5">{children}</div>
     </div>
-    <div className="grid grid-cols-1 gap-5">{children}</div>
   </motion.div>
 );
 
 const InfoItem = ({ label, value, subValue, icon: Icon }) => (
   <div className="flex flex-col">
-    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1 block">{label}</span>
+    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+      {label}
+    </span>
     <div className="flex items-start gap-2">
-      {Icon && <Icon size={14} className="mt-1 text-slate-400" />}
-      <div>
-        <div className="text-slate-900 font-semibold leading-tight">
+      {Icon && <Icon size={14} className="mt-1 text-slate-400 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <div className="text-slate-900 font-semibold leading-tight break-words text-sm">
           {typeof value === "string" ? value : renderEnglish(value)}
         </div>
         {subValue && (
-          <p className="text-xs text-slate-500 mt-1">{renderEnglish(subValue)}</p>
+          <p className="text-xs text-slate-500 mt-1 break-words">{renderEnglish(subValue)}</p>
         )}
       </div>
     </div>
@@ -160,25 +154,25 @@ const IncidentDetails = ({ incident, onClose, categories = [] }) => {
   );
 
   useEffect(() => {
+    let isMounted = true;
     const fetchReporter = async () => {
       try {
         const reporterId = incident.userId || incident.citizenId;
         if (!reporterId || incident.guestId) return;
         const token = localStorage.getItem("token");
         const res   = await axios.get(
-          `http://localhost:5000/api/users/${reporterId}`,
+          `https://bahirlink-backend.onrender.com/api/users/${reporterId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setReporter(res.data.user);
+        if (isMounted) setReporter(res.data.user);
       } catch { /* silent */ }
     };
     fetchReporter();
+    return () => { isMounted = false; };
   }, [incident]);
 
-  /* ── Category — resolved from all available sources ── */
   const categoryName = resolveDisplayCategory(incident, categories);
 
-  /* ── Location ── */
   const locationStr =
     [
       renderEnglish(incident.kebele),
@@ -189,10 +183,12 @@ const IncidentDetails = ({ incident, onClose, categories = [] }) => {
       .join(" • ") || "No address provided";
 
   const mediaSrc = incident.mediaUrl
-    ? `http://localhost:5000${incident.mediaUrl}`
+    ? `https://bahirlink-backend.onrender.com${incident.mediaUrl}`
     : null;
 
   const status = getStatusConfig(incident.status);
+  const lat = incident.location?.latitude || incident.latitude;
+  const lng = incident.location?.longitude || incident.longitude;
 
   return (
     <>
@@ -209,56 +205,67 @@ const IncidentDetails = ({ incident, onClose, categories = [] }) => {
           initial="hidden" animate="visible" exit="exit"
           transition={{ type: "spring", damping: 30, stiffness: 250 }}
         >
-          {/* ── Header ── */}
+          {/* Header */}
           <div className="bg-white px-6 py-5 flex justify-between items-center border-b border-slate-200 sticky top-0 z-10">
-            <div className="flex items-center gap-4">
-              <div className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${status.bg} ${status.text} ${status.border}`}>
+            <div className="flex items-center gap-4 min-w-0">
+              <div className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shrink-0 ${status.bg} ${status.text} ${status.border}`}>
                 {status.label}
               </div>
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Hash size={14} />
-                <span className="text-xs font-mono font-medium truncate w-24 uppercase">
+              <div className="flex items-center gap-1.5 text-slate-400 min-w-0">
+                <Hash size={14} className="shrink-0" />
+                <span className="text-xs font-mono font-medium truncate uppercase">
                   {String(incident._id || incident.id || "").slice(-8)}
                 </span>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all group">
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all group shrink-0">
               <X size={20} className="text-slate-400 group-hover:text-slate-900" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-            {/* ── Incident + Timeline ── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {incident.description && (
+              <motion.div variants={itemVariants} custom={0} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div className="flex items-center gap-2 mb-3 text-slate-400">
+                  <Info size={16} className="text-blue-600" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Statement / Description</span>
+                </div>
+                <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
+                  {renderEnglish(incident.description)}
+                </p>
+              </motion.div>
+            )}
+
+            {/* Core Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <DetailSection
                 title={isServiceUI ? "Service Detail" : "Incident Detail"}
                 icon={isServiceUI ? Wrench : Activity}
-                customIdx={0}
+                customIdx={1}
               >
                 <InfoItem
                   label="Type"
                   value={incident.serviceType || incident.emergencyType?.name || "General"}
                 />
-                {/* Category — now always populated from the fetched list */}
                 <InfoItem label="Category" value={categoryName} />
               </DetailSection>
 
-              <DetailSection title="Timeline" icon={Clock} customIdx={1}>
-                <InfoItem label="Reported Time" value={incident.time} icon={Clock} />
+              <DetailSection title="Timeline" icon={Clock} customIdx={2}>
+                <InfoItem label="Reported Time" value={incident.time || "—"} icon={Clock} />
                 <InfoItem
                   label="Log Date"
                   value={incident.createdAt
-                    ? new Date(incident.createdAt).toLocaleDateString()
+                    ? new Date(incident.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })
                     : "N/A"}
                   icon={Calendar}
                 />
               </DetailSection>
             </div>
 
-            {/* ── Reporter Profile ── */}
+            {/* Profile */}
             <motion.div
-              variants={itemVariants} custom={2}
+              variants={itemVariants} custom={3}
               className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl"
             >
               <div className="flex items-center justify-between mb-6">
@@ -269,37 +276,37 @@ const IncidentDetails = ({ incident, onClose, categories = [] }) => {
                 {!incident.guestId && reporter && (
                   <button
                     onClick={() => navigate(`/users/${reporter._id}`)}
-                    className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95"
                   >
                     VERIFY PROFILE <ExternalLink size={10} />
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-5">
-                <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center text-2xl font-bold border border-white/10 uppercase">
+              <div className="flex items-center gap-5 min-w-0">
+                <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center text-2xl font-bold border border-white/10 uppercase shrink-0">
                   {incident.guestId ? "?" : reporter?.fullName?.charAt(0) || <User size={24} />}
                 </div>
-                <div>
-                  <p className="text-lg font-bold">
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-bold truncate">
                     {incident.guestId ? "Anonymous Guest" : renderEnglish(reporter?.fullName) || "Reporter"}
                   </p>
-                  <p className="text-sm text-slate-400 font-medium">
-                    {incident.guestId ? "Guest User Account" : renderEnglish(reporter?.email) || "Member"}
+                  <p className="text-sm text-slate-400 font-medium truncate">
+                    {incident.guestId ? "Guest User Account" : renderEnglish(reporter?.email || reporter?.phone) || "Member"}
                   </p>
                 </div>
               </div>
             </motion.div>
 
-            {/* ── Geographic Data ── */}
-            <DetailSection title="Geographic Data" icon={MapPin} customIdx={3}>
+            {/* Mapping */}
+            <DetailSection title="Geographic Data" icon={MapPin} customIdx={4}>
               <div className="space-y-4">
                 <InfoItem label="Precise Address" value={locationStr} />
-                {(incident.location?.latitude || incident.latitude) && (
+                {lat && lng && (
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${incident.location?.latitude || incident.latitude},${incident.location?.longitude || incident.longitude}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
                     target="_blank" rel="noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors active:scale-[0.99]"
                   >
                     <ExternalLink size={14} /> VIEW ON SATELLITE MAP
                   </a>
@@ -307,20 +314,27 @@ const IncidentDetails = ({ incident, onClose, categories = [] }) => {
               </div>
             </DetailSection>
 
-            {/* ── Digital Evidence ── */}
+            {/* Evidence Media */}
             {mediaSrc && (
-              <motion.div variants={itemVariants} custom={4} className="space-y-4 pb-10">
+              <motion.div variants={itemVariants} custom={5} className="space-y-4 pb-10">
                 <div className="flex items-center gap-2 px-1">
                   <FileText size={18} className="text-slate-400" />
                   <h3 className="font-bold text-slate-800 text-[11px] uppercase tracking-widest">Digital Evidence</h3>
                 </div>
                 <div className="relative group rounded-3xl overflow-hidden bg-slate-200 aspect-video shadow-lg border border-slate-200">
                   {incident.mediaType === "photo" || !incident.mediaType ? (
-                    <img
-                      src={mediaSrc}
-                      onClick={() => setShowImage(true)}
-                      className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-500"
-                    />
+                    <div className="relative w-full h-full cursor-zoom-in group" onClick={() => setShowImage(true)}>
+                      <img
+                        src={mediaSrc}
+                        alt="Evidence"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                        <div className="bg-white/90 text-slate-900 p-2.5 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow-lg">
+                          <Eye size={14} /> Expand Media
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <video src={mediaSrc} controls className="w-full h-full object-cover" />
                   )}
