@@ -517,8 +517,11 @@ const DashboardPage = () => {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/responderTeam`, {
+      const { data } = await axios.get(`${API}/responderTeam/type`, {
         headers: authHdrs(),
+        params: {
+          category: "service", // Filters for Medical, Municipal, etc.
+        },
       });
       setTeams(Array.isArray(data) ? data : data.data || data.teams || []);
       setErrors((p) => ({ ...p, teams: null }));
@@ -531,7 +534,7 @@ const DashboardPage = () => {
 
   const fetchAgencies = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/agency`, {
+      const { data } = await axios.get(`${API}/agency/my-agents`, {
         headers: authHdrs(),
       });
       setAgencies(

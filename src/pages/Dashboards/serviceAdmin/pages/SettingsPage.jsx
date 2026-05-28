@@ -1,8 +1,29 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const decodeJwt = (token) => {
+  try {
+    if (!token) return null;
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("Failed to decode token:", e);
+    return null;
+  }
+};
+
 const SettingsPage = () => {
   const [token] = useState(localStorage.getItem("token"));
+  const [userId, setUserId] = useState(null);
 
   // --- SERVICE TYPE STATES ---
   const [newType, setNewType] = useState("");
@@ -18,6 +39,32 @@ const SettingsPage = () => {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Extract user ID from token on load defensively
+  useEffect(() => {
+    if (token) {
+      const decoded = decodeJwt(token);
+      console.log("Your decrypted backend token contents:", decoded);
+
+      if (decoded) {
+        // Safe check across multiple fallback properties using optional chaining
+        const detectedId =
+          decoded?.id ||
+          decoded?.userId ||
+          decoded?._id ||
+          decoded?.sub ||
+          decoded?.user?.id;
+
+        if (detectedId) {
+          setUserId(detectedId);
+        } else {
+          console.warn(
+            "Token decoded successfully, but no matching ID field found. Check your backend payload properties.",
+          );
+        }
+      }
+    }
+  }, [token]);
 
   // --- FETCH LOGIC ---
   const fetchServiceTypes = async () => {
@@ -66,6 +113,7 @@ const SettingsPage = () => {
     setLoader,
     refreshFn,
     typeLabel,
+    isAgencyType = false,
   ) => {
     if (!value.trim()) return;
 
@@ -74,15 +122,25 @@ const SettingsPage = () => {
     setSuccess("");
 
     try {
-      await axios.post(
-        `http://localhost:5000/api/${endpoint}`,
-        { name: value },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const payload = { name: value };
+
+      if (isAgencyType) {
+        if (userId) {
+          payload.creatorId = userId;
+        } else {
+          console.log(
+            "No frontend userId detected; relying entirely on backend auth middleware.",
+          );
+        }
+      }
+
+      await axios.post(`http://localhost:5000/api/${endpoint}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       setSuccess(`${typeLabel} created successfully!`);
-      setter(""); // Clear the specific input
-      refreshFn(); // Refresh the specific list
+      setter(""); // Clear input box
+      refreshFn(); // Refresh data panel view array
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -124,6 +182,7 @@ const SettingsPage = () => {
                   setLoading,
                   fetchServiceTypes,
                   "Service type",
+                  false,
                 )
               }
               disabled={loading}
@@ -137,13 +196,13 @@ const SettingsPage = () => {
             {listLoading ? (
               <p className="text-gray-400 animate-pulse">Loading...</p>
             ) : (
-              serviceTypes.map((type) => (
+              serviceTypes.map((type, index) => (
                 <div
-                  key={type._id || type.id}
+                  key={type?.id || type?._id || index}
                   className="p-3 bg-gray-50 border rounded-2xl text-gray-700 flex items-center"
                 >
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                  {type.name}
+                  {type?.name}
                 </div>
               ))
             )}
@@ -174,6 +233,7 @@ const SettingsPage = () => {
                   setAgencyLoading,
                   fetchAgencyTypes,
                   "Agency type",
+                  true,
                 )
               }
               disabled={agencyLoading}
@@ -187,13 +247,13 @@ const SettingsPage = () => {
             {agencyListLoading ? (
               <p className="text-gray-400 animate-pulse">Loading...</p>
             ) : (
-              agencyTypes.map((type) => (
+              agencyTypes.map((type, index) => (
                 <div
-                  key={type.id || type._id}
+                  key={type?.id || type?._id || index}
                   className="p-3 bg-gray-50 border rounded-2xl text-gray-700 flex items-center"
                 >
                   <span className="w-2 h-2 bg-indigo-500 rounded-full mr-3"></span>
-                  {type.name}
+                  {type?.name}
                 </div>
               ))
             )}
@@ -201,9 +261,9 @@ const SettingsPage = () => {
         </section>
 
         {/* Notifications */}
-        <div className="fixed bottom-6 right-6 space-y-2">
+        <div className="fixed bottom-6 right-6 space-y-2 z-50">
           {error && (
-            <div className="bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg">
+            <div className="bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg animate-bounce">
               {error}
             </div>
           )}
