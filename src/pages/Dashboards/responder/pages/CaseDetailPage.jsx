@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  MapPin,
-  User,
-  MessageSquare,
-  RefreshCcw,
-  AlertCircle,
-  Clock,
-  Calendar,
-  Phone,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Hourglass,
-  Eye,
+  ArrowLeft, MapPin, User, MessageSquare, RefreshCcw,
+  AlertCircle, Clock, Calendar, Phone, Ruler,
+  AlertTriangle, CheckCircle2, XCircle, Hourglass,
+  ShieldCheck, Eye,
 } from "lucide-react";
 import axios from "axios";
 
@@ -22,272 +12,313 @@ import axios from "axios";
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL =
-  import.meta.env.VITE_API_URL || "https://bahirlink-backend-1.onrender.com";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const API_ENDPOINTS = {
   caseDetail: (id) => `${BASE_URL}/api/cases/${id}`,
   caseStatus: (id) => `${BASE_URL}/api/cases/${id}/status`,
-  sightings: (id) => `${BASE_URL}/api/caseReports/case/${id}?lang=en`,
+  sightings:  (id) => `${BASE_URL}/api/caseReports/case/${id}?lang=en`,
 };
 
 const STATUS_OPTIONS = ["pending", "approved", "rejected", "resolved"];
 
 const STATUS_META = {
-  resolved: {
-    pill: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    dot: "bg-emerald-500",
-    btn: "bg-emerald-600 text-white",
-  },
-  approved: {
-    pill: "bg-blue-100 text-blue-700 border-blue-200",
-    dot: "bg-blue-500",
-    btn: "bg-blue-600 text-white",
-  },
-  rejected: {
-    pill: "bg-red-100 text-red-700 border-red-200",
-    dot: "bg-red-500",
-    btn: "bg-red-600 text-white",
-  },
-  pending: {
-    pill: "bg-amber-100 text-amber-700 border-amber-200",
-    dot: "bg-amber-400",
-    btn: "bg-amber-500 text-white",
-  },
+  resolved: { accent: "#059669", light: "#ecfdf5", mid: "#a7f3d0", text: "#065f46", label: "Resolved"  },
+  approved: { accent: "#2563eb", light: "#eff6ff", mid: "#bfdbfe", text: "#1e3a8a", label: "Approved"  },
+  rejected: { accent: "#dc2626", light: "#fef2f2", mid: "#fecaca", text: "#7f1d1d", label: "Rejected"  },
+  pending:  { accent: "#d97706", light: "#fffbeb", mid: "#fde68a", text: "#78350f", label: "Pending"   },
 };
 
-const SIGHTING_STATUS_META = {
-  verified: {
-    classes: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    accent: "#059669",
-    icon: <CheckCircle2 size={10} />,
-  },
-  rejected: {
-    classes: "bg-red-100 text-red-600 border-red-200",
-    accent: "#dc2626",
-    icon: <XCircle size={10} />,
-  },
-  pending: {
-    classes: "bg-slate-100 text-slate-500 border-slate-200",
-    accent: "#9ca3af",
-    icon: <Hourglass size={10} />,
-  },
+const SIGHTING_META = {
+  verified: { accent: "#059669", bg: "#ecfdf5", icon: CheckCircle2, label: "Verified" },
+  rejected: { accent: "#dc2626", bg: "#fef2f2", icon: XCircle,      label: "Rejected" },
+  pending:  { accent: "#9ca3af", bg: "#f9fafb", icon: Hourglass,    label: "Pending"  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const cleanStr = (field) => {
-  if (field === null || field === undefined) return "";
+/**
+ * Extract a plain English string from any field shape the backend may return:
+ *   • null / undefined            → ""
+ *   • plain string                → trimmed (JSON-parsed if it starts with "{")
+ *   • { en, am }                  → en value (falls back to am, then first value)
+ *   • { name: { en, am } }        → en from nested name
+ *   • { name: "plain string" }    → that string
+ */
+const cleanStr = (v, lang = "en") => {
+  if (v == null) return "";
 
-  let parsed = field;
-
-  // If it's a string, check if it's stringified JSON and try to parse it
-  if (typeof field === "string" && field.trim().startsWith("{")) {
-    try {
-      parsed = JSON.parse(field);
-    } catch (e) {
-      parsed = field;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t.startsWith("{")) {
+      try { return cleanStr(JSON.parse(t), lang); } catch (_) {}
     }
+    return t;
   }
 
-  // If it's an object (or successfully parsed into one), grab the English text
-  if (typeof parsed === "object" && parsed !== null) {
-    return (parsed.en || parsed.am || "").trim();
+  if (typeof v === "object") {
+    if (v.name !== undefined) return cleanStr(v.name, lang);
+    if (v[lang])  return String(v[lang]).trim();
+    if (v.en)     return String(v.en).trim();
+    if (v.am)     return String(v.am).trim();
+    const first = Object.values(v).find((x) => typeof x === "string" && x.trim());
+    return first ? first.trim() : "";
   }
 
-  return String(parsed).trim();
+  return String(v).trim();
 };
 
-const formatDate = (
-  iso,
-  opts = { year: "numeric", month: "short", day: "numeric" },
-) => (iso ? new Date(iso).toLocaleDateString("en-US", opts) : "—");
+const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const InfoItem = React.memo(({ icon, label, value }) => (
-  <div className="flex gap-3 items-start">
-    <div className="mt-0.5 p-2 rounded-xl bg-blue-50 text-blue-500 shrink-0">
-      {icon}
-    </div>
-    <div className="min-w-0">
-      <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">
-        {label}
-      </p>
-      <p className="text-sm font-bold text-slate-800 break-words">
-        {value || "—"}
-      </p>
-    </div>
+const Tag = ({ children, color = "#2563eb", bg = "#eff6ff" }) => (
+  <span style={{
+    display: "inline-flex", alignItems: "center",
+    padding: "4px 12px", borderRadius: 99,
+    background: bg, color,
+    fontSize: 11, fontWeight: 700,
+    letterSpacing: "0.04em",
+    fontFamily: "system-ui, sans-serif",
+  }}>
+    {children}
+  </span>
+);
+
+const Label = ({ children }) => (
+  <p style={{
+    fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+    textTransform: "uppercase", color: "#9ca3af",
+    marginBottom: 4, fontFamily: "system-ui, sans-serif",
+  }}>{children}</p>
+);
+
+const Value = ({ children, large }) => (
+  <p style={{
+    fontSize: large ? 15 : 14, fontWeight: 600,
+    color: "#111827", lineHeight: 1.5,
+    fontFamily: "system-ui, sans-serif",
+  }}>{children || "—"}</p>
+);
+
+const Divider = () => (
+  <div style={{ height: 1, background: "#f3f4f6", margin: "0 -24px" }} />
+);
+
+const Card = ({ children, style = {} }) => (
+  <div style={{
+    background: "#fff",
+    borderRadius: 16,
+    border: "1px solid #f3f4f6",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)",
+    overflow: "hidden",
+    ...style,
+  }}>
+    {children}
   </div>
-));
-InfoItem.displayName = "InfoItem";
+);
+
+const CardSection = ({ children, style = {} }) => (
+  <div style={{ padding: "20px 24px", ...style }}>{children}</div>
+);
+
+const MetricBox = ({ label, value, accent }) => (
+  <div style={{
+    padding: "16px 18px",
+    background: "#fafafa",
+    borderRadius: 12,
+    border: "1px solid #f3f4f6",
+  }}>
+    <Label>{label}</Label>
+    <p style={{
+      fontSize: 20, fontWeight: 800, color: accent || "#111827",
+      fontFamily: "system-ui, sans-serif", lineHeight: 1.2,
+    }}>{value || "—"}</p>
+  </div>
+);
 
 const SightingCard = React.memo(({ report, index }) => {
   const status = report.status || "pending";
-  const meta = SIGHTING_STATUS_META[status] ?? SIGHTING_STATUS_META.pending;
+  const meta   = SIGHTING_META[status] ?? SIGHTING_META.pending;
+  const Icon   = meta.icon;
 
   return (
-    <div
-      className="p-4 bg-white rounded-xl border border-slate-100 mb-2 opacity-0 animate-fade-up"
-      style={{
-        borderLeft: `3px solid ${meta.accent}`,
-        animationPlayState: "running",
-        animationDelay: `${index * 0.04}s`,
-        animationFillMode: "forwards",
-      }}
-    >
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-semibold text-slate-400">
-          {formatDate(report.spottedAt)}
+    <div style={{
+      padding: "16px",
+      background: "#fff",
+      borderRadius: 12,
+      border: "1px solid #f3f4f6",
+      borderLeft: `3px solid ${meta.accent}`,
+      marginBottom: 8,
+      animation: `fadeUp 0.25s ease forwards`,
+      animationDelay: `${index * 0.04}s`,
+      opacity: 0,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", fontFamily: "system-ui, sans-serif" }}>
+          {fmt(report.spottedAt)}
         </span>
-        <span
-          className={`flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${meta.classes}`}
-        >
-          {meta.icon}
-          {status}
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+          color: meta.accent, background: meta.bg,
+          padding: "2px 8px", borderRadius: 99,
+          fontFamily: "system-ui, sans-serif",
+        }}>
+          <Icon size={9} />
+          {meta.label}
         </span>
       </div>
-
-      <p className="text-sm text-slate-600 style-paragraph mb-3 leading-relaxed">
+      <p style={{
+        fontSize: 13, color: "#374151", lineHeight: 1.6,
+        marginBottom: 8, fontFamily: "system-ui, sans-serif",
+      }}>
         {cleanStr(report.description) || "No description provided."}
       </p>
-
-      {/* Added Phone Number Display */}
-      {report.phoneNumber && (
-        <div className="flex items-center gap-1.5 text-blue-600 mb-2">
-          <Phone size={12} />
-          <span className="text-xs font-bold">{report.phoneNumber}</span>
-        </div>
-      )}
-
-      <div className="flex items-center gap-1.5 text-slate-400">
-        <MapPin size={12} className="text-slate-300" />
-        <span className="text-xs">
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <MapPin size={10} color="#d1d5db" />
+        <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "system-ui, sans-serif" }}>
           {cleanStr(report.kebele) || "Location unknown"}
         </span>
       </div>
     </div>
   );
 });
+SightingCard.displayName = "SightingCard";
 
-const StatusPanel = React.memo(
-  ({ currentStatus, updating, onStatusChange }) => (
-    <div className="p-6 rounded-2xl border border-slate-100 bg-slate-50">
-      <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2 mb-4">
-        <RefreshCcw
-          size={11}
-          className={updating ? "animate-spin text-blue-500" : "text-slate-400"}
-        />
-        Update Status
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+const StatusPanel = React.memo(({ currentStatus, updating, onStatusChange }) => (
+  <Card>
+    <CardSection>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <RefreshCcw size={13} color="#9ca3af" style={{ animation: updating ? "spin 1s linear infinite" : "none" }} />
+        <Label>Update Case Status</Label>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {STATUS_OPTIONS.map((s) => {
-          const meta = STATUS_META[s] ?? STATUS_META.pending;
+          const meta     = STATUS_META[s] ?? STATUS_META.pending;
           const isActive = currentStatus === s;
           return (
             <button
               key={s}
               disabled={updating || isActive}
               onClick={() => onStatusChange(s)}
-              className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 border flex items-center justify-center gap-1.5
-            ${
-              isActive
-                ? `${meta.btn} border-transparent shadow-md`
-                : "bg-white border-slate-200 text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900"
-            } disabled:cursor-not-allowed`}
+              style={{
+                padding: "10px 8px",
+                borderRadius: 10,
+                border: `1.5px solid ${isActive ? meta.accent : "#e5e7eb"}`,
+                background: isActive ? meta.light : "#fff",
+                color: isActive ? meta.accent : "#6b7280",
+                fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.04em",
+                cursor: isActive || updating ? "not-allowed" : "pointer",
+                transition: "all 0.15s ease",
+                fontFamily: "system-ui, sans-serif",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive && !updating) {
+                  e.currentTarget.style.borderColor = meta.accent;
+                  e.currentTarget.style.color = meta.accent;
+                  e.currentTarget.style.background = meta.light;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.color = "#6b7280";
+                  e.currentTarget.style.background = "#fff";
+                }
+              }}
             >
-              {isActive && (
-                <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-              )}
-              {s}
+              {meta.label}
             </button>
           );
         })}
       </div>
-    </div>
-  ),
-);
+    </CardSection>
+  </Card>
+));
 StatusPanel.displayName = "StatusPanel";
 
 const LoadingScreen = () => (
-  <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-5">
-    <div className="relative w-12 h-12">
-      <div className="absolute inset-0 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
-      <Eye
-        size={16}
-        className="text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-      />
+  <div style={{
+    minHeight: "100vh", background: "#f9fafb",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center", gap: 20,
+  }}>
+    <div style={{ position: "relative", width: 52, height: 52 }}>
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: "50%",
+        border: "2.5px solid #e5e7eb",
+        borderTop: "2.5px solid #2563eb",
+        animation: "spin 0.9s linear infinite",
+      }} />
+      <Eye size={16} color="#2563eb" style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%,-50%)",
+      }} />
     </div>
-    <p className="text-[10px] font-black tracking-[0.15em] text-slate-400 uppercase">
+    <p style={{
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.15em",
+      color: "#9ca3af", textTransform: "uppercase",
+      fontFamily: "system-ui, sans-serif",
+    }}>
       Loading case file…
     </p>
   </div>
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN PAGE COMPONENT
+// MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CaseDetailPage = () => {
-  const { id } = useParams();
+  const { id }   = useParams();
   const navigate = useNavigate();
 
-  const [caseData, setCaseData] = useState(null);
-  const [sightings, setSightings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [caseData,         setCaseData]         = useState(null);
+  const [sightings,        setSightings]        = useState([]);
+  const [loading,          setLoading]          = useState(true);
   const [sightingsLoading, setSightingsLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState(null);
+  const [updating,         setUpdating]         = useState(false);
+  const [error,            setError]            = useState(null);
 
-  const fetchCaseDetail = useCallback(
-    async (signal) => {
-      try {
-        const res = await axios.get(API_ENDPOINTS.caseDetail(id), { signal });
-        setCaseData(res.data?.data ?? res.data);
-      } catch (err) {
-        if (axios.isCancel(err)) return;
-        console.error("Case fetch error:", err);
-        setError("Failed to load case details.");
-      }
-    },
-    [id],
-  );
+  const fetchCaseDetail = useCallback(async (signal) => {
+    try {
+      const res = await axios.get(API_ENDPOINTS.caseDetail(id), { signal });
+      setCaseData(res.data?.data ?? res.data);
+    } catch (err) {
+      if (axios.isCancel(err)) return;
+      setError("Failed to load case details.");
+    }
+  }, [id]);
 
-  const fetchSightings = useCallback(
-    async (signal) => {
-      setSightingsLoading(true);
-      try {
-        const res = await axios.get(API_ENDPOINTS.sightings(id), { signal });
-        const payload = res.data?.data ?? res.data;
-        setSightings(Array.isArray(payload) ? payload : []);
-      } catch (err) {
-        if (axios.isCancel(err)) return;
-        console.error("Sightings fetch error:", err);
-        setSightings([]);
-      } finally {
-        setSightingsLoading(false);
-      }
-    },
-    [id],
-  );
+  const fetchSightings = useCallback(async (signal) => {
+    setSightingsLoading(true);
+    try {
+      const res     = await axios.get(API_ENDPOINTS.sightings(id), { signal });
+      const payload = res.data?.data ?? res.data;
+      setSightings(Array.isArray(payload) ? payload : []);
+    } catch (err) {
+      if (axios.isCancel(err)) return;
+      setSightings([]);
+    } finally {
+      setSightingsLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    const ctrl = new AbortController();
     const load = async () => {
-      setLoading(true);
-      setError(null);
-      await Promise.all([
-        fetchCaseDetail(controller.signal),
-        fetchSightings(controller.signal),
-      ]);
+      setLoading(true); setError(null);
+      await Promise.all([fetchCaseDetail(ctrl.signal), fetchSightings(ctrl.signal)]);
       setLoading(false);
     };
     load();
-    return () => controller.abort();
+    return () => ctrl.abort();
   }, [fetchCaseDetail, fetchSightings]);
 
   const handleStatusChange = async (newStatus) => {
@@ -307,244 +338,328 @@ const CaseDetailPage = () => {
 
   if (error || !caseData) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3">
-        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
-          <AlertCircle size={24} className="text-red-600" />
+      <div style={{
+        minHeight: "100vh", background: "#f9fafb",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 12,
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%",
+          background: "#fef2f2", display: "flex",
+          alignItems: "center", justifyContent: "center",
+        }}>
+          <AlertCircle size={24} color="#dc2626" />
         </div>
-        <p className="text-sm font-bold text-slate-800">
+        <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", fontFamily: "system-ui, sans-serif" }}>
           {error || "Case not found"}
         </p>
-        <button
-          onClick={() => navigate(-1)}
-          className="mt-2 text-xs font-bold text-blue-600 hover:underline bg-none border-none cursor-pointer"
-        >
+        <button onClick={() => navigate(-1)} style={{
+          marginTop: 8, fontSize: 13, fontWeight: 600,
+          color: "#2563eb", background: "none", border: "none",
+          cursor: "pointer", fontFamily: "system-ui, sans-serif",
+        }}>
           ← Go back
         </button>
       </div>
     );
   }
 
-  const statusMeta = STATUS_META[caseData.status] ?? STATUS_META.pending;
+  const sm       = STATUS_META[caseData.status] ?? STATUS_META.pending;
   const fullName = cleanStr(caseData.fullName) || "Unknown Subject";
-  const description = cleanStr(caseData.description);
+  const desc     = cleanStr(caseData.description);
   const features = cleanStr(caseData.distinctiveFeatures);
   const location = cleanStr(caseData.lastSeenLocation || caseData.location);
-  const contactInfo = cleanStr(caseData.contactInfo);
+  const contact  = cleanStr(caseData.contactInfo);
+  const imageUrl = caseData.mediaUrl
+    ? (caseData.mediaUrl.startsWith("http") ? caseData.mediaUrl : `${BASE_URL}${caseData.mediaUrl}`)
+    : null;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
-      {/* Global CSS Inject for specific keyframe setups */}
+    <div style={{ minHeight: "100vh", background: "#f3f4f6", fontFamily: "system-ui, sans-serif" }}>
       <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        .animate-fade-up { animation: fadeUp 0.25s ease forwards; }
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
       `}</style>
 
-      {/* Top Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 h-14 flex items-center gap-4">
+      {/* Status color bar */}
+      <div style={{ height: 3, background: sm.accent }} />
+
+      {/* Nav */}
+      <nav style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(12px)",
+        borderBottom: "1px solid #e5e7eb",
+        padding: "0 32px",
+        display: "flex", alignItems: "center",
+        height: 56, gap: 16,
+      }}>
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg transition"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, color: "#6b7280",
+            padding: "6px 10px", borderRadius: 8,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; e.currentTarget.style.color = "#111827"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "none";    e.currentTarget.style.color = "#6b7280"; }}
         >
-          <ArrowLeft size={14} /> Back
+          <ArrowLeft size={14} />
+          Back
         </button>
-        <span className="text-slate-200">|</span>
-        <span className="text-xs text-slate-400 font-medium font-mono">
+
+        <span style={{ color: "#e5e7eb" }}>|</span>
+
+        <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>
           Case #{id}
         </span>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
           {caseData.isDangerous && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider border border-red-100">
-              <AlertTriangle size={10} /> High Risk
-            </span>
+            <Tag color="#dc2626" bg="#fef2f2">
+              <AlertTriangle size={10} style={{ marginRight: 4 }} />
+              High Risk
+            </Tag>
           )}
-          <span
-            className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusMeta.pill}`}
-          >
-            {caseData.status}
-          </span>
+          <Tag color={sm.text} bg={sm.light}>{sm.label}</Tag>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        {/* Header Block */}
-        <div className="mb-8">
-          <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">
+      <main style={{ maxWidth: 1160, margin: "0 auto", padding: "32px 24px 80px" }}>
+
+        {/* Page title */}
+        <div style={{ marginBottom: 28, animation: "fadeIn 0.3s ease" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: "#9ca3af", textTransform: "uppercase", marginBottom: 8 }}>
             Missing Persons · Active Case
           </p>
-          <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">
+          <h1 style={{
+            fontSize: "clamp(2rem, 5vw, 3.75rem)",
+            fontWeight: 800, letterSpacing: "-0.025em",
+            color: "#111827", lineHeight: 1,
+          }}>
             {fullName}
           </h1>
-          {caseData.priority && (
-            <div className="mt-2">
-              <span className="inline-flex text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md">
-                Priority {caseData.priority}
-              </span>
-            </div>
-          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+            <Tag color={sm.text} bg={sm.light}>{sm.label}</Tag>
+            {caseData.priority && (
+              <Tag color="#374151" bg="#f9fafb">Priority {caseData.priority}</Tag>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Side: Media & Metrics */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-200 shadow-sm border border-slate-200">
-              {caseData.mediaUrl ? (
-                <>
-                  <img
-                    src={
-                      caseData.mediaUrl.startsWith("http")
-                        ? caseData.mediaUrl
-                        : `${BASE_URL}${caseData.mediaUrl}`
-                    }
-                    className="w-full h-full object-cover"
-                    alt={fullName}
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50 gap-2">
-                  <User size={48} strokeWidth={1} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                    No photo on file
-                  </span>
-                </div>
-              )}
-            </div>
+        {/* Grid */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "300px 1fr",
+          gap: 20,
+          alignItems: "start",
+        }}>
 
-            {/* Quick Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
+          {/* ── Left ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Photo */}
+            <Card>
+              <div style={{ aspectRatio: "3/4", position: "relative", background: "#f9fafb", overflow: "hidden" }}>
+                {imageUrl ? (
+                  <img src={imageUrl} alt={fullName} loading="lazy"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{
+                    width: "100%", height: "100%",
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center", gap: 10,
+                  }}>
+                    <div style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      background: "#e5e7eb",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <User size={32} color="#9ca3af" strokeWidth={1.5} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af" }}>No photo on file</span>
+                  </div>
+                )}
+
+                {caseData.status === "resolved" && (
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    background: "rgba(5,150,105,0.08)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "#059669", color: "#fff",
+                      padding: "8px 16px", borderRadius: 99,
+                      fontSize: 12, fontWeight: 700,
+                    }}>
+                      <ShieldCheck size={14} />
+                      Resolved
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Biometrics */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <Label>Biometrics</Label>
+              </CardSection>
+              <Divider />
+              <CardSection>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[
+                    { label: "Age",    value: caseData.age },
+                    { label: "Gender", value: caseData.gender },
+                    { label: "Height", value: caseData.height },
+                    { label: "Weight", value: caseData.weight },
+                  ].map(({ label, value }) => (
+                    <MetricBox key={label} label={label} value={value} accent={sm.accent} />
+                  ))}
+                </div>
+              </CardSection>
+            </Card>
+
+            {/* Sightings */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <MessageSquare size={13} color={sm.accent} />
+                    <Label>Sighting Reports</Label>
+                  </div>
+                  <Tag color={sm.text} bg={sm.light}>{sightings.length}</Tag>
+                </div>
+              </CardSection>
+              <Divider />
+              <CardSection>
+                {sightingsLoading ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[1,2,3].map((i) => (
+                      <div key={i} style={{
+                        height: 84, borderRadius: 12,
+                        background: "linear-gradient(90deg, #f9fafb 25%, #f3f4f6 50%, #f9fafb 75%)",
+                        backgroundSize: "200% 100%",
+                        animation: "shimmer 1.4s infinite",
+                      }} />
+                    ))}
+                  </div>
+                ) : sightings.length > 0 ? (
+                  <div style={{ maxHeight: 460, overflowY: "auto", paddingRight: 4 }}>
+                    {sightings.map((r, i) => (
+                      <SightingCard key={r.id || r._id} report={r} index={i} />
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "28px 0", textAlign: "center",
+                    border: "1.5px dashed #e5e7eb", borderRadius: 12,
+                  }}>
+                    <AlertCircle size={22} color="#e5e7eb" style={{ margin: "0 auto 8px" }} />
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>No sightings on file</p>
+                  </div>
+                )}
+              </CardSection>
+            </Card>
+
+          </div>
+
+          {/* ── Right ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            <StatusPanel currentStatus={caseData.status} updating={updating} onStatusChange={handleStatusChange} />
+
+            {/* Intel grid */}
+            <Card>
+              <CardSection style={{ paddingBottom: 16 }}>
+                <Label>Case Intelligence</Label>
+              </CardSection>
+              <Divider />
+              <CardSection>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 32px" }}>
+                  {[
+                    { icon: MapPin,   label: "Last Known Location", value: location  },
+                    { icon: Calendar, label: "Last Seen Date",       value: fmt(caseData.lastSeenDate) },
+                    { icon: Phone,    label: "Contact Information",  value: contact   },
+                    { icon: Clock,    label: "Report Date",          value: fmt(caseData.createdAt)    },
+                  ].map(({ icon: Icon, label, value }) => (
+                    <div key={label}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <Icon size={11} color="#9ca3af" />
+                        <Label>{label}</Label>
+                      </div>
+                      <Value>{value}</Value>
+                    </div>
+                  ))}
+                </div>
+              </CardSection>
+            </Card>
+
+            {/* Distinctive features */}
+            {features && (
+              <Card style={{ borderLeft: `3px solid ${sm.accent}` }}>
+                <CardSection>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <Ruler size={13} color={sm.accent} />
+                    <Label>Distinctive Features</Label>
+                  </div>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", lineHeight: 1.7 }}>
+                    {features}
+                  </p>
+                </CardSection>
+              </Card>
+            )}
+
+            {/* Narrative */}
+            {desc && (
+              <Card>
+                <CardSection>
+                  <Label>Case Narrative</Label>
+                  <blockquote style={{
+                    marginTop: 12,
+                    paddingLeft: 16,
+                    borderLeft: `3px solid ${sm.mid}`,
+                  }}>
+                    <p style={{
+                      fontSize: 15, color: "#4b5563",
+                      lineHeight: 1.8, fontStyle: "italic", fontWeight: 400,
+                    }}>
+                      {desc}
+                    </p>
+                  </blockquote>
+                </CardSection>
+              </Card>
+            )}
+
+            {/* Footer strip */}
+            <div style={{
+              padding: "14px 20px",
+              background: "#fff",
+              borderRadius: 12,
+              border: "1px solid #f3f4f6",
+              display: "flex", flexWrap: "wrap", gap: "8px 28px",
+              alignItems: "center",
+            }}>
               {[
-                { label: "Age", value: caseData.age },
-                { label: "Gender", value: caseData.gender, capitalize: true },
-                { label: "Height", value: caseData.height },
-                { label: "Weight", value: caseData.weight },
-              ].map(({ label, value, capitalize }) => (
-                <div
-                  key={label}
-                  className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm"
-                >
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                    {label}
-                  </p>
-                  <p
-                    className={`text-base font-black text-slate-800 ${capitalize ? "capitalize" : ""}`}
-                  >
-                    {value || "—"}
-                  </p>
+                { label: "File ID",  value: `CAS-${String(id).padStart(6, "0")}` },
+                { label: "Unit",     value: "Missing Persons Bureau" },
+                { label: "Clearance", value: "Authorized Personnel" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#d1d5db" }}>{label}:</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#6b7280" }}>{value}</span>
                 </div>
               ))}
             </div>
 
-            {/* Sighting Reports Panel */}
-            <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <MessageSquare size={14} className="text-blue-500" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Sighting Reports
-                  </p>
-                </div>
-                <span className="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 text-xs rounded-full">
-                  {sightings.length}
-                </span>
-              </div>
-
-              {sightingsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="h-20 bg-slate-100 animate-pulse rounded-xl"
-                    />
-                  ))}
-                </div>
-              ) : sightings.length > 0 ? (
-                <div className="max-h-[400px] overflow-y-auto pr-1">
-                  {sightings.map((r, i) => (
-                    <SightingCard key={r.id || r._id} report={r} index={i} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl">
-                  <AlertCircle
-                    size={20}
-                    className="mx-auto mb-2 text-slate-300"
-                  />
-                  <p className="text-xs font-bold text-slate-400">
-                    No sightings on file
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Side: Operations & Case Details */}
-          <div className="lg:col-span-8 space-y-6">
-            <StatusPanel
-              currentStatus={caseData.status}
-              updating={updating}
-              onStatusChange={handleStatusChange}
-            />
-
-            {/* Core Intel Card */}
-            <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 pb-2 border-b border-slate-100">
-                Case Intelligence
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InfoItem
-                  icon={<MapPin size={16} />}
-                  label="Last Known Location"
-                  value={location}
-                />
-                <InfoItem
-                  icon={<Calendar size={16} />}
-                  label="Last Seen Date"
-                  value={formatDate(caseData.lastSeenDate)}
-                />
-                <InfoItem
-                  icon={<Phone size={16} />}
-                  label="Contact Information"
-                  value={contactInfo}
-                />
-                <InfoItem
-                  icon={<Clock size={16} />}
-                  label="Report Created At"
-                  value={formatDate(caseData.createdAt, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                />
-              </div>
-            </div>
-
-            {/* Distinctive Features */}
-            {features && (
-              <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm border-l-4 border-l-blue-500">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                  Distinctive Features
-                </p>
-                <p className="text-sm font-medium text-slate-700 leading-relaxed">
-                  {features}
-                </p>
-              </div>
-            )}
-
-            {/* Case Narrative / Description */}
-            {description && (
-              <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
-                  Case Narrative
-                </p>
-                <div className="border-l-2 border-slate-200 pl-4 italic text-sm text-slate-600 leading-relaxed">
-                  {description}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </main>
