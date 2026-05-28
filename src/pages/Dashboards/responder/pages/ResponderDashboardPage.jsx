@@ -226,18 +226,38 @@ function buildTimeline(emergencies, range) {
   });
 }
 
+// ── Every category that isn't in FORCED_COLORS gets a unique palette colour ──
 function buildCategoryPie(emergencies, catColorMap) {
   const counts = {};
   emergencies.forEach((e) => {
     const k = getCatKey(e);
     counts[k] = (counts[k] || 0) + 1;
   });
-  return Object.entries(counts).map(([key, value]) => ({
-    name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
-    value,
-    color: catColorMap[key] || "#94A3B8",
-    key,
-  }));
+
+  // Collect which palette colours are already taken by FORCED_COLORS
+  const usedColors = new Set(Object.values(FORCED_COLORS));
+  // Build a pool of unused palette colours for unknown categories
+  const unusedPool = DEFAULT_PALETTE.filter((c) => !usedColors.has(c));
+  let poolIdx = 0;
+
+  return Object.entries(counts).map(([key, value]) => {
+    let color;
+    if (catColorMap[key]) {
+      color = catColorMap[key];
+    } else {
+      // Assign the next unused palette colour; cycle if we run out
+      color = unusedPool[poolIdx % unusedPool.length];
+      poolIdx++;
+      // Cache it so the legend stays consistent
+      catColorMap[key] = color;
+    }
+    return {
+      name: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
+      value,
+      color,
+      key,
+    };
+  });
 }
 
 // ─── TOOLTIP ─────────────────────────────────────────────────────────────────
@@ -591,6 +611,7 @@ const ResponderDashboardPage = () => {
   }, [fetchAll]);
 
   // ── CATEGORY COLOR MAP ────────────────────────────────────────────────────
+  // Mutable ref-like object so buildCategoryPie can cache new colours into it
   const catColorMap = useMemo(() => {
     return { ...FORCED_COLORS };
   }, []);
@@ -688,6 +709,7 @@ const ResponderDashboardPage = () => {
     ];
 
     const timeline = buildTimeline(incidents, range);
+    // Pass catColorMap so unknown categories receive unique colours
     const pie = buildCategoryPie(incidents, catColorMap);
 
     const q = search.toLowerCase();

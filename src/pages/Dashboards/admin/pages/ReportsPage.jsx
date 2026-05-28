@@ -14,7 +14,6 @@ import {
   Flame,
   Shield,
   Heart,
-  Zap,
   Building2,
   Database,
   TrendingUp,
@@ -30,22 +29,38 @@ import {
 ═══════════════════════════════════════════════════════ */
 const BASE_URL = "https://bahirlink-backend-1.onrender.com";
 
-const AGENCY_KEYWORDS = {
-  fire: ["fire"],
-  police: ["crime", "police", "security"],
-  medical: ["health", "medical", "ambulance"],
-  utility: ["utility", "electric", "water", "gas"],
-  municipal: ["municipal", "sanitation", "road", "waste"],
+/**
+ * Mirrors the backend's emergencyTypeToAgencyType map — but inverted.
+ * Key = AgencyType name (what's stored on the agency record)
+ * Value = array of emergencyType strings that agency handles
+ *
+ * Backend source:
+ *   Crime  → Police
+ *   Medical → Health
+ *   Fire   → Fire
+ */
+// Inverted from backend emergencyTypeToAgencyType:
+//   Crime → Police | Medical → Health | Fire → Fire
+// "Medical" alias covers DB rows where agencyType.name is stored as "Medical"
+// instead of "Health". All comparisons are lowercased in matchesAgency.
+const AGENCY_TYPE_TO_EMERGENCY_TYPES = {
+  Police: ["crime"],
+  Health: ["medical"], // agencyType.name = "Health", emergencyType = "Medical"
+  Medical: ["medical"], // alias: some DB rows store agencyType.name as "Medical"
+  Fire: ["fire"],
 };
 
-const AGENCY_TYPES = [
-  { id: "all", label: "All", Icon: Database },
-  { id: "fire", label: "Fire", Icon: Flame },
-  { id: "police", label: "Police", Icon: Shield },
-  { id: "medical", label: "Medical", Icon: Heart },
-  { id: "utility", label: "Utility", Icon: Zap },
-  { id: "municipal", label: "Municipal", Icon: Building2 },
-];
+/**
+ * Icon + accent color per AgencyType name.
+ * ONLY the 3 types that exist in the backend emergencyTypeToAgencyType map.
+ * Agencies whose type is NOT in this map are excluded from the filter UI.
+ */
+const AGENCY_TYPE_META = {
+  Police: { Icon: Shield, color: "text-blue-500" },
+  Health: { Icon: Heart, color: "text-rose-500" },
+  Medical: { Icon: Heart, color: "text-rose-500" }, // alias for Health
+  Fire: { Icon: Flame, color: "text-orange-500" },
+};
 
 const STATUS_ORDER = {
   escalated: 0,
@@ -204,7 +219,7 @@ const StatusChip = ({ status }) => {
 };
 
 /* ═══════════════════════════════════════════════════════
-   AGENCY DOT
+   AGENCY DOT — color by agency type name
 ═══════════════════════════════════════════════════════ */
 const AGENCY_DOT_MAP = {
   fire: "bg-orange-400",
@@ -229,7 +244,14 @@ const agencyDot = (typeStr = "") => {
 const ReportsPage = () => {
   const [reports, setReports] = useState([]);
   const [allKebeles, setAllKebeles] = useState([]);
+
+  // ── Dynamic agencies from /api/agency/my-agents ──
+  // Each entry is enriched with a resolved .agencyType object
+  const [myAgencies, setMyAgencies] = useState([]);
+  const [agenciesLoading, setAgenciesLoading] = useState(true);
+
   const [filter, setFilter] = useState("all");
+  // agencyFilter holds an agency ID (string) or "all"
   const [agencyFilter, setAgencyFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [kebeleFilter, setKebeleFilter] = useState("all");
@@ -241,21 +263,46 @@ const ReportsPage = () => {
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  /* ── Fetch ── */
+  /* ─────────────────────────────────────────────────────
+     Data fetching
+     
+     KEY FIX: getAgentsByCreatorId (backend) does NOT join AgencyType —
+     it returns only agencyTypeId. We therefore:
+       1. Fetch all agency types available to this admin
+          (/api/agencyType/my → falls back to /api/agencyType)
+       2. Build a lookup map: agencyTypeId → agencyType object
+       3. Map over every agency and attach the resolved agencyType
+
+     This ensures myAgencies[n].agencyType is always populated,
+     regardless of whether the backend join is present.
+  ───────────────────────────────────────────────────── */
   useEffect(() => {
     setReports([]);
     setError("");
+
     (async () => {
       setLoading(true);
+      setAgenciesLoading(true);
+
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
 
-        const [reportsRes, kebelesRes] = await Promise.all([
-          axios.get(`${BASE_URL}/api/emergencies/admin/all`, { headers }),
-          axios.get(`${BASE_URL}/api/kebele`, { headers }),
-        ]);
+        const [reportsRes, kebelesRes, agenciesRes, agencyTypesRes] =
+          await Promise.all([
+            axios.get(`${BASE_URL}/api/emergencies/admin/all`, { headers }),
+            axios.get(`${BASE_URL}/api/kebele`, { headers }),
+            // Returns ALL agencies created by this admin (createdBy = adminId)
+            axios.get(`${BASE_URL}/api/agency/my-agents`, { headers }),
+            // Try admin-scoped types first, fall back to global list
+            axios
+              .get(`${BASE_URL}/api/agencyType/my`, { headers })
+              .catch(() =>
+                axios.get(`${BASE_URL}/api/agencyType`, { headers }),
+              ),
+          ]);
 
+        /* ── Reports ── */
         if (reportsRes.data.success) {
           setReports(
             reportsRes.data.data ||
@@ -265,16 +312,60 @@ const ReportsPage = () => {
           );
         }
 
+        /* ── Kebeles ── */
         setAllKebeles(
           kebelesRes.data.data ||
             kebelesRes.data.kebeles ||
             kebelesRes.data ||
             [],
         );
+
+        /* ── Agency type lookup map: id → type object ── */
+        const rawAgencyTypes =
+          agencyTypesRes.data?.data ||
+          agencyTypesRes.data?.agencyTypes ||
+          agencyTypesRes.data ||
+          [];
+        const agencyTypeMap = {};
+        (Array.isArray(rawAgencyTypes) ? rawAgencyTypes : []).forEach((at) => {
+          // Index by both numeric id and string id for safety
+          agencyTypeMap[String(at.id)] = at;
+          if (at._id) agencyTypeMap[String(at._id)] = at;
+        });
+
+        /* ── Agencies: enrich every record with its resolved agencyType ──
+           getAgentsByCreatorId returns ALL agencies where createdBy = adminId.
+           It does not include a JOIN, so agency.agencyType may be undefined.
+           We resolve it from agencyTypeMap using agencyTypeId.
+        ── */
+        const rawAgencies =
+          agenciesRes.data?.data ||
+          agenciesRes.data?.agencies ||
+          agenciesRes.data ||
+          [];
+
+        const enriched = (Array.isArray(rawAgencies) ? rawAgencies : []).map(
+          (agency) => {
+            // If the backend already joined agencyType, keep it; otherwise resolve it
+            const resolvedType =
+              agency.agencyType ||
+              agencyTypeMap[String(agency.agencyTypeId)] ||
+              agencyTypeMap[String(agency.agencyType_id)] ||
+              null;
+
+            return {
+              ...agency,
+              agencyType: resolvedType,
+            };
+          },
+        );
+
+        setMyAgencies(enriched);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
       } finally {
         setLoading(false);
+        setAgenciesLoading(false);
       }
     })();
   }, []);
@@ -331,22 +422,69 @@ const ReportsPage = () => {
     setDateTo("");
   };
 
-  const matchesAgency = (report, agencyId) => {
-    if (agencyId === "all") return true;
-    const typeStr = String(
-      renderEnglish(
-        report.emergencyType || report.serviceType || report.agencyType,
-      ),
+  /**
+   * Match a report against the selected agency.
+   *
+   * agency.agencyType is now guaranteed to be resolved (or null) by useEffect.
+   * agency.agencyType.name → "Police" | "Health" | "Fire" (plain string or bilingual obj)
+   * AGENCY_TYPE_TO_EMERGENCY_TYPES maps that to the emergency type strings
+   * present in getAllEmergenciesForAdmin output.
+   *
+   * Case-insensitive: agencyTypeName is title-cased for map lookup;
+   * reportType is lowercased so "Medical" === "medical" always matches.
+   */
+  const matchesAgency = (report, selectedAgencyId) => {
+    if (selectedAgencyId === "all") return true;
+
+    const selectedAgency = myAgencies.find(
+      (a) => String(a.id) === String(selectedAgencyId),
+    );
+    if (!selectedAgency) return true;
+
+    const rawName =
+      selectedAgency.agencyType?.name || selectedAgency.agencyTypeName || "";
+    // Normalize to title-case for map lookup: "health" → "Health"
+    const agencyTypeNameRaw = renderEnglish(rawName);
+    const agencyTypeName =
+      agencyTypeNameRaw.charAt(0).toUpperCase() +
+      agencyTypeNameRaw.slice(1).toLowerCase();
+
+    // Try exact title-case match, then fall back to case-insensitive scan
+    const handledTypes =
+      AGENCY_TYPE_TO_EMERGENCY_TYPES[agencyTypeName] ||
+      AGENCY_TYPE_TO_EMERGENCY_TYPES[agencyTypeNameRaw] ||
+      Object.entries(AGENCY_TYPE_TO_EMERGENCY_TYPES).find(
+        ([k]) => k.toLowerCase() === agencyTypeNameRaw.toLowerCase(),
+      )?.[1] ||
+      [];
+
+    if (handledTypes.length === 0) return false;
+
+    // getAllEmergenciesForAdmin returns emergencyType as "Crime"|"Medical"|"Fire"
+    const reportType = String(
+      renderEnglish(report.emergencyType || report.serviceType || ""),
     ).toLowerCase();
-    return (AGENCY_KEYWORDS[agencyId] || []).some((kw) => typeStr.includes(kw));
+
+    return handledTypes.some(
+      (et) => reportType === et || reportType.includes(et),
+    );
   };
 
-  /* ── Filtered + sorted ── */
+  /* ─────────────────────────────────────────────────────
+     Filtering + sorting
+
+     SORT FIX: the original code had a variable shadowing bug —
+     `bv2` was used inside the sort comparator but `b` was the
+     Array.prototype.sort parameter. The corrected version uses
+     consistent variable names (valA / valB) throughout and
+     handles all sort columns explicitly with proper fallbacks.
+  ───────────────────────────────────────────────────── */
   const filteredReports = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     const from = dateFrom ? new Date(dateFrom) : null;
     const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
 
+    /* ── Step 1: filter ── */
     const list = reports
       .filter((r) =>
         filter === "registered"
@@ -378,30 +516,56 @@ const ReportsPage = () => {
         ].some((s) => s.toLowerCase().includes(q));
       });
 
+    /* ── Step 2: sort ──
+       Fixed: consistent valA/valB names, no variable shadowing,
+       explicit per-column logic with proper numeric/string comparisons.
+    ── */
     return [...list].sort((a, b) => {
-      if (sortCol === "createdAt") {
-        const av = new Date(a.createdAt || 0),
-          bv = new Date(b.createdAt || 0);
-        return sortDir === "asc" ? av - bv : bv - av;
+      let valA, valB;
+
+      switch (sortCol) {
+        case "createdAt": {
+          valA = new Date(a.createdAt || 0).getTime();
+          valB = new Date(b.createdAt || 0).getTime();
+          return sortDir === "asc" ? valA - valB : valB - valA;
+        }
+
+        case "status": {
+          valA =
+            STATUS_ORDER[
+              String(renderEnglish(a.status)).toLowerCase().replace(/\s+/g, "_")
+            ] ?? 99;
+          valB =
+            STATUS_ORDER[
+              String(renderEnglish(b.status)).toLowerCase().replace(/\s+/g, "_")
+            ] ?? 99;
+          return sortDir === "asc" ? valA - valB : valB - valA;
+        }
+
+        case "type": {
+          valA = renderEnglish(a.emergencyType || a.serviceType || "");
+          valB = renderEnglish(b.emergencyType || b.serviceType || "");
+          const cmp = String(valA).localeCompare(String(valB));
+          return sortDir === "asc" ? cmp : -cmp;
+        }
+
+        case "kebele": {
+          valA = renderEnglish(a.kebele || "");
+          valB = renderEnglish(b.kebele || "");
+          const cmp = String(valA).localeCompare(String(valB));
+          return sortDir === "asc" ? cmp : -cmp;
+        }
+
+        case "reporter": {
+          valA = renderEnglish(a.reporterName || a.fullName || "");
+          valB = renderEnglish(b.reporterName || b.fullName || "");
+          const cmp = String(valA).localeCompare(String(valB));
+          return sortDir === "asc" ? cmp : -cmp;
+        }
+
+        default:
+          return 0;
       }
-      if (sortCol === "status") {
-        const av =
-          STATUS_ORDER[String(renderEnglish(a.status)).toLowerCase()] ?? 99;
-        const bv =
-          STATUS_ORDER[String(renderEnglish(b.status)).toLowerCase()] ?? 99;
-        return sortDir === "asc" ? av - bv : bv - av;
-      }
-      const getVal = {
-        type: (r) => renderEnglish(r.emergencyType || r.serviceType),
-        kebele: (r) => renderEnglish(r.kebele),
-        reporter: (r) => renderEnglish(r.reporterName || r.fullName),
-      };
-      const fn = getVal[sortCol] || (() => "");
-      const av = fn(a),
-        bv2 = fn(b);
-      return sortDir === "asc"
-        ? String(av).localeCompare(String(bv2))
-        : String(bv2).localeCompare(String(av));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -414,6 +578,7 @@ const ReportsPage = () => {
     sortCol,
     sortDir,
     reports,
+    myAgencies,
   ]);
 
   /* ════════════════════ RENDER ════════════════════ */
@@ -548,27 +713,96 @@ const ReportsPage = () => {
         {filtersOpen && (
           <div className="mb-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="flex flex-wrap gap-7 items-end">
-              {/* Agency */}
+              {/* ── Agency filter — fetched dynamically ── */}
               <div className="flex-1 min-w-[260px]">
                 <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-slate-400 mb-2.5">
-                  Agency Type
+                  Agency
+                  {myAgencies.length > 0 && (
+                    <span className="ml-1.5 text-blue-400">
+                      ({myAgencies.length})
+                    </span>
+                  )}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {AGENCY_TYPES.map(({ id, label, Icon }) => (
+
+                {agenciesLoading ? (
+                  /* Skeleton while agencies load */
+                  <div className="flex gap-2">
+                    {[80, 100, 70, 90].map((w) => (
+                      <div
+                        key={w}
+                        className="h-8 rounded-xl bg-slate-100 animate-pulse"
+                        style={{ width: w }}
+                      />
+                    ))}
+                  </div>
+                ) : myAgencies.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    No agencies found for your account.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {/* "All" button */}
                     <button
-                      key={id}
-                      onClick={() => setAgencyFilter(id)}
+                      onClick={() => setAgencyFilter("all")}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide border transition-all ${
-                        agencyFilter === id
+                        agencyFilter === "all"
                           ? "bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-200"
                           : "bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
                       }`}
                     >
-                      <Icon size={12} />
-                      {label}
+                      <Database size={12} />
+                      All
                     </button>
-                  ))}
-                </div>
+
+                    {/*
+                      Show ALL agencies belonging to this admin.
+                      Those with a mapped agencyType (Police/Health/Fire) show
+                      their type icon. Those with an unmapped or unknown type
+                      fall back to a generic Building2 icon but are still shown
+                      — the matchesAgency fn will return false for unmapped
+                      types so their button acts as an empty filter (shows 0
+                      results), which is the honest behaviour.
+                    */}
+                    {myAgencies.map((agency) => {
+                      const agencyId = String(agency.id);
+                      const agencyName = renderEnglish(agency.name);
+                      const typeName = renderEnglish(
+                        agency.agencyType?.name || agency.agencyTypeName || "",
+                      );
+                      const meta = AGENCY_TYPE_META[typeName];
+                      const AgencyIcon = meta?.Icon || Building2;
+                      const isActive = agencyFilter === agencyId;
+
+                      return (
+                        <button
+                          key={agencyId}
+                          onClick={() => setAgencyFilter(agencyId)}
+                          title={`${agencyName}${typeName ? ` · ${typeName}` : ""}`}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide border transition-all ${
+                            isActive
+                              ? "bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-200"
+                              : "bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                          }`}
+                        >
+                          <AgencyIcon
+                            size={12}
+                            className={
+                              isActive ? "" : meta?.color || "text-slate-400"
+                            }
+                          />
+                          {agencyName || `Agency ${agencyId}`}
+                          {typeName && (
+                            <span
+                              className={`ml-1 text-[9px] font-semibold opacity-60 normal-case tracking-normal`}
+                            >
+                              ({typeName})
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Kebele */}

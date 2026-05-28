@@ -11,9 +11,9 @@ import {
   ChevronRight,
   TrendingUp,
   TrendingDown,
-  Shield,
   Users,
   Activity,
+  Shield,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
@@ -74,7 +74,7 @@ const ICON_MAP = {
   medical: Ambulance,
   flood: Droplets,
 };
-const TEAM_COLORS = [
+const AGENCY_COLORS = [
   "#3B82F6",
   "#EF4444",
   "#6366F1",
@@ -411,15 +411,15 @@ const SlidePanel = ({ incident, onClose }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 const DashboardMain = () => {
   const [emergencies, setEmergencies] = useState([]);
-  const [teams, setTeams] = useState([]);
   const [agencies, setAgencies] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [range, setRange] = useState("weekly");
   const [loading, setLoading] = useState({
     emergencies: true,
-    teams: true,
     agencies: true,
+    teams: true,
     categories: true,
   });
   const [errors, setErrors] = useState({});
@@ -466,6 +466,24 @@ const DashboardMain = () => {
     }
   }, []);
 
+  // ── Fetch agencies — same endpoint as ReportsPage (/api/agency/my-agents) ───
+  // The server resolves the admin from the Bearer token, no adminId in URL needed.
+  const fetchAgencies = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/agency/my-agents`, {
+        headers: authHdrs(),
+      });
+      setAgencies(
+        Array.isArray(data) ? data : data.data || data.agencies || [],
+      );
+      setErrors((p) => ({ ...p, agencies: null }));
+    } catch {
+      setErrors((p) => ({ ...p, agencies: "Failed to load agencies." }));
+    } finally {
+      setLoading((p) => ({ ...p, agencies: false }));
+    }
+  }, []);
+
   const fetchTeams = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/responderTeam`, {
@@ -477,22 +495,6 @@ const DashboardMain = () => {
       setErrors((p) => ({ ...p, teams: "Failed to load teams." }));
     } finally {
       setLoading((p) => ({ ...p, teams: false }));
-    }
-  }, []);
-
-  const fetchAgencies = useCallback(async () => {
-    try {
-      const { data } = await axios.get(`${API}/agency`, {
-        headers: authHdrs(),
-      });
-      setAgencies(
-        Array.isArray(data) ? data : data.data || data.agencies || [],
-      );
-      setErrors((p) => ({ ...p, agencies: null }));
-    } catch {
-      setErrors((p) => ({ ...p, agencies: "Failed to load agencies." }));
-    } finally {
-      setLoading((p) => ({ ...p, agencies: false }));
     }
   }, []);
 
@@ -515,10 +517,10 @@ const DashboardMain = () => {
   const fetchAll = useCallback(() => {
     setLastSync(new Date());
     fetchEmergencies();
-    fetchTeams();
     fetchAgencies();
+    fetchTeams();
     fetchCategories();
-  }, [fetchEmergencies, fetchTeams, fetchAgencies, fetchCategories]);
+  }, [fetchEmergencies, fetchAgencies, fetchTeams, fetchCategories]);
 
   useEffect(() => {
     fetchAll();
@@ -554,25 +556,11 @@ const DashboardMain = () => {
           initials: getInitials(name),
           name,
           role,
-          active: i % 4 !== 2,
-          color: TEAM_COLORS[i % TEAM_COLORS.length],
+          active: (a.status || "active").toLowerCase() === "active",
+          color: AGENCY_COLORS[i % AGENCY_COLORS.length],
         };
       }),
     [agencies],
-  );
-
-  const teamRows = useMemo(
-    () =>
-      teams.slice(0, 8).map((t, i) => ({
-        name: toEn(t.name) || "Unknown Team",
-        deployed: t.crew?.length ?? t.crewCount ?? t.activeCount ?? 0,
-        total:
-          t.capacity ??
-          t.maxCrew ??
-          Math.max(t.crew?.length ?? 0, t.crewCount ?? 0, 6),
-        color: TEAM_COLORS[i % TEAM_COLORS.length],
-      })),
-    [teams],
   );
 
   const filtered = useMemo(() => {
@@ -600,6 +588,9 @@ const DashboardMain = () => {
     return { color, bg: color + "18", Icon: ICON_MAP[key] || Radio };
   };
 
+  const F = "'Plus Jakarta Sans', sans-serif";
+  const FM = "'JetBrains Mono', monospace";
+
   const globalStyles = `
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     * { box-sizing: border-box; }
@@ -612,12 +603,8 @@ const DashboardMain = () => {
     .s-input:focus      { border-color:#93C5FD !important; box-shadow:0 0 0 3px rgba(59,130,246,0.1) !important; outline:none !important; }
     .rfrsh-btn:hover    { background:#EFF6FF !important; }
     .cat-pill:hover     { opacity:0.85 !important; }
-    .team-row:hover     { background:#F8FAFF !important; }
     .agency-row:hover   { background:#F8FAFF !important; }
   `;
-
-  const F = "'Plus Jakarta Sans', sans-serif";
-  const FM = "'JetBrains Mono', monospace";
 
   return (
     <>
@@ -635,9 +622,6 @@ const DashboardMain = () => {
       >
         {errors.emergencies && (
           <ErrorBanner msg={errors.emergencies} onRetry={fetchEmergencies} />
-        )}
-        {errors.teams && (
-          <ErrorBanner msg={errors.teams} onRetry={fetchTeams} />
         )}
         {errors.agencies && (
           <ErrorBanner msg={errors.agencies} onRetry={fetchAgencies} />
@@ -788,7 +772,7 @@ const DashboardMain = () => {
           </div>
         </div>
 
-        {/* ── KPI ROW ── */}
+        {/* ── KPI ROW (4 cards) ── */}
         <div
           style={{
             display: "grid",
@@ -821,26 +805,26 @@ const DashboardMain = () => {
               load: loading.emergencies,
             },
             {
-              label: "RESPONDER TEAMS",
-              value: teams.length,
-              sub: "registered",
-              trend: `${teamRows.filter((t) => t.deployed > 0).length} active`,
-              up: false,
-              accent: "#6366F1",
-              icon: Shield,
-              delay: 120,
-              load: loading.teams,
-            },
-            {
-              label: "AGENCIES",
+              label: "MY AGENCIES",
               value: agencies.length,
-              sub: "registered",
-              trend: `${agencyRows.filter((a) => a.active).length} on duty`,
+              sub: "created by you",
+              trend: `${agencyRows.filter((a) => a.active).length} active`,
               up: false,
               accent: "#F97316",
               icon: Users,
-              delay: 180,
+              delay: 120,
               load: loading.agencies,
+            },
+            {
+              label: "RESPONDER TEAMS",
+              value: teams.length,
+              sub: "registered",
+              trend: `${teams.length} total`,
+              up: false,
+              accent: "#6366F1",
+              icon: Shield,
+              delay: 180,
+              load: loading.teams,
             },
           ].map(
             ({
@@ -1191,7 +1175,6 @@ const DashboardMain = () => {
                   color: "#94A3B8",
                   paddingTop: 60,
                   fontSize: 12,
-                  fontFamily: F,
                 }}
               >
                 No data yet.
@@ -1326,13 +1309,9 @@ const DashboardMain = () => {
           </div>
         </div>
 
-        {/* ── ROW 3: INCIDENTS + TEAMS + AGENCIES ── */}
+        {/* ── ROW 3: INCIDENTS + AGENCIES (2 columns, teams removed) ── */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.55fr 1fr 0.85fr",
-            gap: 16,
-          }}
+          style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16 }}
         >
           {/* Recent Incidents */}
           <div
@@ -1583,7 +1562,7 @@ const DashboardMain = () => {
             )}
           </div>
 
-          {/* Responder Teams */}
+          {/* Agencies (by creator) */}
           <div
             style={{
               background: "#fff",
@@ -1593,207 +1572,6 @@ const DashboardMain = () => {
               boxShadow:
                 "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)",
               animation: "fadeUp .45s .32s ease both",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                marginBottom: 4,
-              }}
-            >
-              <div
-                style={{
-                  width: 3,
-                  height: 16,
-                  background: "#6366F1",
-                  borderRadius: 2,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#0F172A",
-                  letterSpacing: ".04em",
-                }}
-              >
-                RESPONDER TEAMS
-              </span>
-            </div>
-            <p
-              style={{
-                fontSize: 11,
-                color: "#94A3B8",
-                marginLeft: 10,
-                marginBottom: 18,
-                fontFamily: FM,
-              }}
-            >
-              {teams.length} teams total
-            </p>
-
-            {loading.teams ? (
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 12 }}
-              >
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Sk key={i} h={36} r={8} />
-                ))}
-              </div>
-            ) : teamRows.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#94A3B8",
-                  padding: "32px 0",
-                  fontSize: 12,
-                }}
-              >
-                No teams registered.
-              </div>
-            ) : (
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 14 }}
-              >
-                {teamRows.map((t, i) => {
-                  const pct =
-                    t.total > 0
-                      ? Math.min(100, Math.round((t.deployed / t.total) * 100))
-                      : 0;
-                  const load = pct >= 75 ? "HIGH" : pct >= 40 ? "MOD" : "FREE";
-                  const loadColor =
-                    pct >= 75 ? "#EF4444" : pct >= 40 ? "#F59E0B" : "#10B981";
-                  return (
-                    <div
-                      key={i}
-                      className="team-row"
-                      style={{
-                        padding: "9px 10px",
-                        borderRadius: 10,
-                        transition: "background .15s",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 7,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 7,
-                              background: t.color + "14",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Shield
-                              size={11}
-                              color={t.color}
-                              strokeWidth={2.5}
-                            />
-                          </div>
-                          <span
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: "#1E293B",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: 110,
-                            }}
-                          >
-                            {t.name}
-                          </span>
-                        </div>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: "#94A3B8",
-                            fontFamily: FM,
-                          }}
-                        >
-                          {t.deployed}/{t.total}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          height: 5,
-                          background: "#F1F5F9",
-                          borderRadius: 3,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${pct}%`,
-                            height: "100%",
-                            background: t.color,
-                            borderRadius: 3,
-                            transition: "width .8s ease",
-                          }}
-                        />
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginTop: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 9,
-                            color: loadColor,
-                            fontFamily: FM,
-                            fontWeight: 700,
-                          }}
-                        >
-                          {load}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 700,
-                            color: t.color,
-                            fontFamily: FM,
-                          }}
-                        >
-                          {pct}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Agencies */}
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: "24px 26px",
-              border: "1px solid #E2E8F0",
-              boxShadow:
-                "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)",
-              animation: "fadeUp .45s .4s ease both",
               display: "flex",
               flexDirection: "column",
             }}
@@ -1822,7 +1600,7 @@ const DashboardMain = () => {
                   letterSpacing: ".04em",
                 }}
               >
-                AGENCIES
+                MY AGENCIES
               </span>
             </div>
             <p
@@ -1834,7 +1612,7 @@ const DashboardMain = () => {
                 fontFamily: FM,
               }}
             >
-              {agencies.length} registered
+              {agencies.length} created by you
             </p>
 
             {loading.agencies ? (
@@ -1937,6 +1715,7 @@ const DashboardMain = () => {
               </div>
             )}
 
+            {/* Summary footer */}
             <div
               style={{
                 marginTop: 14,
@@ -1956,7 +1735,7 @@ const DashboardMain = () => {
                   fontWeight: 700,
                 }}
               >
-                NETWORK SUMMARY
+                SUMMARY
               </div>
               <div
                 style={{
@@ -1966,10 +1745,18 @@ const DashboardMain = () => {
                 }}
               >
                 {[
-                  { val: agencies.length, lbl: "Agencies", color: "#3B82F6" },
-                  { val: teams.length, lbl: "Teams", color: "#6366F1" },
+                  {
+                    val: agencies.length,
+                    lbl: "My Agencies",
+                    color: "#F97316",
+                  },
+                  {
+                    val: agencyRows.filter((a) => a.active).length,
+                    lbl: "Active",
+                    color: "#10B981",
+                  },
                   { val: stats.total, lbl: "Incidents", color: "#EF4444" },
-                  { val: stats.resolved, lbl: "Resolved", color: "#10B981" },
+                  { val: stats.resolved, lbl: "Resolved", color: "#3B82F6" },
                 ].map((s, i) => (
                   <div
                     key={i}
