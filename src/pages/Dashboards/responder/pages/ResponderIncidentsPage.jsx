@@ -79,7 +79,6 @@ const ResponderIncidentsPage = () => {
       const agency = agencyRes.data?.data || agencyRes.data;
       setAgencyInfo(agency);
 
-      // 3. Mode Detection Logic (Using fixed helper)
       const agencyName = (renderEnglish(agency?.name) || "").toLowerCase();
       const serviceKeywords = ["municipal", "electric", "water"];
       const localIsService = serviceKeywords.some((kw) =>
@@ -513,4 +512,3 @@ const ResponderIncidentsPage = () => {
 };
 
 export default ResponderIncidentsPage;
-
