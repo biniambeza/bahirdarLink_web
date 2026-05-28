@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import {
@@ -21,7 +21,6 @@ import {
   Plus,
   Trash2,
   Download,
-  Phone,
   User,
   Calendar,
   Tag,
@@ -34,222 +33,450 @@ import {
   Map,
   Zap,
   Radio,
+  Clock,
+  Smartphone,
+  AlertCircle,
+  BarChart3,
+  FileCheck,
+  RefreshCw,
 } from "lucide-react";
 import ChatTab from "./ChatTab";
 
 const API_BASE = "https://bahirlink-backend-1.onrender.com";
 
-// Helper to extract language string (defaults to English)
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
 const getLangStr = (val) => {
   if (!val) return "";
   if (typeof val === "string") {
-    // Check if it's a JSON string that needs parsing
-    if (val.trim().startsWith("{") && val.includes('"en"')) {
+    if (
+      val.trim().startsWith("{") &&
+      (val.includes('"en"') || val.includes('"am"'))
+    ) {
       try {
-        const parsed = JSON.parse(val);
-        if (parsed && typeof parsed === "object") {
-          return parsed.en || parsed.am || val;
-        }
-      } catch (e) {
-        // If parsing fails, return the original string
+        const p = JSON.parse(val);
+        if (p && typeof p === "object") return p.en || p.am || val;
+      } catch {
         return val;
       }
     }
     return val;
   }
-  // It's an object
-  if (typeof val === "object" && val !== null) {
-    return val.en || val.am || "";
-  }
+  if (typeof val === "object") return val.en || val.am || "";
   return String(val);
 };
 
-// ─── Design Tokens ─────────────────────────────────────────────────────────────
-const T = {
-  white: "#FFFFFF",
-  surface0: "#FFFFFF",
-  surface1: "#F4F7FB",
-  surface2: "#EBF1FA",
-  surface3: "#DDE8F7",
-
-  blue900: "#0A1F44",
-  blue800: "#0D2D6B",
-  blue700: "#1140A0",
-  blue600: "#1A52C4",
-  blue500: "#2563EB",
-  blue400: "#4A80F0",
-  blue300: "#7BA7F5",
-  blue200: "#BAD1FB",
-  blue100: "#DBE9FD",
-  blue50: "#EEF4FF",
-
-  ink0: "#0B1628",
-  ink1: "#1E3251",
-  ink2: "#4A607F",
-  ink3: "#7A92B0",
-  ink4: "#A8BDD8",
-
-  border0: "#E4EBF5",
-  border1: "#C8D8EE",
-  border2: "#9DB8DE",
-
-  green600: "#059669",
-  green500: "#10B981",
-  green100: "#D1FAE5",
-  green50: "#ECFDF5",
-  amber600: "#D97706",
-  amber500: "#F59E0B",
-  amber100: "#FEF3C7",
-  amber50: "#FFFBEB",
-  red600: "#DC2626",
-  red500: "#EF4444",
-  red100: "#FEE2E2",
-  red50: "#FFF5F5",
-  purple600: "#7C3AED",
-  purple100: "#EDE9FE",
-};
-
-// ─── Location Parser — ALL storage formats ─────────────────────────────────────
 function parseLocation(e) {
-  // 1. Flat top-level: { latitude, longitude }
-  if (e.latitude != null && e.longitude != null) {
+  if (!e) return { lat: null, lng: null };
+  if (e?.latitude != null && e?.longitude != null) {
     const lat = parseFloat(e.latitude),
       lng = parseFloat(e.longitude);
     if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
   }
-  // 2. String "lat,lng" — guest users e.g. "10.21435,37.2363"
-  if (typeof e.location === "string" && e.location.includes(",")) {
+  if (typeof e?.location === "string" && e.location.includes(",")) {
     const [a, b] = e.location.split(",");
     const lat = parseFloat(a?.trim()),
       lng = parseFloat(b?.trim());
     if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
   }
-  // 3. GeoJSON { coordinates: [lng, lat] } — registered users (lon-first!)
   if (
-    Array.isArray(e.location?.coordinates) &&
+    Array.isArray(e?.location?.coordinates) &&
     e.location.coordinates.length === 2
   ) {
     const lng = parseFloat(e.location.coordinates[0]);
     const lat = parseFloat(e.location.coordinates[1]);
     if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
   }
-  // 4. Location object { lat, lng } or { latitude, longitude }
-  if (e.location?.lat != null) {
+  if (e?.location?.lat != null) {
     const lat = parseFloat(e.location.lat),
       lng = parseFloat(e.location.lng);
-    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-  }
-  if (e.location?.latitude != null) {
-    const lat = parseFloat(e.location.latitude),
-      lng = parseFloat(e.location.longitude);
     if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
   }
   return { lat: null, lng: null };
 }
 
-// ─── Status config ─────────────────────────────────────────────────────────────
-const STATUS_CFG = {
-  reported: {
-    label: "Reported",
-    color: T.ink3,
-    bg: T.surface2,
-    border: T.border1,
-    dot: T.ink4,
+const resolveReporter = (e) => {
+  if (e?.user)
+    return {
+      name: e.user.fullName || "Registered User",
+      contact: e.user.phone || e.user.email || null,
+      type: "user",
+    };
+  if (e?.guest)
+    return {
+      name: e.guest.contactNo || "Guest",
+      contact: e.guest.contactNo || null,
+      type: "guest",
+    };
+  if (e?.reporterName)
+    return {
+      name: e.reporterName,
+      contact: null,
+      type: e.reporterType || "guest",
+    };
+  return { name: "Unknown", contact: null, type: "guest" };
+};
+
+const resolveMedia = (e) => {
+  const m =
+    e?.media || e?.mediaUrl || e?.mediaPath || e?.attachment || e?.file || null;
+  if (Array.isArray(m)) return m[0]?.url || m[0] || null;
+  return m || null;
+};
+
+const resolveCategoryName = (e) =>
+  getLangStr(e?.serviceCategory?.name) ||
+  getLangStr(e?.category?.name) ||
+  getLangStr(e?.categoryName) ||
+  getLangStr(e?.category) ||
+  "General";
+
+const resolveIncidentType = (e) =>
+  getLangStr(e?.serviceType?.name) ||
+  getLangStr(e?.emergencyType?.name) ||
+  getLangStr(e?.emergencyType) ||
+  getLangStr(e?.type) ||
+  "General";
+
+const fmtTime = (d) => {
+  if (!d) return null;
+  const dt = new Date(d);
+  return isNaN(dt) ? null : dt.toLocaleString();
+};
+
+const initials = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("") || "?";
+
+const getToken = () =>
+  typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS = {
+  resolved: {
+    bg: "#ECFDF5",
+    text: "#059669",
+    border: "#D1FAE5",
+    dot: "#10B981",
     pulse: false,
   },
-  assigned: {
-    label: "Assigned",
-    color: T.blue600,
-    bg: T.blue50,
-    border: T.blue200,
-    dot: T.blue500,
-    pulse: true,
+  completed: {
+    bg: "#ECFDF5",
+    text: "#059669",
+    border: "#D1FAE5",
+    dot: "#10B981",
+    pulse: false,
   },
   in_progress: {
-    label: "In Progress",
-    color: T.amber600,
-    bg: T.amber50,
-    border: T.amber100,
-    dot: T.amber500,
+    bg: "#FFFBEB",
+    text: "#D97706",
+    border: "#FEF3C7",
+    dot: "#F59E0B",
     pulse: true,
   },
-  resolved: {
-    label: "Resolved",
-    color: T.green600,
-    bg: T.green50,
-    border: T.green100,
-    dot: T.green500,
+  assigned: {
+    bg: "#EEF4FF",
+    text: "#1A52C4",
+    border: "#BAD1FB",
+    dot: "#2563EB",
+    pulse: true,
+  },
+  reported: {
+    bg: "#EBF1FA",
+    text: "#7A92B0",
+    border: "#C8D8EE",
+    dot: "#A8BDD8",
     pulse: false,
   },
   pending: {
-    label: "Pending",
-    color: T.amber600,
-    bg: T.amber50,
-    border: T.amber100,
-    dot: T.amber500,
-    pulse: true,
-  },
-  active: {
-    label: "Active",
-    color: T.blue600,
-    bg: T.blue50,
-    border: T.blue200,
-    dot: T.blue500,
+    bg: "#FFFBEB",
+    text: "#D97706",
+    border: "#FEF3C7",
+    dot: "#F59E0B",
     pulse: true,
   },
   dispatched: {
-    label: "Dispatched",
-    color: T.purple600,
-    bg: T.purple100,
-    border: T.purple100,
-    dot: T.purple600,
+    bg: "#EDE9FE",
+    text: "#7C3AED",
+    border: "#DDD6FE",
+    dot: "#7C3AED",
     pulse: true,
   },
   cancelled: {
-    label: "Cancelled",
-    color: T.red600,
-    bg: T.red50,
-    border: T.red100,
-    dot: T.red500,
+    bg: "#FFF5F5",
+    text: "#DC2626",
+    border: "#FEE2E2",
+    dot: "#EF4444",
     pulse: false,
   },
 };
 
-// ─── StatusBadge ───────────────────────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  {
+    value: "reported",
+    label: "Reported",
+    icon: Radio,
+    color: "#7A92B0",
+    bg: "#F4F7FB",
+  },
+  {
+    value: "assigned",
+    label: "Assigned",
+    icon: Shield,
+    color: "#1A52C4",
+    bg: "#EEF4FF",
+  },
+  {
+    value: "in_progress",
+    label: "In Progress",
+    icon: Zap,
+    color: "#D97706",
+    bg: "#FFFBEB",
+  },
+  {
+    value: "resolved",
+    label: "Resolved",
+    icon: CheckCircle2,
+    color: "#059669",
+    bg: "#ECFDF5",
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MERGED GROUP DATA HOOK — handles /api/emerged/:id with list fallback
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useMergedGroup(groupId, token) {
+  const [group, setGroup] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetch = useCallback(async () => {
+    if (!groupId) return;
+    setLoading(true);
+    setError(null);
+    setGroup(null);
+
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    try {
+      // Try single-record endpoint first
+      const res = await axios.get(`${API_BASE}/api/emerged/${groupId}`, {
+        headers,
+      });
+      const data = res.data?.data || res.data;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        setGroup(data);
+      } else if (Array.isArray(data)) {
+        // API returned a list — find our record
+        const found = data.find(
+          (g) =>
+            String(g.id) === String(groupId) ||
+            String(g._id) === String(groupId),
+        );
+        if (found) setGroup(found);
+        else setError(`Merged group #${groupId} not found in response.`);
+      } else {
+        setError("Unexpected response format from server.");
+      }
+    } catch (err) {
+      const status = err.response?.status;
+
+      if (status === 404) {
+        // Endpoint might not accept /:id — fall back to list
+        try {
+          const listRes = await axios.get(`${API_BASE}/api/emerged`, {
+            headers,
+          });
+          const list = listRes.data?.data || listRes.data || [];
+          const found = Array.isArray(list)
+            ? list.find(
+                (g) =>
+                  String(g.id) === String(groupId) ||
+                  String(g._id) === String(groupId),
+              )
+            : null;
+          if (found) setGroup(found);
+          else setError(`No merged group found with ID: ${groupId}`);
+        } catch (listErr) {
+          const msg = listErr.response?.data?.message;
+          setError(
+            listErr.response?.status === 401
+              ? "Session expired. Please log in again."
+              : msg || "Failed to load merged incident data.",
+          );
+        }
+      } else if (status === 401) {
+        setError("Session expired. Please log in again.");
+      } else {
+        setError(
+          err.response?.data?.message || "Failed to load merged incident data.",
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId, token]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { group, loading, error, refetch: fetch };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATOMS
+// ─────────────────────────────────────────────────────────────────────────────
+
 function StatusBadge({ status }) {
-  const s = STATUS_CFG[status?.toLowerCase()] || STATUS_CFG.pending;
+  const s = STATUS[status?.toLowerCase()] || STATUS.pending;
+  const label = status
+    ? status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Pending";
   return (
     <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 12px 4px 8px",
-        borderRadius: 999,
-        background: s.bg,
-        color: s.color,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: ".05em",
-        border: `1.5px solid ${s.border}`,
-      }}
+      style={{ background: s.bg, color: s.text, borderColor: s.border }}
+      className="inline-flex items-center gap-[6px] py-1 pl-2 pr-3 rounded-full text-[11px] font-[700] tracking-[.05em] border-[1.5px] whitespace-nowrap"
     >
       <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: s.dot,
-          flexShrink: 0,
-          animation: s.pulse ? "dotPulse 2s ease-in-out infinite" : "none",
-        }}
+        style={{ background: s.dot }}
+        className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${s.pulse ? "animate-pulse" : ""}`}
       />
-      {s.label}
+      {label}
     </span>
   );
 }
 
-// ─── Media Viewer ─────────────────────────────────────────────────────────────
+function SectionHead({ label, icon: Icon }) {
+  return (
+    <div className="flex items-center gap-2 mt-5 mb-3">
+      {Icon && (
+        <div className="w-[22px] h-[22px] rounded-[6px] flex-shrink-0 bg-[#EEF4FF] border border-[#DBE9FD] flex items-center justify-center">
+          <Icon size={11} className="text-[#1A52C4]" />
+        </div>
+      )}
+      <span className="text-[10px] font-[800] tracking-[.12em] uppercase text-[#1140A0]">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-gradient-to-r from-[#DBE9FD] to-transparent" />
+    </div>
+  );
+}
+
+function Card({ children, className = "" }) {
+  return (
+    <div
+      className={`bg-white rounded-[14px] border-[1.5px] border-[#E4EBF5] px-4 py-1 shadow-[0_1px_6px_rgba(37,99,235,.04)] ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({ icon: Icon, label, value, mono, last, accent }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div
+      className={`flex gap-3 py-3 items-start ${last ? "" : "border-b border-[#F4F7FB]"}`}
+    >
+      <div
+        className={`w-8 h-8 rounded-[9px] flex-shrink-0 flex items-center justify-center border-[1.5px] ${accent ? "bg-[#EEF4FF] border-[#DBE9FD]" : "bg-[#F4F7FB] border-[#E4EBF5]"}`}
+      >
+        <Icon
+          size={13}
+          className={accent ? "text-[#1A52C4]" : "text-[#7A92B0]"}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="m-0 text-[10px] text-[#A8BDD8] font-[700] tracking-[.1em] uppercase">
+          {label}
+        </p>
+        <p
+          className={`m-0 mt-[3px] text-[13px] text-[#0B1628] font-[500] break-words leading-[1.55] ${mono ? "font-mono" : ""}`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ reporter, size = 36, fontSize = 13 }) {
+  const isUser = reporter.type === "user";
+  return (
+    <div
+      style={{ width: size, height: size, fontSize }}
+      className={`rounded-full flex-shrink-0 flex items-center justify-center font-[700] border-[1.5px] ${isUser ? "bg-[#DBE9FD] border-[#BAD1FB] text-[#0D2D6B]" : "bg-[#F4F7FB] border-[#C8D8EE] text-[#7A92B0]"}`}
+    >
+      {isUser ? (
+        initials(reporter.name)
+      ) : (
+        <User
+          style={{ width: size * 0.4, height: size * 0.4 }}
+          className="text-[#7A92B0]"
+        />
+      )}
+    </div>
+  );
+}
+
+function ErrorState({ message, onRetry }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
+      <div className="w-14 h-14 rounded-full bg-[#FFF5F5] border-[1.5px] border-[#FEE2E2] flex items-center justify-center">
+        <AlertCircle size={24} className="text-[#DC2626]" />
+      </div>
+      <div className="text-center">
+        <p className="m-0 text-[14px] font-[700] text-[#DC2626] mb-1">
+          Failed to Load
+        </p>
+        <p className="m-0 text-[12px] text-[#7A92B0] leading-[1.6] max-w-[240px]">
+          {message}
+        </p>
+      </div>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-2 px-4 py-2 bg-[#EEF4FF] border-[1.5px] border-[#DBE9FD] rounded-[10px] text-[12px] font-[700] text-[#1A52C4] cursor-pointer"
+        >
+          <RefreshCw size={13} /> Try Again
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Spinner({ label = "Loading…" }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-4">
+      <div className="relative w-12 h-12">
+        <div className="absolute inset-0 rounded-full border-[3px] border-[#DBE9FD] border-t-[#2563EB] animate-spin" />
+        <div
+          className="absolute inset-[6px] rounded-full border-[2px] border-[#EEF4FF] border-b-[#7BA7F5] animate-spin"
+          style={{ animationDirection: "reverse", animationDuration: "0.7s" }}
+        />
+      </div>
+      <p className="text-[10px] font-[800] text-[#A8BDD8] tracking-[.15em] uppercase">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEDIA VIEWER
+// ─────────────────────────────────────────────────────────────────────────────
+
 function MediaViewer({ mediaUrl, token }) {
   const [state, setState] = useState({
     url: null,
@@ -262,8 +489,9 @@ function MediaViewer({ mediaUrl, token }) {
   useEffect(() => {
     if (!mediaUrl) return;
     let cancelled = false;
+    setState({ url: null, type: null, loading: true, error: null });
+
     (async () => {
-      setState((p) => ({ ...p, loading: true, error: null }));
       try {
         const full = mediaUrl.startsWith("http")
           ? mediaUrl
@@ -272,91 +500,50 @@ function MediaViewer({ mediaUrl, token }) {
           responseType: "blob",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        if (cancelled) return;
-        setState({
-          url: URL.createObjectURL(res.data),
-          type: res.headers["content-type"] || "",
-          loading: false,
-          error: null,
-        });
+        if (!cancelled) {
+          setState({
+            url: URL.createObjectURL(res.data),
+            type: res.headers["content-type"] || "",
+            loading: false,
+            error: null,
+          });
+        }
       } catch {
         if (!cancelled)
-          setState((p) => ({
-            ...p,
+          setState({
+            url: null,
+            type: null,
             loading: false,
             error: "Media unavailable",
-          }));
+          });
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [mediaUrl]);
+  }, [mediaUrl, token]);
 
   if (!mediaUrl) return null;
+
   const isImage = state.type?.startsWith("image");
   const isVideo = state.type?.startsWith("video");
 
   return (
     <>
-      <div
-        style={{
-          borderRadius: 14,
-          overflow: "hidden",
-          border: `1.5px solid ${T.border0}`,
-          background: T.surface1,
-          minHeight: 160,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          boxShadow: "0 2px 12px rgba(37,99,235,.06)",
-        }}
-      >
+      <div className="rounded-[14px] overflow-hidden border-[1.5px] border-[#E4EBF5] bg-[#F4F7FB] min-h-[140px] flex items-center justify-center relative">
         {state.loading && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
-              padding: 32,
-            }}
-          >
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                border: `3px solid ${T.blue100}`,
-                borderTopColor: T.blue500,
-                animation: "spin .75s linear infinite",
-              }}
-            />
-            <span style={{ color: T.ink3, fontSize: 12, fontWeight: 500 }}>
+          <div className="flex flex-col items-center gap-3 p-8">
+            <div className="w-7 h-7 rounded-full border-[3px] border-[#DBE9FD] border-t-[#2563EB] animate-spin" />
+            <span className="text-[#7A92B0] text-[11px] font-[500]">
               Loading media…
             </span>
           </div>
         )}
         {state.error && (
-          <div
-            style={{
-              color: T.ink4,
-              fontSize: 13,
-              padding: 32,
-              textAlign: "center",
-            }}
-          >
-            <ImageIcon
-              size={28}
-              style={{
-                marginBottom: 10,
-                opacity: 0.3,
-                display: "block",
-                margin: "0 auto 10px",
-              }}
-            />
-            <p style={{ margin: 0, fontWeight: 600 }}>{state.error}</p>
+          <div className="text-[#A8BDD8] text-[13px] p-8 text-center flex flex-col items-center gap-2">
+            <ImageIcon size={26} className="opacity-30" />
+            <p className="m-0 font-[600] text-[12px]">{state.error}</p>
           </div>
         )}
         {!state.loading && !state.error && state.url && isImage && (
@@ -365,36 +552,13 @@ function MediaViewer({ mediaUrl, token }) {
               src={state.url}
               alt="Evidence"
               onClick={() => setLightbox(true)}
-              style={{
-                width: "100%",
-                maxHeight: 290,
-                objectFit: "cover",
-                display: "block",
-                cursor: "zoom-in",
-              }}
+              className="w-full max-h-[260px] object-cover block cursor-zoom-in"
             />
             <button
               onClick={() => setLightbox(true)}
-              style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-                background: "rgba(255,255,255,.92)",
-                backdropFilter: "blur(8px)",
-                border: `1.5px solid ${T.border0}`,
-                borderRadius: 9,
-                padding: "6px 12px",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                fontSize: 11,
-                color: T.blue600,
-                cursor: "pointer",
-                fontWeight: 700,
-                boxShadow: "0 2px 12px rgba(0,0,0,.08)",
-              }}
+              className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm border-[1.5px] border-[#E4EBF5] rounded-[9px] px-3 py-[6px] flex items-center gap-[5px] text-[11px] text-[#1A52C4] cursor-pointer font-[700]"
             >
-              <Eye size={12} /> View Full
+              <Eye size={11} /> View Full
             </button>
           </>
         )}
@@ -402,7 +566,7 @@ function MediaViewer({ mediaUrl, token }) {
           <video
             src={state.url}
             controls
-            style={{ width: "100%", maxHeight: 290, display: "block" }}
+            className="w-full max-h-[260px] block"
           />
         )}
         {!state.loading &&
@@ -413,17 +577,9 @@ function MediaViewer({ mediaUrl, token }) {
             <a
               href={state.url}
               download
-              style={{
-                color: T.blue500,
-                fontSize: 13,
-                padding: 32,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontWeight: 700,
-              }}
+              className="text-[#2563EB] text-[13px] p-8 flex items-center gap-2 font-[700]"
             >
-              <Download size={16} /> Download Attachment
+              <Download size={15} /> Download Attachment
             </a>
           )}
       </div>
@@ -435,43 +591,18 @@ function MediaViewer({ mediaUrl, token }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setLightbox(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(10,20,50,.92)",
-              zIndex: 200,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "zoom-out",
-            }}
+            className="fixed inset-0 bg-[rgba(5,15,40,.94)] z-[300] flex items-center justify-center cursor-zoom-out"
           >
             <img
               src={state.url}
               alt=""
-              style={{
-                maxWidth: "95vw",
-                maxHeight: "95vh",
-                objectFit: "contain",
-                borderRadius: 12,
-              }}
+              className="max-w-[95vw] max-h-[95vh] object-contain rounded-[10px]"
             />
             <button
               onClick={() => setLightbox(false)}
-              style={{
-                position: "absolute",
-                top: 20,
-                right: 20,
-                background: "rgba(255,255,255,.1)",
-                border: "1px solid rgba(255,255,255,.2)",
-                borderRadius: 10,
-                padding: 10,
-                cursor: "pointer",
-                color: "#fff",
-                backdropFilter: "blur(8px)",
-              }}
+              className="absolute top-5 right-5 bg-white/10 border border-white/20 rounded-[10px] p-[10px] cursor-pointer text-white hover:bg-white/20 transition-colors"
             >
-              <X size={17} />
+              <X size={16} />
             </button>
           </motion.div>
         )}
@@ -480,334 +611,444 @@ function MediaViewer({ mediaUrl, token }) {
   );
 }
 
-// ─── Map Preview ───────────────────────────────────────────────────────────────
-function MapPreview({ lat, lng }) {
-  if (lat === null || lat === undefined || lng === null || lng === undefined)
-    return null;
-  if (isNaN(Number(lat)) || isNaN(Number(lng))) return null;
-  const pad = 0.005;
-  const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}&z=16`;
-  const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=16`;
+// ─────────────────────────────────────────────────────────────────────────────
+// MAP PREVIEW
+// ─────────────────────────────────────────────────────────────────────────────
 
+function MapPreview({ lat, lng }) {
+  if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) return null;
+  const pad = 0.005;
   return (
     <div>
-      <div
-        style={{
-          borderRadius: 14,
-          overflow: "hidden",
-          border: `1.5px solid ${T.border0}`,
-          position: "relative",
-          height: 190,
-          background: T.surface1,
-          boxShadow: "0 2px 16px rgba(37,99,235,.07)",
-        }}
-      >
+      <div className="rounded-[14px] overflow-hidden border-[1.5px] border-[#E4EBF5] relative h-[180px] bg-[#F4F7FB]">
         <iframe
           title="Location Map"
           src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - pad},${lat - pad},${lng + pad},${lat + pad}&layer=mapnik&marker=${lat},${lng}`}
-          style={{
-            width: "100%",
-            height: "100%",
-            border: "none",
-            display: "block",
-          }}
+          className="w-full h-full border-none block"
           loading="lazy"
         />
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 56,
-            background:
-              "linear-gradient(to top, rgba(255,255,255,.95), transparent)",
-            pointerEvents: "none",
-          }}
-        />
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/90 to-transparent pointer-events-none" />
       </div>
-
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <div
-          style={{
-            flex: 1,
-            background: T.blue50,
-            border: `1.5px solid ${T.blue100}`,
-            borderRadius: 12,
-            padding: "10px 14px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              flexShrink: 0,
-              background: T.blue100,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Crosshair size={13} color={T.blue600} />
+      <div className="flex gap-2 mt-2">
+        <div className="flex-1 bg-[#EEF4FF] border-[1.5px] border-[#DBE9FD] rounded-[12px] p-[9px_13px] flex items-center gap-[9px]">
+          <div className="w-[28px] h-[28px] rounded-[8px] bg-[#DBE9FD] flex items-center justify-center flex-shrink-0">
+            <Crosshair size={12} className="text-[#1A52C4]" />
           </div>
           <div>
-            <div
-              style={{
-                fontSize: 9,
-                fontWeight: 800,
-                color: T.blue400,
-                letterSpacing: ".12em",
-                textTransform: "uppercase",
-                marginBottom: 2,
-              }}
-            >
-              GPS Coordinates
+            <div className="text-[9px] font-[800] text-[#4A80F0] tracking-[.1em] uppercase mb-[1px]">
+              GPS
             </div>
-            <div
-              style={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: T.blue800,
-                fontFamily: "'Courier New', monospace",
-              }}
-            >
-              {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}
+            <div className="text-[11px] font-[700] text-[#0D2D6B] font-mono">
+              {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
             </div>
           </div>
         </div>
-
         <a
-          href={googleMapsUrl}
+          href={`https://www.google.com/maps?q=${lat},${lng}&z=16`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            padding: "10px 16px",
-            flexShrink: 0,
-            background: T.blue600,
-            borderRadius: 12,
-            color: T.white,
-            textDecoration: "none",
-            fontSize: 9,
-            fontWeight: 800,
-            letterSpacing: ".08em",
-            textTransform: "uppercase",
-            boxShadow: `0 4px 14px ${T.blue500}40`,
-            transition: "all .18s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = T.blue700;
-            e.currentTarget.style.transform = "translateY(-1px)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = T.blue600;
-            e.currentTarget.style.transform = "translateY(0)";
-          }}
+          className="flex flex-col items-center justify-center gap-1 px-4 bg-[#1A52C4] rounded-[12px] text-white no-underline text-[9px] font-[800] tracking-[.08em] uppercase"
         >
-          <Navigation size={15} /> Maps
+          <Navigation size={14} /> Maps
         </a>
-
         <a
-          href={osmUrl}
+          href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=16`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-            padding: "10px 14px",
-            flexShrink: 0,
-            background: T.white,
-            borderRadius: 12,
-            border: `1.5px solid ${T.border0}`,
-            color: T.ink2,
-            textDecoration: "none",
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: ".08em",
-            textTransform: "uppercase",
-            transition: "all .18s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = T.blue200;
-            e.currentTarget.style.color = T.blue600;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = T.border0;
-            e.currentTarget.style.color = T.ink2;
-          }}
+          className="flex flex-col items-center justify-center gap-1 px-3 bg-white rounded-[12px] border-[1.5px] border-[#E4EBF5] text-[#4A607F] no-underline text-[9px] font-[700] tracking-[.08em] uppercase"
         >
-          <Map size={15} /> OSM
+          <Map size={14} /> OSM
         </a>
       </div>
     </div>
   );
 }
 
-// ─── Info Row ──────────────────────────────────────────────────────────────────
-function InfoRow({ icon: Icon, label, value, mono, last, accent }) {
-  if (value === null || value === undefined || value === "") return null;
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        padding: "12px 0",
-        borderBottom: last ? "none" : `1px solid ${T.surface2}`,
-        alignItems: "flex-start",
-      }}
-    >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 9,
-          flexShrink: 0,
-          background: accent ? T.blue50 : T.surface1,
-          border: `1.5px solid ${accent ? T.blue100 : T.border0}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Icon size={13} color={accent ? T.blue600 : T.ink3} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 10,
-            color: T.ink4,
-            fontWeight: 700,
-            letterSpacing: ".1em",
-            textTransform: "uppercase",
-          }}
-        >
-          {label}
-        </p>
-        <p
-          style={{
-            margin: "3px 0 0",
-            fontSize: 13,
-            color: T.ink0,
-            fontWeight: 500,
-            fontFamily: mono ? "'Courier New', monospace" : "inherit",
-            wordBreak: "break-word",
-            lineHeight: 1.55,
-          }}
-        >
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF DOWNLOAD BLOCK
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Section Header ────────────────────────────────────────────────────────────
-function SectionHead({ label, icon: Icon }) {
+function PDFBlock({ onDownload, isDownloading }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        margin: "22px 0 12px",
-      }}
-    >
-      {Icon && (
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 6,
-            flexShrink: 0,
-            background: T.blue50,
-            border: `1px solid ${T.blue100}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Icon size={11} color={T.blue600} />
+    <div className="bg-[#ECFDF5] rounded-[16px] border-[1.5px] border-[#D1FAE5] p-[18px]">
+      <div className="flex items-center gap-[10px] mb-4">
+        <div className="w-8 h-8 rounded-[9px] bg-[#D1FAE5] flex items-center justify-center">
+          <CheckCircle2 size={15} className="text-[#059669]" />
         </div>
-      )}
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 800,
-          letterSpacing: ".12em",
-          textTransform: "uppercase",
-          color: T.blue700,
-        }}
+        <div>
+          <p className="m-0 text-[12px] font-[800] text-[#059669]">
+            Case Finalized
+          </p>
+          <p className="m-0 text-[11px] text-[#10B981]">
+            Official consolidated report is ready
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onDownload}
+        disabled={isDownloading}
+        className={`w-full flex items-center justify-center gap-2 py-[13px] border-none rounded-[11px] text-[12px] font-[800] transition-opacity ${isDownloading ? "bg-[#D1FAE5] text-[#059669] cursor-not-allowed opacity-70" : "bg-[#059669] text-white cursor-pointer hover:opacity-90"}`}
       >
-        {label}
-      </span>
-      <div
-        style={{
-          flex: 1,
-          height: 1,
-          background: `linear-gradient(to right, ${T.blue100}, transparent)`,
-        }}
-      />
+        {isDownloading ? (
+          <>
+            <div className="w-[14px] h-[14px] rounded-full border-2 border-[#D1FAE5] border-t-[#059669] animate-spin" />{" "}
+            Generating…
+          </>
+        ) : (
+          <>
+            <Download size={14} /> Download Official PDF
+          </>
+        )}
+      </button>
     </div>
   );
 }
 
-// ─── Card ─────────────────────────────────────────────────────────────────────
-function Card({ children, style = {} }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// MERGED DETAILS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MergedTab({
+  groupId,
+  localStatus,
+  onDownloadPDF,
+  isDownloading,
+  token,
+}) {
+  const { group, loading, error, refetch } = useMergedGroup(groupId, token);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+
+  if (loading) return <Spinner label="Loading merged data…" />;
+  if (error) return <ErrorState message={error} onRetry={refetch} />;
+  if (!group) return null;
+
+  const reports = group.emergencies || [];
+  const kebeleName =
+    getLangStr(group.kebele?.name) ||
+    (group.kebeleId ? `Kebele ${group.kebeleId}` : "Unknown");
+  const subdivision = getLangStr(group.subdivision) || "—";
+  const street = group.street || null;
+  const summary = getLangStr(group.summary);
+
+  const categories = [
+    ...new Set(reports.map((e) => getLangStr(e.category)).filter(Boolean)),
+  ];
+  const types = [
+    ...new Set(reports.map((e) => getLangStr(e.emergencyType)).filter(Boolean)),
+  ];
+  const statusCounts = reports.reduce((acc, e) => {
+    const s = e.status || "unknown";
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+
+  const firstWithLoc = reports.find((e) => parseLocation(e).lat !== null);
+  const { lat: mapLat, lng: mapLng } = firstWithLoc
+    ? parseLocation(firstWithLoc)
+    : { lat: null, lng: null };
+
+  const sel = reports[selectedIdx] || null;
+  const selReporter = sel ? resolveReporter(sel) : null;
+  const selMedia = sel ? resolveMedia(sel) : null;
+  const { lat: selLat, lng: selLng } = sel
+    ? parseLocation(sel)
+    : { lat: null, lng: null };
+
   return (
-    <div
-      style={{
-        background: T.white,
-        borderRadius: 14,
-        border: `1.5px solid ${T.border0}`,
-        padding: "4px 16px",
-        boxShadow: "0 1px 6px rgba(37,99,235,.04)",
-        ...style,
-      }}
-    >
-      {children}
+    <div className="overflow-y-auto h-full">
+      <div className="p-5 pb-16">
+        {/* Hero */}
+        <div className="rounded-[20px] overflow-hidden border-[1.5px] border-[#BAD1FB] bg-gradient-to-br from-[#0D2D6B] via-[#1A52C4] to-[#2563EB] p-[22px] relative mb-5 shadow-[0_8px_32px_rgba(37,99,235,.22)]">
+          <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/[.05] pointer-events-none" />
+          <div className="absolute -bottom-8 left-10 w-28 h-28 rounded-full bg-white/[.04] pointer-events-none" />
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="inline-flex items-center gap-[7px] bg-white/[.15] backdrop-blur-sm border border-white/[.25] rounded-[10px] py-[6px] px-3 text-[11px] font-[800] text-white tracking-[.05em]">
+              <GitMerge size={12} /> {reports.length} MERGED REPORTS
+            </div>
+            <StatusBadge status={localStatus} />
+          </div>
+
+          <h2 className="m-0 mb-1 text-[21px] font-[900] text-white tracking-[-0.5px] leading-[1.2]">
+            {kebeleName}
+          </h2>
+          <p className="m-0 text-[13px] text-white/[.65] flex items-center gap-[6px] mb-4">
+            <MapPin size={12} className="text-white/[.5]" />
+            {subdivision}
+            {street ? ` · ${street}` : ""}
+          </p>
+
+          <div className="flex gap-2 flex-wrap">
+            {Object.entries(statusCounts).map(([s, count]) => {
+              const cfg = STATUS[s] || STATUS.pending;
+              return (
+                <div
+                  key={s}
+                  className="inline-flex items-center gap-[5px] border rounded-full py-[4px] pl-[7px] pr-[10px] text-[10px] font-[700] text-white"
+                  style={{
+                    background: "rgba(255,255,255,.12)",
+                    borderColor: "rgba(255,255,255,.2)",
+                  }}
+                >
+                  <span
+                    style={{ background: cfg.dot }}
+                    className="w-[6px] h-[6px] rounded-full"
+                  />
+                  {count} {s.replace(/_/g, " ")}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary */}
+        {summary && (
+          <>
+            <SectionHead label="Group summary" icon={FileText} />
+            <div className="bg-[#EEF4FF] rounded-[14px] p-[15px_18px] border-[1.5px] border-l-[4px] border-[#DBE9FD] border-l-[#2563EB]">
+              <p className="m-0 text-[13px] text-[#1E3251] leading-[1.8] italic">
+                "{summary}"
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Group meta */}
+        <SectionHead label="Group details" icon={Info} />
+        <Card>
+          <InfoRow
+            icon={Hash}
+            label="Group ID"
+            value={String(group.id || group._id || "")
+              .slice(-8)
+              .toUpperCase()}
+            mono
+            accent
+          />
+          <InfoRow
+            icon={Users}
+            label="Total reports"
+            value={String(reports.length)}
+          />
+          <InfoRow
+            icon={Tag}
+            label="Categories"
+            value={categories.join(", ") || "General"}
+          />
+          <InfoRow
+            icon={Layers}
+            label="Incident types"
+            value={types.join(", ") || "General"}
+          />
+          <InfoRow
+            icon={Calendar}
+            label="Created"
+            value={fmtTime(group.createdAt)}
+          />
+          <InfoRow icon={MapPin} label="Kebele" value={kebeleName} />
+          <InfoRow icon={MapPin} label="Subdivision" value={subdivision} />
+          <InfoRow icon={MapPin} label="Street" value={street} last />
+        </Card>
+
+        {/* Map */}
+        {mapLat !== null && (
+          <>
+            <SectionHead label="Incident location" icon={MapPin} />
+            <MapPreview lat={mapLat} lng={mapLng} />
+          </>
+        )}
+
+        {/* Individual reports */}
+        {reports.length > 0 && (
+          <>
+            <SectionHead
+              label={`Individual reports (${reports.length})`}
+              icon={BarChart3}
+            />
+
+            {/* Selector */}
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 mb-1"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {reports.map((em, i) => {
+                const rep = resolveReporter(em);
+                const isActive = i === selectedIdx;
+                const sCfg = STATUS[em.status] || STATUS.pending;
+                return (
+                  <button
+                    key={em.id || em._id || i}
+                    onClick={() => setSelectedIdx(i)}
+                    style={
+                      isActive
+                        ? {
+                            borderColor: "#4A80F0",
+                            background: "#EEF4FF",
+                            boxShadow: "0 0 0 3px #DBE9FD",
+                          }
+                        : { borderColor: "#E4EBF5", background: "white" }
+                    }
+                    className="inline-flex items-center gap-2 py-2 pl-[9px] pr-[13px] rounded-[12px] border-[1.5px] cursor-pointer flex-shrink-0 transition-all font-[inherit]"
+                  >
+                    <Avatar reporter={rep} size={27} fontSize={10} />
+                    <div className="text-left">
+                      <p
+                        className={`m-0 text-[12px] font-[700] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap ${isActive ? "text-[#1140A0]" : "text-[#1E3251]"}`}
+                      >
+                        {rep.name}
+                      </p>
+                      <div className="flex items-center gap-1 mt-[1px]">
+                        <span
+                          style={{ background: sCfg.dot }}
+                          className="w-[5px] h-[5px] rounded-full"
+                        />
+                        <p
+                          className={`m-0 text-[10px] ${isActive ? "text-[#4A80F0]" : "text-[#A8BDD8]"}`}
+                        >
+                          Report #{i + 1}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected report */}
+            {sel && (
+              <motion.div
+                key={selectedIdx}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16 }}
+                className="mt-3 border-[1.5px] border-[#DBE9FD] rounded-[18px] overflow-hidden bg-white shadow-[0_2px_16px_rgba(37,99,235,.07)]"
+              >
+                {/* Report header */}
+                <div className="flex items-center gap-3 p-[13px_16px] bg-[#EEF4FF] border-b-[1.5px] border-[#DBE9FD]">
+                  <Avatar reporter={selReporter} size={38} fontSize={14} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-[2px]">
+                      <p className="m-0 text-[14px] font-[800] text-[#0B1628] truncate">
+                        {selReporter.name}
+                      </p>
+                      <StatusBadge status={sel.status} />
+                    </div>
+                    <p className="m-0 text-[11px] text-[#4A80F0] flex items-center gap-1">
+                      {selReporter.type === "user" ? (
+                        <User size={9} />
+                      ) : (
+                        <Smartphone size={9} />
+                      )}
+                      {selReporter.type === "user"
+                        ? "Registered user"
+                        : "Guest reporter"}
+                      {selReporter.contact && (
+                        <>
+                          <span className="text-[#C8D8EE]">·</span>
+                          {selReporter.contact}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-[9px] font-mono text-[#A8BDD8] font-[600] bg-white border border-[#E4EBF5] rounded-[6px] px-[6px] py-[3px] flex-shrink-0">
+                    #
+                    {String(sel.id || sel._id || "")
+                      .slice(-8)
+                      .toUpperCase()}
+                  </div>
+                </div>
+
+                <div className="p-[13px_16px]">
+                  {/* Narrative */}
+                  {(sel.description || sel.summary) && (
+                    <div className="bg-[#EEF4FF] rounded-[10px] p-[11px_14px] border-[1.5px] border-l-[3px] border-[#DBE9FD] border-l-[#2563EB] mb-4">
+                      <p className="m-0 text-[10px] font-[800] text-[#4A80F0] tracking-[.08em] uppercase mb-1">
+                        Narrative
+                      </p>
+                      <p className="m-0 text-[13px] text-[#1E3251] leading-[1.75] italic">
+                        "{getLangStr(sel.description || sel.summary)}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Report rows */}
+                  <div className="bg-[#F8FAFD] rounded-[12px] border-[1.5px] border-[#E4EBF5] px-4 py-1 mb-4">
+                    <InfoRow
+                      icon={Tag}
+                      label="Category"
+                      value={getLangStr(sel.category)}
+                      accent
+                    />
+                    <InfoRow
+                      icon={Layers}
+                      label="Emergency type"
+                      value={getLangStr(sel.emergencyType)}
+                    />
+                    <InfoRow
+                      icon={Calendar}
+                      label="Reported at"
+                      value={fmtTime(sel.createdAt)}
+                    />
+                    <InfoRow
+                      icon={Clock}
+                      label="Time"
+                      value={sel.time || null}
+                    />
+                    <InfoRow
+                      icon={MapPin}
+                      label="Subdivision"
+                      value={getLangStr(sel.subdivision)}
+                    />
+                    <InfoRow
+                      icon={MapPin}
+                      label="Street"
+                      value={sel.street}
+                      last
+                    />
+                  </div>
+
+                  {selMedia && (
+                    <div className="mb-4">
+                      <p className="text-[10px] font-[800] text-[#7A92B0] tracking-[.1em] uppercase mb-2">
+                        Media evidence
+                      </p>
+                      <MediaViewer mediaUrl={selMedia} token={token} />
+                    </div>
+                  )}
+
+                  {selLat !== null && (
+                    <div className="mb-1">
+                      <p className="text-[10px] font-[800] text-[#7A92B0] tracking-[.1em] uppercase mb-2">
+                        Report location
+                      </p>
+                      <MapPreview lat={selLat} lng={selLng} />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </>
+        )}
+
+        {/* PDF */}
+        {localStatus === "resolved" && (
+          <>
+            <SectionHead label="Official record" icon={FileCheck} />
+            <PDFBlock
+              onDownload={onDownloadPDF}
+              isDownloading={isDownloading}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-const resolveCategoryName = (e) =>
-  getLangStr(e.serviceCategory?.name) ||
-  getLangStr(e.category?.name) ||
-  getLangStr(e.categoryName) ||
-  getLangStr(e.serviceCategoryName) ||
-  getLangStr(e.category) ||
-  "General";
+// ─────────────────────────────────────────────────────────────────────────────
+// SINGLE DETAILS TAB
+// ─────────────────────────────────────────────────────────────────────────────
 
-const resolveIncidentType = (e) =>
-  getLangStr(e.serviceType?.name) ||
-  getLangStr(e.serviceType) ||
-  getLangStr(e.emergencyType?.name) ||
-  getLangStr(e.emergencyType) ||
-  getLangStr(e.type) ||
-  "General";
-
-const resolveReporter = (e) =>
-  e.user || e.guest || e.reportedBy || e.reporter || null;
-
-const resolveMediaUrl = (e) => {
-  const media =
-    e.media || e.mediaUrl || e.mediaPath || e.attachment || e.file || null;
-  if (Array.isArray(media)) return media[0]?.url || media[0] || null;
-  return media || null;
-};
-
-// ─── Details Tab ──────────────────────────────────────────────────────────────
 function DetailsTab({
   emergency: e,
   localStatus,
@@ -817,388 +1058,154 @@ function DetailsTab({
   isService,
 }) {
   const { lat, lng } = parseLocation(e);
+  const reporter = resolveReporter(e);
+  const mediaUrl = resolveMedia(e);
 
   return (
-    <div style={{ padding: "20px 20px 48px" }}>
-      {/* Hero */}
-      <div
-        style={{
-          borderRadius: 18,
-          overflow: "hidden",
-          border: `1.5px solid ${T.blue200}`,
-          background: `linear-gradient(140deg, ${T.blue600} 0%, ${T.blue800} 100%)`,
-          padding: "22px 22px 20px",
-          position: "relative",
-          boxShadow: `0 8px 32px ${T.blue500}30`,
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: -40,
-            right: -40,
-            width: 160,
-            height: 160,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,.06)",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: -30,
-            right: 40,
-            width: 90,
-            height: 90,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,.04)",
-            pointerEvents: "none",
-          }}
-        />
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 18,
-          }}
-        >
-          <div
-            style={{
-              width: 46,
-              height: 46,
-              borderRadius: 13,
-              background: "rgba(255,255,255,.15)",
-              border: "1.5px solid rgba(255,255,255,.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <AlertTriangle size={22} color="#fff" />
+    <div className="overflow-y-auto h-full">
+      <div className="p-5 pb-12">
+        {/* Hero */}
+        <div className="rounded-[18px] overflow-hidden border-[1.5px] border-[#BAD1FB] bg-gradient-to-br from-[#1A52C4] to-[#0D2D6B] p-[22px] relative shadow-[0_8px_32px_rgba(37,99,235,.19)] mb-1">
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/[.06] pointer-events-none" />
+          <div className="flex justify-between items-start mb-[18px]">
+            <div className="w-[46px] h-[46px] rounded-[13px] bg-white/[.15] border-[1.5px] border-white/[.25] flex items-center justify-center">
+              <AlertTriangle size={22} className="text-white" />
+            </div>
+            <StatusBadge status={localStatus} />
           </div>
-          <StatusBadge status={localStatus} />
+          <h2 className="m-0 mb-[5px] text-[20px] font-[800] text-white tracking-[-0.4px]">
+            {getLangStr(e.kebele?.name) || "Unknown Location"}
+          </h2>
+          <p className="m-0 text-[13px] text-white/[.65] flex items-center gap-[5px]">
+            <MapPin size={12} className="text-white/[.5]" />
+            {getLangStr(e.subdivision) ||
+              getLangStr(e.address) ||
+              "No subdivision specified"}
+          </p>
         </div>
 
-        <h2
-          style={{
-            margin: "0 0 5px",
-            fontSize: 20,
-            fontWeight: 800,
-            color: "#fff",
-            letterSpacing: "-.4px",
-          }}
-        >
-          {getLangStr(e.kebele?.name) || "Unknown Location"}
-        </h2>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 13,
-            color: "rgba(255,255,255,.65)",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-        >
-          <MapPin size={12} color="rgba(255,255,255,.5)" />
-          {getLangStr(e.subdivision) ||
-            getLangStr(e.address) ||
-            getLangStr(e.specificLocation) ||
-            "No subdivision specified"}
-        </p>
-
-        {e.mergedCount > 1 && (
-          <div
-            style={{
-              marginTop: 14,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              background: "rgba(255,255,255,.15)",
-              border: "1px solid rgba(255,255,255,.25)",
-              borderRadius: 8,
-              padding: "5px 11px",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#fff",
-            }}
-          >
-            <GitMerge size={11} /> {e.mergedCount} incidents merged
-          </div>
+        {mediaUrl && (
+          <>
+            <SectionHead label="Media evidence" icon={Camera} />
+            <MediaViewer mediaUrl={mediaUrl} token={token} />
+          </>
         )}
-      </div>
 
-      {/* Media */}
-      {resolveMediaUrl(e) && (
-        <>
-          <SectionHead label="Media Evidence" icon={Camera} />
-          <MediaViewer mediaUrl={resolveMediaUrl(e)} token={token} />
-        </>
-      )}
+        {e.description && (
+          <>
+            <SectionHead
+              label={isService ? "Service narrative" : "Incident narrative"}
+              icon={FileText}
+            />
+            <div className="bg-[#EEF4FF] rounded-[12px] p-[15px_18px] border-[1.5px] border-l-4 border-[#DBE9FD] border-l-[#2563EB]">
+              <p className="m-0 text-[13px] text-[#1E3251] leading-[1.8] italic">
+                "{getLangStr(e.description)}"
+              </p>
+            </div>
+          </>
+        )}
 
-      {/* Narrative */}
-      {e.description && (
-        <>
-          <SectionHead
-            label={isService ? "Service Narrative" : "Incident Narrative"}
-            icon={FileText}
+        <SectionHead
+          label={isService ? "Service details" : "Incident details"}
+          icon={Info}
+        />
+        <Card>
+          <InfoRow
+            icon={Hash}
+            label={isService ? "Service ID" : "Incident ID"}
+            value={String(e._id || e.id || "")
+              .slice(-12)
+              .toUpperCase()}
+            mono
+            accent
           />
-          <div
-            style={{
-              background: T.blue50,
-              borderRadius: 12,
-              padding: "15px 18px",
-              border: `1.5px solid ${T.blue100}`,
-              borderLeft: `4px solid ${T.blue500}`,
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: T.ink1,
-                lineHeight: 1.8,
-                fontStyle: "italic",
-              }}
-            >
-              "{getLangStr(e.description)}"
-            </p>
-          </div>
-        </>
-      )}
+          <InfoRow
+            icon={Tag}
+            label="Category"
+            value={resolveCategoryName(e)}
+            accent
+          />
+          <InfoRow icon={Layers} label="Type" value={resolveIncidentType(e)} />
+          <InfoRow
+            icon={Activity}
+            label="Status"
+            value={localStatus?.replace(/_/g, " ")}
+          />
+          <InfoRow
+            icon={Calendar}
+            label="Reported at"
+            value={fmtTime(e.createdAt)}
+          />
+          <InfoRow
+            icon={Calendar}
+            label="Last updated"
+            value={fmtTime(e.updatedAt)}
+            last
+          />
+        </Card>
 
-      {/* Details */}
-      <SectionHead
-        label={isService ? "Service Details" : "Incident Details"}
-        icon={Info}
-      />
-      <Card>
-        <InfoRow
-          icon={Hash}
-          label={isService ? "Service ID" : "Incident ID"}
-          value={String(e._id || e.id || "")
-            .slice(-12)
-            .toUpperCase()}
-          mono
-          accent
-        />
-        <InfoRow
-          icon={Tag}
-          label="Category"
-          value={resolveCategoryName(e)}
-          accent
-        />
-        <InfoRow icon={Layers} label="Type" value={resolveIncidentType(e)} />
-        <InfoRow
-          icon={Activity}
-          label="Status"
-          value={localStatus?.replace(/_/g, " ")}
-        />
-        <InfoRow
-          icon={Calendar}
-          label="Reported At"
-          value={e.createdAt ? new Date(e.createdAt).toLocaleString() : null}
-        />
-        <InfoRow
-          icon={Calendar}
-          label="Last Updated"
-          value={e.updatedAt ? new Date(e.updatedAt).toLocaleString() : null}
-          last
-        />
-      </Card>
+        <SectionHead label="Location" icon={MapPin} />
+        <Card className="mb-3">
+          <InfoRow
+            icon={MapPin}
+            label="Kebele"
+            value={getLangStr(e.kebele?.name)}
+            accent
+          />
+          <InfoRow
+            icon={MapPin}
+            label="Subdivision"
+            value={getLangStr(e.subdivision)}
+          />
+          <InfoRow icon={MapPin} label="Street" value={e.street} last />
+        </Card>
+        <MapPreview lat={lat} lng={lng} />
 
-      {/* Location */}
-      <SectionHead label="Location" icon={MapPin} />
-      <Card style={{ marginBottom: 12 }}>
-        <InfoRow
-          icon={MapPin}
-          label="Kebele"
-          value={getLangStr(e.kebele?.name)}
-          accent
-        />
-        <InfoRow
-          icon={MapPin}
-          label="Subdivision"
-          value={getLangStr(e.subdivision)}
-        />
-        <InfoRow
-          icon={MapPin}
-          label="Specific Location"
-          value={getLangStr(e.specificLocation) || getLangStr(e.address)}
-          last
-        />
-      </Card>
-      <MapPreview lat={lat} lng={lng} />
-
-      {/* Reporter */}
-      {resolveReporter(e) && (
-        <>
-          <SectionHead label="Reporter" icon={User} />
-          <Card>
-            <InfoRow
-              icon={User}
-              label="Name"
-              value={getLangStr(resolveReporter(e)?.name)}
-              accent
-            />
-            <InfoRow
-              icon={Phone}
-              label="Phone"
-              value={resolveReporter(e)?.phone}
-              last
-            />
-          </Card>
-        </>
-      )}
-
-      {/* PDF record */}
-      {localStatus === "resolved" && !isService && (
-        <>
-          <SectionHead label="Official Record" icon={Shield} />
-          <div
-            style={{
-              background: T.green50,
-              borderRadius: 16,
-              border: `1.5px solid ${T.green100}`,
-              padding: "18px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 14,
-              }}
-            >
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 9,
-                  background: T.green100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <CheckCircle2 size={15} color={T.green600} />
-              </div>
+        {(e.user || e.guest) && (
+          <>
+            <SectionHead label="Reporter" icon={User} />
+            <div className="flex items-center gap-3 p-[12px_14px] bg-white border-[1.5px] border-[#E4EBF5] rounded-[12px]">
+              <Avatar reporter={reporter} size={40} fontSize={14} />
               <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: T.green600,
-                  }}
-                >
-                  Case Finalized
+                <p className="m-0 text-[14px] font-[700] text-[#0B1628]">
+                  {reporter.name}
                 </p>
-                <p style={{ margin: 0, fontSize: 11, color: T.green500 }}>
-                  Official report is ready to download
+                <p className="mt-[2px] mb-0 text-[11px] text-[#A8BDD8] flex items-center gap-1">
+                  {reporter.type === "user" ? (
+                    <User size={9} />
+                  ) : (
+                    <Smartphone size={9} />
+                  )}
+                  {reporter.type === "user" ? "Registered user" : "Guest"}
+                  {reporter.contact && ` · ${reporter.contact}`}
                 </p>
               </div>
             </div>
-            <button
-              onClick={onDownloadPDF}
-              disabled={isDownloading}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                padding: "13px 0",
-                background: isDownloading ? T.green100 : T.green600,
-                border: "none",
-                borderRadius: 11,
-                color: isDownloading ? T.green600 : T.white,
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: ".06em",
-                cursor: isDownloading ? "not-allowed" : "pointer",
-                transition: "all .2s",
-                boxShadow: isDownloading
-                  ? "none"
-                  : `0 4px 14px ${T.green500}40`,
-              }}
-            >
-              {isDownloading ? (
-                <>
-                  <div
-                    style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: "50%",
-                      border: `2px solid ${T.green100}`,
-                      borderTopColor: T.green600,
-                      animation: "spin .7s linear infinite",
-                    }}
-                  />{" "}
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Download size={14} /> Download Official PDF
-                </>
-              )}
-            </button>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes dotPulse {
-          0%   { box-shadow: 0 0 0 0 currentColor; opacity:1; }
-          70%  { box-shadow: 0 0 0 5px transparent; opacity:.7; }
-          100% { box-shadow: 0 0 0 0 transparent; opacity:1; }
-        }
-      `}</style>
+        {localStatus === "resolved" && !isService && (
+          <>
+            <SectionHead label="Official record" icon={Shield} />
+            <PDFBlock
+              onDownload={onDownloadPDF}
+              isDownloading={isDownloading}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Actions Tab ─────────────────────────────────────────────────────────────
-const STATUS_OPTIONS = [
-  {
-    value: "reported",
-    label: "Reported",
-    icon: Radio,
-    color: T.ink3,
-    bg: T.surface1,
-  },
-  {
-    value: "assigned",
-    label: "Assigned",
-    icon: Shield,
-    color: T.blue600,
-    bg: T.blue50,
-  },
-  {
-    value: "in_progress",
-    label: "In Progress",
-    icon: Zap,
-    color: T.amber600,
-    bg: T.amber50,
-  },
-  {
-    value: "resolved",
-    label: "Resolved",
-    icon: CheckCircle2,
-    color: T.green600,
-    bg: T.green50,
-  },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIONS TAB
+// ─────────────────────────────────────────────────────────────────────────────
 
 function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
   const fileInputRef = useRef(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
-  const [reportData, setReportData] = useState({
+  const [form, setForm] = useState({
     incidentSummary: "",
     injuredCount: 0,
     deceasedCount: 0,
@@ -1208,722 +1215,424 @@ function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
     propertyDamageValue: 0,
     media: [],
   });
+
   const isResolved = currentStatus === "resolved";
 
-  const addRow = (f) => setReportData((p) => ({ ...p, [f]: [...p[f], ""] }));
+  const addRow = (f) => setForm((p) => ({ ...p, [f]: [...p[f], ""] }));
   const removeRow = (f, i) => {
-    const a = reportData[f].filter((_, j) => j !== i);
-    setReportData((p) => ({ ...p, [f]: a.length ? a : [""] }));
+    const a = form[f].filter((_, j) => j !== i);
+    setForm((p) => ({ ...p, [f]: a.length ? a : [""] }));
   };
-  const dynChange = (f, i, v) => {
-    const a = [...reportData[f]];
+  const setDynamic = (f, i, v) => {
+    const a = [...form[f]];
     a[i] = v;
-    setReportData((p) => ({ ...p, [f]: a }));
+    setForm((p) => ({ ...p, [f]: a }));
   };
-  const handleFiles = (ev) => {
-    setReportData((p) => ({
-      ...p,
-      media: [...p.media, ...Array.from(ev.target.files)],
-    }));
-    ev.target.value = "";
-  };
-  const removeFile = (i) =>
-    setReportData((p) => ({ ...p, media: p.media.filter((_, j) => j !== i) }));
 
-  const inputBase = {
-    width: "100%",
-    background: T.white,
-    border: `1.5px solid ${T.border0}`,
-    borderRadius: 10,
-    padding: "10px 12px 10px 38px",
-    fontSize: 13,
-    color: T.ink0,
-    outline: "none",
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    transition: "border-color .15s, box-shadow .15s",
-  };
-  const labelBase = {
-    display: "block",
-    marginBottom: 6,
-    fontSize: 10,
-    fontWeight: 800,
-    color: T.ink3,
-    letterSpacing: ".1em",
-    textTransform: "uppercase",
-  };
-  const iconPos = {
-    position: "absolute",
-    left: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    pointerEvents: "none",
-  };
-  const onFocus = (e) => {
-    e.target.style.borderColor = T.blue300;
-    e.target.style.boxShadow = `0 0 0 3px ${T.blue100}`;
-  };
-  const onBlur = (e) => {
-    e.target.style.borderColor = T.border0;
-    e.target.style.boxShadow = "none";
+  const inputCls =
+    "w-full bg-white border-[1.5px] border-[#E4EBF5] rounded-[10px] py-[10px] pr-3 pl-[38px] text-[13px] text-[#0B1628] outline-none box-border font-[inherit] transition-[border-color_.15s,box-shadow_.15s] focus:border-[#7BA7F5] focus:shadow-[0_0_0_3px_#DBE9FD]";
+  const labelCls =
+    "block mb-[6px] text-[10px] font-[800] text-[#7A92B0] tracking-[.1em] uppercase";
+
+  const handleFinalize = () => {
+    onUpdateStatus("resolved", {
+      ...form,
+      witnesses: form.witnesses.filter((w) => w.trim()),
+      suspects: form.suspects.filter((s) => s.trim()),
+    });
   };
 
   return (
-    <div style={{ padding: "20px 20px 48px" }}>
-      {/* Header row */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 18,
-          padding: "14px 16px",
-          borderRadius: 13,
-          background: T.blue50,
-          border: `1.5px solid ${T.blue100}`,
-        }}
-      >
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 9,
-            background: T.blue100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <ClipboardList size={16} color={T.blue600} />
+    <div className="overflow-y-auto h-full">
+      <div className="p-5 pb-12">
+        <div className="flex items-center gap-[10px] mb-5 p-[14px_16px] rounded-[13px] bg-[#EEF4FF] border-[1.5px] border-[#DBE9FD]">
+          <div className="w-[34px] h-[34px] rounded-[9px] bg-[#DBE9FD] flex items-center justify-center flex-shrink-0">
+            <ClipboardList size={16} className="text-[#1A52C4]" />
+          </div>
+          <div>
+            <p className="m-0 text-[13px] font-[800] text-[#0D2D6B]">
+              Status Management
+            </p>
+            <p className="m-0 text-[11px] text-[#4A80F0]">
+              Update the operational status of this{" "}
+              {isService ? "service assignment" : "emergency"}
+            </p>
+          </div>
         </div>
-        <div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 13,
-              fontWeight: 800,
-              color: T.blue800,
-            }}
-          >
-            Status Management
-          </p>
-          <p style={{ margin: 0, fontSize: 11, color: T.blue400 }}>
-            Update the operational status of this
-            {isService ? " service assignment" : " emergency"}
-          </p>
-        </div>
-      </div>
 
-      {/* Status options */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          marginBottom: 22,
-        }}
-      >
-        {STATUS_OPTIONS.map((opt) => {
-          const isCurrent = currentStatus === opt.value;
-          return (
-            <button
-              key={opt.value}
-              disabled={isCurrent || isResolved}
-              onClick={() =>
-                opt.value === "resolved"
-                  ? setIsFinalizing(true)
-                  : onUpdateStatus(opt.value)
-              }
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 16px",
-                borderRadius: 13,
-                border: isCurrent
-                  ? `2px solid ${opt.color}44`
-                  : `1.5px solid ${T.border0}`,
-                background: isCurrent ? opt.bg : T.white,
-                cursor: isCurrent || isResolved ? "not-allowed" : "pointer",
-                opacity: isResolved && !isCurrent ? 0.3 : 1,
-                transition: "all .16s",
-                fontFamily: "inherit",
-                boxShadow: isCurrent
-                  ? `0 2px 12px ${opt.color}18`
-                  : "0 1px 4px rgba(0,0,0,.04)",
-              }}
-              onMouseEnter={(e) => {
-                if (!isCurrent && !isResolved) {
-                  e.currentTarget.style.borderColor = opt.color + "55";
-                  e.currentTarget.style.background = opt.bg;
-                  e.currentTarget.style.boxShadow = `0 3px 14px ${opt.color}12`;
+        <div className="flex flex-col gap-2 mb-5">
+          {STATUS_OPTIONS.map((opt) => {
+            const isCurrent = currentStatus === opt.value;
+            return (
+              <button
+                key={opt.value}
+                disabled={isCurrent || isResolved}
+                onClick={() =>
+                  opt.value === "resolved"
+                    ? setIsFinalizing(true)
+                    : onUpdateStatus(opt.value)
                 }
-              }}
-              onMouseLeave={(e) => {
-                if (!isCurrent) {
-                  e.currentTarget.style.borderColor = T.border0;
-                  e.currentTarget.style.background = T.white;
-                  e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.04)";
-                }
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 11,
-                    background: isCurrent ? `${opt.color}18` : T.surface1,
-                    border: `1.5px solid ${isCurrent ? opt.color + "33" : T.border0}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <opt.icon size={17} color={isCurrent ? opt.color : T.ink3} />
-                </div>
-                <div style={{ textAlign: "left" }}>
-                  <span
-                    style={{
-                      display: "block",
-                      fontWeight: 700,
-                      fontSize: 14,
-                      color: isCurrent ? opt.color : T.ink0,
-                    }}
-                  >
-                    {opt.label}
-                  </span>
-                  {isCurrent && (
-                    <span
-                      style={{ fontSize: 11, color: opt.color, opacity: 0.7 }}
-                    >
-                      Currently active
-                    </span>
-                  )}
-                </div>
-              </div>
-              {isCurrent ? (
-                <CheckCircle2 size={18} color={opt.color} />
-              ) : (
-                <ChevronRight size={16} color={T.ink4} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {isResolved && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "14px 16px",
-            background: T.green50,
-            borderRadius: 12,
-            border: `1.5px solid ${T.green100}`,
-          }}
-        >
-          <CheckCircle2 size={18} color={T.green600} />
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: T.green600,
-            }}
-          >
-            Case Finalized & Closed
-          </p>
-        </div>
-      )}
-
-      {/* Finalization form */}
-      <AnimatePresence>
-        {isFinalizing && !isResolved && (
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 14 }}
-            style={{
-              paddingTop: 22,
-              borderTop: `1.5px solid ${T.border0}`,
-              marginTop: 6,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "12px 15px",
-                marginBottom: 20,
-                background: T.amber50,
-                borderRadius: 11,
-                border: `1.5px solid ${T.amber100}`,
-              }}
-            >
-              <div
                 style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  flexShrink: 0,
-                  background: T.amber100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  borderColor: isCurrent ? `${opt.color}44` : "#E4EBF5",
+                  background: isCurrent ? opt.bg : "#FFFFFF",
                 }}
+                className={`flex items-center justify-between p-[13px_16px] rounded-[13px] border-[1.5px] font-[inherit] transition-opacity ${isCurrent || isResolved ? "cursor-not-allowed" : "cursor-pointer hover:border-[#BAD1FB]"} ${isResolved && !isCurrent ? "opacity-30" : ""}`}
               >
-                <AlertTriangle size={13} color={T.amber600} />
-              </div>
-              <span
-                style={{ fontSize: 11, fontWeight: 700, color: T.amber600 }}
-              >
-                Incident report required before closing this case
-              </span>
-            </div>
-
-            {/* Counts */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginBottom: 16,
-              }}
-            >
-              {[
-                {
-                  field: "injuredCount",
-                  label: "Injured",
-                  Icon: Users,
-                  color: T.amber600,
-                },
-                {
-                  field: "deceasedCount",
-                  label: "Deceased",
-                  Icon: AlertTriangle,
-                  color: T.red600,
-                },
-              ].map(({ field, label, Icon, color }) => (
-                <div key={field}>
-                  <label style={labelBase}>{label}</label>
-                  <div style={{ position: "relative" }}>
-                    <Icon size={13} color={color} style={iconPos} />
-                    <input
-                      type="number"
-                      min="0"
-                      value={reportData[field]}
-                      onChange={(ev) =>
-                        setReportData((p) => ({
-                          ...p,
-                          [field]: parseInt(ev.target.value) || 0,
-                        }))
-                      }
-                      style={inputBase}
-                      onFocus={onFocus}
-                      onBlur={onBlur}
+                <div className="flex items-center gap-3">
+                  <div
+                    style={{
+                      background: isCurrent ? `${opt.color}18` : "#F4F7FB",
+                      borderColor: isCurrent ? `${opt.color}33` : "#E4EBF5",
+                    }}
+                    className="w-[36px] h-[36px] rounded-[10px] border-[1.5px] flex items-center justify-center"
+                  >
+                    <opt.icon
+                      size={16}
+                      style={{ color: isCurrent ? opt.color : "#7A92B0" }}
                     />
                   </div>
+                  <div className="text-left">
+                    <span
+                      className="block font-[700] text-[14px]"
+                      style={{ color: isCurrent ? opt.color : "#0B1628" }}
+                    >
+                      {opt.label}
+                    </span>
+                    {isCurrent && (
+                      <span
+                        className="text-[11px] opacity-70"
+                        style={{ color: opt.color }}
+                      >
+                        Currently active
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+                {isCurrent ? (
+                  <CheckCircle2 size={18} style={{ color: opt.color }} />
+                ) : (
+                  <ChevronRight size={16} className="text-[#A8BDD8]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-            {/* Property damage */}
-            <div
-              style={{
-                background: T.surface1,
-                borderRadius: 13,
-                padding: 14,
-                border: `1.5px solid ${T.border0}`,
-                marginBottom: 16,
-              }}
+        {isResolved && (
+          <div className="flex items-center gap-3 p-[14px_16px] bg-[#ECFDF5] rounded-[12px] border-[1.5px] border-[#D1FAE5]">
+            <CheckCircle2 size={18} className="text-[#059669]" />
+            <p className="m-0 text-[12px] font-[700] text-[#059669]">
+              Case Finalized &amp; Closed
+            </p>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {isFinalizing && !isResolved && (
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="pt-5 border-t-[1.5px] border-[#E4EBF5] mt-2"
             >
-              <label style={labelBase}>Property Damage Description</label>
-              <div style={{ position: "relative", marginBottom: 10 }}>
-                <Home
-                  size={13}
-                  color={T.ink4}
-                  style={{
-                    position: "absolute",
-                    left: 12,
-                    top: 13,
-                    pointerEvents: "none",
-                  }}
-                />
-                <textarea
-                  placeholder="Describe any property damage…"
-                  value={reportData.propertyDamage}
-                  onChange={(ev) =>
-                    setReportData((p) => ({
-                      ...p,
-                      propertyDamage: ev.target.value,
-                    }))
-                  }
-                  style={{
-                    ...inputBase,
-                    paddingTop: 11,
-                    height: 80,
-                    resize: "none",
-                  }}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-              <label style={labelBase}>Estimated Value (ETB)</label>
-              <div style={{ position: "relative" }}>
-                <span
-                  style={{
-                    ...iconPos,
-                    left: 10,
-                    fontSize: 9,
-                    fontWeight: 800,
-                    color: T.ink4,
-                  }}
-                >
-                  ETB
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={reportData.propertyDamageValue}
-                  onChange={(ev) =>
-                    setReportData((p) => ({
-                      ...p,
-                      propertyDamageValue: parseFloat(ev.target.value) || 0,
-                    }))
-                  }
-                  style={{ ...inputBase, paddingLeft: 44 }}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-            </div>
-
-            {/* Witnesses & Suspects */}
-            {[
-              {
-                field: "witnesses",
-                label: "Witnesses",
-                addLabel: "Add Witness",
-                Icon: Users,
-                placeholder: "Witness name",
-              },
-              {
-                field: "suspects",
-                label: "Suspects",
-                addLabel: "Add Suspect",
-                Icon: Gavel,
-                placeholder: "Suspect details",
-              },
-            ].map(({ field, label, addLabel, Icon, placeholder }) => (
-              <div key={field} style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <label style={labelBase}>{label}</label>
-                  <button
-                    onClick={() => addRow(field)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      background: T.blue50,
-                      border: `1.5px solid ${T.blue100}`,
-                      borderRadius: 7,
-                      padding: "4px 10px",
-                      color: T.blue600,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      transition: "all .15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = T.blue100;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = T.blue50;
-                    }}
-                  >
-                    <Plus size={11} /> {addLabel}
-                  </button>
+              <div className="flex items-center gap-[10px] p-[12px_15px] mb-5 bg-[#FFFBEB] rounded-[11px] border-[1.5px] border-[#FEF3C7]">
+                <div className="w-[28px] h-[28px] rounded-[8px] flex-shrink-0 bg-[#FEF3C7] flex items-center justify-center">
+                  <AlertTriangle size={13} className="text-[#D97706]" />
                 </div>
-                {reportData[field].map((val, idx) => (
-                  <div
-                    key={idx}
-                    style={{ display: "flex", gap: 6, marginBottom: 6 }}
-                  >
-                    <div style={{ flex: 1, position: "relative" }}>
-                      <Icon size={13} color={T.ink4} style={iconPos} />
+                <span className="text-[11px] font-[700] text-[#D97706]">
+                  Incident report required before closing this case
+                </span>
+              </div>
+
+              {/* Counts */}
+              <div className="grid grid-cols-2 gap-[10px] mb-4">
+                {[
+                  {
+                    field: "injuredCount",
+                    label: "Injured",
+                    Icon: Users,
+                    colorCls: "text-[#D97706]",
+                  },
+                  {
+                    field: "deceasedCount",
+                    label: "Deceased",
+                    Icon: AlertTriangle,
+                    colorCls: "text-[#DC2626]",
+                  },
+                ].map(({ field, label, Icon, colorCls }) => (
+                  <div key={field}>
+                    <label className={labelCls}>{label}</label>
+                    <div className="relative">
+                      <Icon
+                        size={13}
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${colorCls}`}
+                      />
                       <input
-                        type="text"
-                        placeholder={`${placeholder} ${idx + 1}`}
-                        value={val}
+                        type="number"
+                        min="0"
+                        value={form[field]}
                         onChange={(ev) =>
-                          dynChange(field, idx, ev.target.value)
+                          setForm((p) => ({
+                            ...p,
+                            [field]: parseInt(ev.target.value) || 0,
+                          }))
                         }
-                        style={inputBase}
-                        onFocus={onFocus}
-                        onBlur={onBlur}
+                        className={inputCls}
                       />
                     </div>
-                    {reportData[field].length > 1 && (
-                      <button
-                        onClick={() => removeRow(field, idx)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: T.ink4,
-                          cursor: "pointer",
-                          padding: "0 4px",
-                          transition: "color .15s",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = T.red500)
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = T.ink4)
-                        }
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
-            ))}
 
-            {/* Summary */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelBase}>
-                Incident Summary <span style={{ color: T.red500 }}>*</span>
-              </label>
-              <textarea
-                placeholder="Provide a detailed incident summary…"
-                value={reportData.incidentSummary}
-                onChange={(ev) =>
-                  setReportData((p) => ({
-                    ...p,
-                    incidentSummary: ev.target.value,
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  height: 100,
-                  background: T.white,
-                  border: `1.5px solid ${T.border0}`,
-                  borderRadius: 10,
-                  padding: 12,
-                  fontSize: 13,
-                  color: T.ink0,
-                  outline: "none",
-                  resize: "none",
-                  boxSizing: "border-box",
-                  fontFamily: "inherit",
-                  lineHeight: 1.65,
-                  transition: "border-color .15s, box-shadow .15s",
-                }}
-                onFocus={onFocus}
-                onBlur={onBlur}
-              />
-            </div>
+              {/* Property damage */}
+              <div className="bg-[#F4F7FB] rounded-[13px] p-[14px] border-[1.5px] border-[#E4EBF5] mb-4">
+                <label className={labelCls}>Property damage</label>
+                <div className="relative mb-[10px]">
+                  <Home
+                    size={13}
+                    className="absolute left-3 top-[13px] pointer-events-none text-[#A8BDD8]"
+                  />
+                  <textarea
+                    placeholder="Describe any property damage…"
+                    value={form.propertyDamage}
+                    onChange={(ev) =>
+                      setForm((p) => ({
+                        ...p,
+                        propertyDamage: ev.target.value,
+                      }))
+                    }
+                    className={`${inputCls} pt-[11px] h-[80px] resize-none`}
+                  />
+                </div>
+                <label className={labelCls}>Estimated value (ETB)</label>
+                <div className="relative">
+                  <span className="absolute left-[10px] top-1/2 -translate-y-1/2 text-[9px] font-[800] text-[#A8BDD8] pointer-events-none">
+                    ETB
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={form.propertyDamageValue}
+                    onChange={(ev) =>
+                      setForm((p) => ({
+                        ...p,
+                        propertyDamageValue: parseFloat(ev.target.value) || 0,
+                      }))
+                    }
+                    className={`${inputCls} pl-[44px]`}
+                  />
+                </div>
+              </div>
 
-            {/* Media */}
-            <div style={{ marginBottom: 22 }}>
-              <label style={labelBase}>Media Evidence</label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current.click()}
-                style={{
-                  width: "100%",
-                  padding: "14px 0",
-                  border: `2px dashed ${T.blue200}`,
-                  borderRadius: 12,
-                  background: T.blue50,
-                  color: T.blue400,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "all .15s",
-                  boxSizing: "border-box",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = T.blue400;
-                  e.currentTarget.style.color = T.blue600;
-                  e.currentTarget.style.background = T.blue100;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = T.blue200;
-                  e.currentTarget.style.color = T.blue400;
-                  e.currentTarget.style.background = T.blue50;
-                }}
-              >
-                <Camera size={15} />
-                {reportData.media.length > 0
-                  ? `${reportData.media.length} file(s) — click to add more`
-                  : "Attach Scene Photos / Evidence"}
-              </button>
-              <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                style={{ display: "none" }}
-                onChange={handleFiles}
-              />
-              {reportData.media.length > 0 && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
-                >
-                  {reportData.media.map((f, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 12px",
-                        background: T.surface1,
-                        borderRadius: 9,
-                        border: `1px solid ${T.border0}`,
-                        fontSize: 12,
-                        color: T.ink2,
-                      }}
+              {/* Witnesses / Suspects */}
+              {[
+                {
+                  field: "witnesses",
+                  label: "Witnesses",
+                  addLabel: "Add witness",
+                  Icon: Users,
+                  placeholder: "Witness name",
+                },
+                {
+                  field: "suspects",
+                  label: "Suspects",
+                  addLabel: "Add suspect",
+                  Icon: Gavel,
+                  placeholder: "Suspect details",
+                },
+              ].map(({ field, label, addLabel, Icon, placeholder }) => (
+                <div key={field} className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className={labelCls}>{label}</label>
+                    <button
+                      onClick={() => addRow(field)}
+                      className="flex items-center gap-1 bg-[#EEF4FF] border-[1.5px] border-[#DBE9FD] rounded-[7px] py-1 px-[10px] text-[#1A52C4] text-[10px] font-[700] cursor-pointer"
                     >
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: "82%",
-                        }}
-                      >
-                        {f.name}
-                      </span>
-                      <button
-                        onClick={() => removeFile(i)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: T.ink4,
-                          cursor: "pointer",
-                          padding: 0,
-                          transition: "color .15s",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = T.red500)
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = T.ink4)
-                        }
-                      >
-                        <X size={13} />
-                      </button>
+                      <Plus size={11} /> {addLabel}
+                    </button>
+                  </div>
+                  {form[field].map((val, idx) => (
+                    <div key={idx} className="flex gap-[6px] mb-[6px]">
+                      <div className="flex-1 relative">
+                        <Icon
+                          size={13}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#A8BDD8]"
+                        />
+                        <input
+                          type="text"
+                          placeholder={`${placeholder} ${idx + 1}`}
+                          value={val}
+                          onChange={(ev) =>
+                            setDynamic(field, idx, ev.target.value)
+                          }
+                          className={inputCls}
+                        />
+                      </div>
+                      {form[field].length > 1 && (
+                        <button
+                          onClick={() => removeRow(field, idx)}
+                          className="bg-transparent border-none text-[#A8BDD8] cursor-pointer px-1"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              ))}
 
-            {/* Submit */}
-            <button
-              onClick={() =>
-                onUpdateStatus("resolved", {
-                  ...reportData,
-                  witnesses: reportData.witnesses.filter((w) => w.trim()),
-                  suspects: reportData.suspects.filter((s) => s.trim()),
-                })
-              }
-              disabled={!reportData.incidentSummary.trim()}
-              style={{
-                width: "100%",
-                padding: "15px 0",
-                background: reportData.incidentSummary.trim()
-                  ? `linear-gradient(135deg, ${T.blue600}, ${T.blue700})`
-                  : T.surface2,
-                border: "none",
-                borderRadius: 13,
-                color: reportData.incidentSummary.trim() ? T.white : T.ink4,
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: ".04em",
-                cursor: reportData.incidentSummary.trim()
-                  ? "pointer"
-                  : "not-allowed",
-                transition: "all .2s",
-                fontFamily: "inherit",
-                boxShadow: reportData.incidentSummary.trim()
-                  ? `0 6px 20px ${T.blue500}35`
-                  : "none",
-              }}
-            >
-              Finalize & Close Case
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Summary */}
+              <div className="mb-4">
+                <label className={labelCls}>
+                  Incident summary <span className="text-[#EF4444]">*</span>
+                </label>
+                <textarea
+                  placeholder="Provide a detailed incident summary…"
+                  value={form.incidentSummary}
+                  onChange={(ev) =>
+                    setForm((p) => ({ ...p, incidentSummary: ev.target.value }))
+                  }
+                  className="w-full h-[100px] bg-white border-[1.5px] border-[#E4EBF5] rounded-[10px] p-3 text-[13px] text-[#0B1628] outline-none resize-none box-border font-[inherit] leading-[1.65] focus:border-[#7BA7F5] focus:shadow-[0_0_0_3px_#DBE9FD] transition-[border-color_.15s,box-shadow_.15s]"
+                />
+              </div>
+
+              {/* Media */}
+              <div className="mb-5">
+                <label className={labelCls}>Media evidence</label>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-[13px] border-2 border-dashed border-[#BAD1FB] rounded-[12px] bg-[#EEF4FF] text-[#4A80F0] flex items-center justify-center gap-2 text-[12px] font-[700] cursor-pointer font-[inherit] box-border"
+                >
+                  <Camera size={14} />
+                  {form.media.length > 0
+                    ? `${form.media.length} file(s) — click to add more`
+                    : "Attach scene photos / evidence"}
+                </button>
+                <input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(ev) => {
+                    setForm((p) => ({
+                      ...p,
+                      media: [...p.media, ...Array.from(ev.target.files)],
+                    }));
+                    ev.target.value = "";
+                  }}
+                />
+                {form.media.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    {form.media.map((f, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between py-2 px-3 bg-[#F4F7FB] rounded-[9px] border border-[#E4EBF5] text-[12px] text-[#4A607F]"
+                      >
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[82%]">
+                          {f.name}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              media: p.media.filter((_, j) => j !== i),
+                            }))
+                          }
+                          className="bg-transparent border-none text-[#A8BDD8] cursor-pointer p-0"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleFinalize}
+                disabled={!form.incidentSummary.trim()}
+                className={`w-full py-[15px] border-none rounded-[13px] text-[13px] font-[800] tracking-[.04em] font-[inherit] transition-opacity ${form.incidentSummary.trim() ? "bg-gradient-to-br from-[#1A52C4] to-[#1140A0] text-white cursor-pointer hover:opacity-90" : "bg-[#EBF1FA] text-[#7A92B0] cursor-not-allowed"}`}
+              >
+                Finalize &amp; Close Case
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-// ─── Tab config ───────────────────────────────────────────────────────────────
-const TABS = [
+// ─────────────────────────────────────────────────────────────────────────────
+// TABS CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TABS_SINGLE = [
   { id: "details", icon: Activity, label: "Details" },
   { id: "action", icon: ClipboardList, label: "Actions" },
   { id: "chat", icon: MessageSquare, label: "Chat" },
 ];
+const TABS_MERGED = [
+  { id: "details", icon: GitMerge, label: "Merged" },
+  { id: "action", icon: ClipboardList, label: "Actions" },
+];
 
-// ─── Main Drawer ──────────────────────────────────────────────────────────────
-const EmergencyDetailDrawer = ({
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN DRAWER
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function EmergencyDetailDrawer({
   isOpen,
   onClose,
   emergency,
   onRefresh,
   isService = false,
-}) => {
+}) {
   const [activeTab, setActiveTab] = useState("details");
   const [localStatus, setLocalStatus] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const token = getToken();
   const apiPath = isService ? "service" : "emergencies";
-
-  // Filter tabs based on service type - hide chat for service reports
-  const availableTabs = TABS.filter((tab) => !(isService && tab.id === "chat"));
-
   const prevIdRef = useRef(null);
 
+  // ── Determine if this is a merged group record ──────────────────────────
+  // Case A: emergency IS the group object  → has `emergencies[]` array
+  // Case B: emergency is a CHILD record    → has `emergedId` pointing to group
+  const isGroupRecord =
+    Array.isArray(emergency?.emergencies) && emergency.emergencies.length > 0;
+  const isChildRecord = !!emergency?.emergedId;
+  const isMerged = isGroupRecord || isChildRecord;
+
+  // Correct group ID: prefer emergedId for child records, own id for group records
+  const mergedGroupId = isChildRecord
+    ? emergency.emergedId
+    : isGroupRecord
+      ? (emergency.id ?? emergency._id)
+      : null;
+
+  const TABS = isMerged
+    ? TABS_MERGED
+    : TABS_SINGLE.filter((t) => !(isService && t.id === "chat"));
+
+  // Reset tab & status when emergency changes
   useEffect(() => {
     if (!emergency) return;
     const id = emergency._id || emergency.id;
     if (id !== prevIdRef.current) {
       prevIdRef.current = id;
-      setLocalStatus(emergency.status);
+      setLocalStatus(emergency.status || "");
       setActiveTab("details");
     }
   }, [emergency]);
 
+  // ── PDF download ──────────────────────────────────────────────────────────
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const id = emergency?._id || emergency?.id;
+      const id = isMerged ? mergedGroupId : emergency?._id || emergency?.id;
       const res = await axios({
         url: `${API_BASE}/api/finalReport/download/${id}`,
         method: "GET",
@@ -1937,59 +1646,80 @@ const EmergencyDetailDrawer = ({
       document.body.appendChild(a);
       a.click();
       a.remove();
+      window.URL.revokeObjectURL(url);
     } catch {
-      alert("Failed to generate PDF.");
+      alert("Failed to generate PDF. Please try again.");
     } finally {
       setIsDownloading(false);
     }
   };
 
+  // ── Status update ─────────────────────────────────────────────────────────
   const handleUpdateStatus = async (newStatus, reportPayload = null) => {
-    try {
-      const id = emergency?._id || emergency?.id;
-      if (!token || !id) return;
+    const id = isMerged ? mergedGroupId : emergency?._id || emergency?.id;
+    if (!token) {
+      alert("You must be logged in to update status.");
+      return;
+    }
+    if (!id) {
+      alert("Could not determine record ID.");
+      return;
+    }
 
+    try {
       if (newStatus === "resolved" && reportPayload && !isService) {
         const fd = new FormData();
-        fd.append("incidentSummary", reportPayload.incidentSummary);
-        fd.append("injuredCount", reportPayload.injuredCount);
-        fd.append("deceasedCount", reportPayload.deceasedCount);
-        fd.append("propertyDamage", reportPayload.propertyDamage);
-        fd.append("propertyDamageValue", reportPayload.propertyDamageValue);
+        Object.entries({
+          incidentSummary: reportPayload.incidentSummary,
+          injuredCount: reportPayload.injuredCount,
+          deceasedCount: reportPayload.deceasedCount,
+          propertyDamage: reportPayload.propertyDamage,
+          propertyDamageValue: reportPayload.propertyDamageValue,
+        }).forEach(([k, v]) => fd.append(k, v));
         reportPayload.witnesses.forEach((w) => fd.append("witnesses[]", w));
         reportPayload.suspects.forEach((s) => fd.append("suspects[]", s));
-        // ✅ FIX: only append actual File objects, not empty array
-        if (reportPayload.media && reportPayload.media.length > 0) {
-          reportPayload.media.forEach((f) => fd.append("media", f));
-        }
+        reportPayload.media?.forEach((f) => fd.append("media", f));
 
-        await axios.post(`${API_BASE}/api/finalReport/${id}`, fd, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            // ✅ FIX: do NOT set Content-Type manually — let browser set it with boundary
-          },
+        const url = isMerged
+          ? `${API_BASE}/api/emerged/${id}/finalize`
+          : `${API_BASE}/api/finalReport/${id}`;
+        await axios.post(url, fd, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        // ✅ Service already sets status to resolved, skip the PATCH
-        setLocalStatus(newStatus);
-        onRefresh?.();
-        setActiveTab("details");
-        return; // ← exit early, no PATCH needed
+      } else {
+        const url = isMerged
+          ? `${API_BASE}/api/emerged/${id}`
+          : `${API_BASE}/api/${apiPath}/${id}/status`;
+        const method = isMerged ? "put" : "patch";
+        await axios[method](
+          url,
+          { status: newStatus },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
       }
 
-      // Non-resolved status changes
-      await axios.patch(
-        `${API_BASE}/api/${apiPath}/${id}/status`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
       setLocalStatus(newStatus);
       onRefresh?.();
+      if (newStatus === "resolved") setActiveTab("details");
     } catch (err) {
-      alert(`Error: ${err.response?.data?.message || "Server Error"}`);
+      console.error(
+        "Status update error:",
+        err.response?.status,
+        err.response?.data,
+      );
+      alert(
+        `Error: ${err.response?.data?.message || "Server error. Please try again."}`,
+      );
     }
   };
 
   if (!emergency) return null;
+
+  const displayId = String(
+    isMerged ? mergedGroupId : emergency._id || emergency.id || "",
+  )
+    .slice(-10)
+    .toUpperCase();
 
   return (
     <AnimatePresence>
@@ -2001,173 +1731,70 @@ const EmergencyDetailDrawer = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(10,31,68,.3)",
-              zIndex: 70,
-              backdropFilter: "blur(5px)",
-            }}
+            className="fixed inset-0 bg-[rgba(10,31,68,.3)] z-[70] backdrop-blur-[5px]"
           />
 
-          {/* Drawer */}
+          {/* Panel */}
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 280 }}
             style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: "min(520px, 100vw)",
-              background: T.surface1,
-              zIndex: 80,
-              display: "flex",
-              flexDirection: "column",
-              boxShadow:
-                "-6px 0 40px rgba(10,31,68,.12), -1px 0 0 rgba(37,99,235,.08)",
-              fontFamily: "'Sora','Helvetica Neue',sans-serif",
+              width: isMerged ? "min(620px, 100vw)" : "min(520px, 100vw)",
             }}
+            className="fixed top-0 right-0 bottom-0 bg-[#F4F7FB] z-[80] flex flex-col shadow-[-6px_0_40px_rgba(10,31,68,.14)] font-['DM_Sans','Helvetica_Neue',sans-serif]"
           >
-            {/* Top stripe */}
+            {/* Accent stripe */}
             <div
-              style={{
-                height: 3,
-                flexShrink: 0,
-                background: `linear-gradient(to right, ${T.blue500}, ${T.blue300}, ${T.blue600})`,
-              }}
+              className={`h-[3px] flex-shrink-0 bg-gradient-to-r ${isMerged ? "from-[#7C3AED] via-[#4A80F0] to-[#2563EB]" : "from-[#2563EB] via-[#7BA7F5] to-[#1A52C4]"}`}
             />
 
             {/* Header */}
-            <div
-              style={{
-                padding: "0 18px",
-                borderBottom: `1.5px solid ${T.border0}`,
-                background: T.white,
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                height: 62,
-                boxShadow: "0 1px 0 rgba(37,99,235,.05)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className="px-5 border-b-[1.5px] border-[#E4EBF5] bg-white flex-shrink-0 flex items-center justify-between h-[60px]">
+              <div className="flex items-center gap-3">
                 <div
-                  style={{
-                    width: 9,
-                    height: 9,
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    background:
-                      localStatus === "resolved" ? T.green500 : T.red500,
-                    boxShadow:
-                      localStatus === "resolved"
-                        ? `0 0 0 3px ${T.green100}`
-                        : `0 0 0 3px ${T.red100}`,
-                    animation:
-                      localStatus === "resolved"
-                        ? "none"
-                        : "headerPulse 2s ease-in-out infinite",
-                  }}
+                  className={`w-[9px] h-[9px] rounded-full flex-shrink-0 ${localStatus === "resolved" ? "bg-[#10B981] shadow-[0_0_0_3px_#D1FAE5]" : "bg-[#EF4444] shadow-[0_0_0_3px_#FEE2E2] animate-pulse"}`}
                 />
                 <div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 14,
-                      fontWeight: 800,
-                      color: T.ink0,
-                      letterSpacing: "-.2px",
-                    }}
-                  >
-                    {isService ? "Service Detail" : "Emergency Detail"}
+                  <p className="m-0 text-[14px] font-[700] text-[#0B1628] tracking-[-0.2px]">
+                    {isMerged
+                      ? "Merged Incident Group"
+                      : isService
+                        ? "Service Detail"
+                        : "Emergency Detail"}
                   </p>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 10,
-                      color: T.ink4,
-                      letterSpacing: ".1em",
-                      fontFamily: "'Courier New', monospace",
-                    }}
-                  >
-                    #
-                    {String(emergency._id || emergency.id || "")
-                      .slice(-10)
-                      .toUpperCase()}
+                  <p className="m-0 text-[10px] text-[#A8BDD8] tracking-[.1em] font-mono">
+                    #{displayId}
+                    {isMerged &&
+                      ` · ${(emergency.emergencies || []).length || "?"} reports`}
                   </p>
                 </div>
               </div>
-
-              <button
-                onClick={onClose}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  border: `1.5px solid ${T.border0}`,
-                  background: T.surface1,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: T.ink3,
-                  transition: "all .15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = T.surface2;
-                  e.currentTarget.style.borderColor = T.border1;
-                  e.currentTarget.style.color = T.ink1;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = T.surface1;
-                  e.currentTarget.style.borderColor = T.border0;
-                  e.currentTarget.style.color = T.ink3;
-                }}
-              >
-                <X size={15} />
-              </button>
+              <div className="flex items-center gap-2">
+                {isMerged && (
+                  <div className="inline-flex items-center gap-[5px] bg-[#EDE9FE] border-[1.5px] border-[#DDD6FE] rounded-[8px] py-1 px-[10px] text-[11px] font-[700] text-[#7C3AED]">
+                    <GitMerge size={11} /> Merged
+                  </div>
+                )}
+                <button
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-[10px] border-[1.5px] border-[#E4EBF5] bg-[#F4F7FB] cursor-pointer flex items-center justify-center text-[#7A92B0] hover:bg-[#EEF4FF] transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              </div>
             </div>
 
             {/* Tabs */}
-            <div
-              style={{
-                display: "flex",
-                borderBottom: `1.5px solid ${T.border0}`,
-                background: T.white,
-                flexShrink: 0,
-              }}
-            >
-              {availableTabs.map((tab) => {
+            <div className="flex border-b-[1.5px] border-[#E4EBF5] bg-white flex-shrink-0">
+              {TABS.map((tab) => {
                 const active = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 7,
-                      padding: "14px 0",
-                      background: active ? T.blue50 : "transparent",
-                      border: "none",
-                      borderBottom: active
-                        ? `2.5px solid ${T.blue500}`
-                        : "2.5px solid transparent",
-                      color: active ? T.blue600 : T.ink4,
-                      fontSize: 11,
-                      fontWeight: active ? 800 : 600,
-                      letterSpacing: ".07em",
-                      textTransform: "uppercase",
-                      cursor: "pointer",
-                      transition: "all .15s",
-                      fontFamily: "inherit",
-                    }}
+                    className={`flex-1 flex items-center justify-center gap-[7px] py-[13px] border-none border-b-[2.5px] text-[11px] tracking-[.07em] uppercase cursor-pointer font-[inherit] transition-colors ${active ? "bg-[#EEF4FF] border-b-[#2563EB] text-[#1A52C4] font-[700]" : "bg-transparent border-b-transparent text-[#A8BDD8] font-[600] hover:text-[#7A92B0]"}`}
                   >
                     <tab.icon size={13} /> {tab.label}
                   </button>
@@ -2176,24 +1803,27 @@ const EmergencyDetailDrawer = ({
             </div>
 
             {/* Content */}
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                background: T.surface1,
-                scrollbarWidth: "thin",
-                scrollbarColor: `${T.border1} transparent`,
-              }}
-            >
+            <div className="flex-1 overflow-hidden flex flex-col">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.13 }}
+                  transition={{ duration: 0.12 }}
+                  className="flex-1 overflow-hidden flex flex-col"
                 >
-                  {activeTab === "details" && (
+                  {activeTab === "details" && isMerged && (
+                    <MergedTab
+                      groupId={mergedGroupId}
+                      localStatus={localStatus}
+                      onDownloadPDF={handleDownloadPDF}
+                      isDownloading={isDownloading}
+                      token={token}
+                    />
+                  )}
+
+                  {activeTab === "details" && !isMerged && (
                     <DetailsTab
                       emergency={emergency}
                       localStatus={localStatus}
@@ -2203,6 +1833,7 @@ const EmergencyDetailDrawer = ({
                       isService={isService}
                     />
                   )}
+
                   {activeTab === "action" && (
                     <ActionsTab
                       currentStatus={localStatus}
@@ -2210,12 +1841,15 @@ const EmergencyDetailDrawer = ({
                       isService={isService}
                     />
                   )}
-                  {activeTab === "chat" && !isService && (
-                    <ChatTab
-                      emergencyId={emergency._id || emergency.id}
-                      token={token}
-                      apiBaseUrl={API_BASE}
-                    />
+
+                  {activeTab === "chat" && !isService && !isMerged && (
+                    <div className="flex-1 overflow-hidden">
+                      <ChatTab
+                        emergencyId={emergency._id || emergency.id}
+                        token={token}
+                        apiBaseUrl={API_BASE}
+                      />
+                    </div>
                   )}
                 </motion.div>
               </AnimatePresence>
@@ -2223,17 +1857,7 @@ const EmergencyDetailDrawer = ({
           </motion.div>
 
           <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes headerPulse {
-              0%,100% { box-shadow: 0 0 0 3px #FEE2E2; }
-              50%     { box-shadow: 0 0 0 7px #FFF5F5; }
-            }
-            @keyframes dotPulse {
-              0%   { box-shadow: 0 0 0 0 rgba(37,99,235,.5); }
-              70%  { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
-              100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
-            }
+            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
             ::-webkit-scrollbar { width: 4px; }
             ::-webkit-scrollbar-track { background: transparent; }
             ::-webkit-scrollbar-thumb { background: #C8D8EE; border-radius: 4px; }
@@ -2242,6 +1866,4 @@ const EmergencyDetailDrawer = ({
       )}
     </AnimatePresence>
   );
-};
-
-export default EmergencyDetailDrawer;
+}

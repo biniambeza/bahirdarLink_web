@@ -151,9 +151,19 @@ const SightingCard = React.memo(({ report, index }) => {
           {status}
         </span>
       </div>
-      <p className="text-sm text-slate-600 style-paragraph mb-2 leading-relaxed">
+
+      <p className="text-sm text-slate-600 style-paragraph mb-3 leading-relaxed">
         {cleanStr(report.description) || "No description provided."}
       </p>
+
+      {/* Added Phone Number Display */}
+      {report.phoneNumber && (
+        <div className="flex items-center gap-1.5 text-blue-600 mb-2">
+          <Phone size={12} />
+          <span className="text-xs font-bold">{report.phoneNumber}</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-1.5 text-slate-400">
         <MapPin size={12} className="text-slate-300" />
         <span className="text-xs">
@@ -163,7 +173,6 @@ const SightingCard = React.memo(({ report, index }) => {
     </div>
   );
 });
-SightingCard.displayName = "SightingCard";
 
 const StatusPanel = React.memo(
   ({ currentStatus, updating, onStatusChange }) => (
