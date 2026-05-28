@@ -23,7 +23,7 @@ import AddCasePage from "./AddCasePage";
 
 // Dynamic Environment Base Routing Strategy
 const LOCAL_URL = "http://localhost:5000";
-const RENDER_URL = "https://your-render-api-subdomain.onrender.com"; // Replace with your actual Render URL
+const RENDER_URL = "https://bahirlink-backend-1.onrender.com"; // Replace with your actual Render URL
 
 let BASE_URL = LOCAL_URL;
 let API_URL = `${BASE_URL}/api/caseType`;

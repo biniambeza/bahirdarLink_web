@@ -57,8 +57,13 @@ const CategoryPage = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [catRes, typeRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/serviceCategory", { headers }),
-        axios.get("http://localhost:5000/api/serviceType", { headers }),
+        axios.get(
+          "https://bahirlink-backend-1.onrender.com/api/serviceCategory",
+          { headers },
+        ),
+        axios.get("https://bahirlink-backend-1.onrender.com/api/serviceType", {
+          headers,
+        }),
       ]);
 
       // Adapt based on your API response structure
@@ -133,12 +138,16 @@ const CategoryPage = () => {
       };
 
       if (modalMode === "add") {
-        await axios.post("http://localhost:5000/api/serviceCategory", payload, {
-          headers,
-        });
+        await axios.post(
+          "https://bahirlink-backend-1.onrender.com/api/serviceCategory",
+          payload,
+          {
+            headers,
+          },
+        );
       } else {
         await axios.put(
-          `http://localhost:5000/api/serviceCategory/${selectedCategoryId}`,
+          `https://bahirlink-backend-1.onrender.com/api/serviceCategory/${selectedCategoryId}`,
           payload,
           { headers },
         );

@@ -9,7 +9,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://bahirlink-backend-1.onrender.com";
 
 const ServiceRequestsPage = () => {
   const [requests, setRequests] = useState([]);

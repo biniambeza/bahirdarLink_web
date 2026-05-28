@@ -19,7 +19,7 @@ const UsersPage = () => {
         if (!token) throw new Error("User not logged in");
 
         const { data } = await axios.get(
-          "http://localhost:5000/api/users/all",
+          "https://bahirlink-backend-1.onrender.com/api/users/all",
           {
             headers: { Authorization: `Bearer ${token}` },
           },

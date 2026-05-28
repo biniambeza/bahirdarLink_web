@@ -260,9 +260,6 @@ const resolveCategory = (incident, catMap = {}) => {
   return null;
 };
 
-/* ═══════════════════════════════════════════════════════
-   CATEGORY COLOR PALETTE
-═══════════════════════════════════════════════════════ */
 const CAT_PALETTES = [
   { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE" },
   { bg: "#F0FDF4", text: "#15803D", border: "#BBF7D0" },
@@ -276,9 +273,6 @@ const CAT_PALETTES = [
 const catPalette = (name) =>
   CAT_PALETTES[Math.abs(stringToHue(name || "")) % CAT_PALETTES.length];
 
-/* ═══════════════════════════════════════════════════════
-   STAT CARD
-═══════════════════════════════════════════════════════ */
 const StatCard = ({ label, value, Icon, color, bg, border }) => (
   <div
     style={{
@@ -334,9 +328,6 @@ const StatCard = ({ label, value, Icon, color, bg, border }) => (
   </div>
 );
 
-/* ═══════════════════════════════════════════════════════
-   SORT HEADER
-═══════════════════════════════════════════════════════ */
 const SortTh = ({
   label,
   col,
@@ -383,9 +374,6 @@ const SortTh = ({
   );
 };
 
-/* ═══════════════════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════════════════ */
 const IncidentsPage = () => {
   const [emergencies, setEmergencies] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -412,7 +400,9 @@ const IncidentsPage = () => {
   const agencyTypeStr = getLangStr(agencyInfo?.agencyType?.name).toLowerCase();
   const isService = useMemo(
     () =>
-      ["municipal", "electric", "water"].some((t) => agencyTypeStr.includes(t)),
+      ["municipal", "electric", "water", "health"].some((t) =>
+        agencyTypeStr.includes(t),
+      ),
     [agencyTypeStr],
   );
   const configKey = useMemo(
@@ -443,8 +433,8 @@ const IncidentsPage = () => {
       setAgencyInfo(storedAgency);
 
       const typeName = getLangStr(storedAgency?.agencyType?.name).toLowerCase();
-      const localIsService = ["municipal", "electric", "water"].some((t) =>
-        typeName.includes(t),
+      const localIsService = ["municipal", "electric", "water", "health"].some(
+        (t) => typeName.includes(t),
       );
       const agencyId = storedAgency.id;
       if (!agencyId) return;
@@ -452,12 +442,12 @@ const IncidentsPage = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const dataEndpoint = localIsService
-        ? `http://localhost:5000/api/service/agency/${agencyId}`
-        : `http://localhost:5000/api/emergencies/agency/${agencyId}/emergencies`;
+        ? `https://bahirlink-backend-1.onrender.com/api/service/agency/${agencyId}`
+        : `https://bahirlink-backend-1.onrender.com/api/emergencies/agency/${agencyId}/emergencies`;
       const catEndpoint = localIsService
-        ? `http://localhost:5000/api/serviceCategory/agency/${agencyId}`
-        : `http://localhost:5000/api/categories/by-agency/${agencyId}`;
-      const teamsEndpoint = `http://localhost:5000/api/responderTeam/agency/${agencyId}`;
+        ? `https://bahirlink-backend-1.onrender.com/api/serviceCategory/agency/${agencyId}`
+        : `https://bahirlink-backend-1.onrender.com/api/categories/by-agency/${agencyId}`;
+      const teamsEndpoint = `https://bahirlink-backend-1.onrender.com/api/responderTeam/agency/${agencyId}`;
 
       const [dataRes, catRes, teamsRes] = await Promise.allSettled([
         axios.get(dataEndpoint, { headers }),
@@ -652,25 +642,13 @@ const IncidentsPage = () => {
     agencyInfo,
   ]);
 
-  /* ── Teams whose kebeles appear in the incidents list ──
-     Only these teams are shown in the filter panel and the
-     Assigned Station column. This ensures we never show a
-     team that belongs to a different agency type or whose
-     kebeles have no incidents in the current dataset.
-
-     Logic: collect all kebele IDs present in `emergencies`,
-     then keep only the responder teams that cover at least
-     one of those kebele IDs. This is the mirror of
-     Strategy 1 in resolveStationFromTeams. ── */
   const activeTeamsForFilter = useMemo(() => {
     const arr = Array.isArray(emergencies) ? emergencies : [];
 
-    // Collect every kebele ID that appears in the incidents
     const incidentKebeleIds = new Set(
       arr.map((i) => String(i.kebeleId ?? i.kebele?.id ?? "")).filter(Boolean),
     );
 
-    // Keep teams that cover at least one of those kebeles
     return responderTeams.filter(
       (t) =>
         Array.isArray(t.kebeles) &&

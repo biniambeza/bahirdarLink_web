@@ -22,7 +22,7 @@ const AgentsPage = () => {
     try {
       const token = localStorage.getItem("token");
       const { data } = await axios.get(
-        "http://localhost:5000/api/agency/my-agents",
+        "https://bahirlink-backend-1.onrender.com/api/agency/my-agents",
         {
           headers: { Authorization: `Bearer ${token}` },
         },

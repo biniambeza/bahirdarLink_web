@@ -70,9 +70,12 @@ const SettingsPage = () => {
   const fetchServiceTypes = async () => {
     setListLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/serviceType", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        "https://bahirlink-backend-1.onrender.com/api/serviceType",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       setServiceTypes(res.data.data || []);
     } catch (err) {
       console.error("Failed to fetch service types:", err);
@@ -85,7 +88,7 @@ const SettingsPage = () => {
     setAgencyListLoading(true);
     try {
       const res = await axios.get(
-        "http://localhost:5000/api/agencyType/my-agents",
+        "https://bahirlink-backend-1.onrender.com/api/agencyType/my-agents",
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -134,9 +137,13 @@ const SettingsPage = () => {
         }
       }
 
-      await axios.post(`http://localhost:5000/api/${endpoint}`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        `https://bahirlink-backend-1.onrender.com/api/${endpoint}`,
+        payload,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       setSuccess(`${typeLabel} created successfully!`);
       setter(""); // Clear input box

@@ -29,7 +29,7 @@ const KebelePage = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const API_URL = "http://localhost:5000/api/kebele";
+  const API_URL = "https://bahirlink-backend-1.onrender.com/api/kebele";
 
   // Fetch kebeles
   const fetchKebeles = async () => {

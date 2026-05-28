@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import ChatTab from "./ChatTab";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://bahirlink-backend-1.onrender.com";
 
 // Helper to extract language string (defaults to English)
 const getLangStr = (val) => {
@@ -1908,8 +1908,13 @@ const EmergencyDetailDrawer = ({
   // Filter tabs based on service type - hide chat for service reports
   const availableTabs = TABS.filter((tab) => !(isService && tab.id === "chat"));
 
+  const prevIdRef = useRef(null);
+
   useEffect(() => {
-    if (emergency) {
+    if (!emergency) return;
+    const id = emergency._id || emergency.id;
+    if (id !== prevIdRef.current) {
+      prevIdRef.current = id;
       setLocalStatus(emergency.status);
       setActiveTab("details");
     }
@@ -1943,6 +1948,7 @@ const EmergencyDetailDrawer = ({
     try {
       const id = emergency?._id || emergency?.id;
       if (!token || !id) return;
+
       if (newStatus === "resolved" && reportPayload && !isService) {
         const fd = new FormData();
         fd.append("incidentSummary", reportPayload.incidentSummary);
@@ -1952,14 +1958,25 @@ const EmergencyDetailDrawer = ({
         fd.append("propertyDamageValue", reportPayload.propertyDamageValue);
         reportPayload.witnesses.forEach((w) => fd.append("witnesses[]", w));
         reportPayload.suspects.forEach((s) => fd.append("suspects[]", s));
-        reportPayload.media.forEach((f) => fd.append("media", f));
+        // ✅ FIX: only append actual File objects, not empty array
+        if (reportPayload.media && reportPayload.media.length > 0) {
+          reportPayload.media.forEach((f) => fd.append("media", f));
+        }
+
         await axios.post(`${API_BASE}/api/finalReport/${id}`, fd, {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            // ✅ FIX: do NOT set Content-Type manually — let browser set it with boundary
           },
         });
+        // ✅ Service already sets status to resolved, skip the PATCH
+        setLocalStatus(newStatus);
+        onRefresh?.();
+        setActiveTab("details");
+        return; // ← exit early, no PATCH needed
       }
+
+      // Non-resolved status changes
       await axios.patch(
         `${API_BASE}/api/${apiPath}/${id}/status`,
         { status: newStatus },
@@ -1967,7 +1984,6 @@ const EmergencyDetailDrawer = ({
       );
       setLocalStatus(newStatus);
       onRefresh?.();
-      if (newStatus === "resolved") onClose();
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || "Server Error"}`);
     }

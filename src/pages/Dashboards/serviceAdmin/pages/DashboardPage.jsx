@@ -34,7 +34,7 @@ import {
 import ServiceDetailPage from "./ServiceDetailPage";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const API = "http://localhost:5000/api";
+const API = "https://bahirlink-backend-1.onrender.com/api";
 const getToken = () => localStorage.getItem("token");
 const authHdrs = () => ({ Authorization: `Bearer ${getToken()}` });
 

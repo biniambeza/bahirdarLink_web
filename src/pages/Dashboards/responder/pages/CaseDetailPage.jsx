@@ -22,7 +22,8 @@ import axios from "axios";
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const BASE_URL =
+  import.meta.env.VITE_API_URL || "https://bahirlink-backend-1.onrender.com";
 
 const API_ENDPOINTS = {
   caseDetail: (id) => `${BASE_URL}/api/cases/${id}`,

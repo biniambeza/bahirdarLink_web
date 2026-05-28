@@ -13,7 +13,7 @@ import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://bahirlink-backend-1.onrender.com";
 
 // ─── LOGOUT MODAL ─────────────────────────────────────────────────────────────
 const LogoutModal = ({ onConfirm, onCancel }) => (

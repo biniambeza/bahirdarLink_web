@@ -27,9 +27,12 @@ const EditAgentPage = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await axios.get(`http://localhost:5000/api/agency/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `https://bahirlink-backend-1.onrender.com/api/agency/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (res.data.success) {
         const data = res.data.data;
@@ -55,9 +58,12 @@ const EditAgentPage = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await axios.get("http://localhost:5000/api/agencyType", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        "https://bahirlink-backend-1.onrender.com/api/agencyType",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (res.data.success) {
         setAgencyTypes(res.data.data);
@@ -86,7 +92,7 @@ const EditAgentPage = () => {
       const token = localStorage.getItem("token");
 
       const res = await axios.put(
-        `http://localhost:5000/api/agency/${id}`,
+        `https://bahirlink-backend-1.onrender.com/api/agency/${id}`,
         agent,
         {
           headers: { Authorization: `Bearer ${token}` },

@@ -25,9 +25,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-/* ═══════════════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════════════ */
 const renderEnglish = (val) => {
   if (!val) return "";
   if (typeof val === "object")
@@ -72,9 +69,6 @@ const STATUS_ORDER = {
   resolved: 6,
 };
 
-/* ═══════════════════════════════════════════════════════
-   STAT CARD
-═══════════════════════════════════════════════════════ */
 const StatCard = ({ label, value, Icon, color }) => {
   const colors = {
     blue: {
@@ -124,9 +118,6 @@ const StatCard = ({ label, value, Icon, color }) => {
   );
 };
 
-/* ═══════════════════════════════════════════════════════
-   SORT ICON + TH
-═══════════════════════════════════════════════════════ */
 const SortIcon = ({ col, sortCol, sortDir }) => {
   if (sortCol !== col)
     return (
@@ -151,9 +142,6 @@ const Th = ({ label, col, sortCol, sortDir, onSort, center }) => (
   </th>
 );
 
-/* ═══════════════════════════════════════════════════════
-   STATUS CHIP
-═══════════════════════════════════════════════════════ */
 const STATUS_STYLES = {
   resolved: {
     cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -202,9 +190,6 @@ const StatusChip = ({ status }) => {
   );
 };
 
-/* ═══════════════════════════════════════════════════════
-   AGENCY DOT (incident cell color)
-═══════════════════════════════════════════════════════ */
 const AGENCY_DOT_MAP = {
   fire: "bg-orange-400",
   crime: "bg-blue-500",
@@ -240,8 +225,9 @@ const ReportsPage = () => {
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const API_URL = "http://localhost:5000/api/emergencies/admin/all";
-  const KEBELES_URL = "http://localhost:5000/api/kebele";
+  const API_URL =
+    "https://bahirlink-backend-1.onrender.com/api/emergencies/admin/all";
+  const KEBELES_URL = "https://bahirlink-backend-1.onrender.com/api/kebele";
 
   /* ── Fetch reports + all kebeles in parallel ── */
   useEffect(() => {

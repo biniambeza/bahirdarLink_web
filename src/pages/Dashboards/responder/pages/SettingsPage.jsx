@@ -16,7 +16,7 @@ import {
 
 /* ─── API CONFIGURATION ─────────────────────────────────────── */
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: "https://bahirlink-backend-1.onrender.com/api",
 });
 
 API.interceptors.request.use((config) => {
@@ -37,8 +37,8 @@ const decodeToken = (token) => {
           .atob(base64)
           .split("")
           .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-          .join("")
-      )
+          .join(""),
+      ),
     );
   } catch {
     return null;
@@ -98,15 +98,20 @@ const EmailForm = ({ initialEmail, username, teamId, onUpdateSuccess }) => {
 
   useEffect(() => {
     setEmail(initialEmail || "");
-  } , [initialEmail]);
+  }, [initialEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus({ type: null, message: "" });
-    
+
     const trimmed = email.trim();
-    if (!trimmed) return setStatus({ type: "error", message: "Please enter an email address." });
-    if (!isValidEmail(trimmed)) return setStatus({ type: "error", message: "Invalid email address." });
+    if (!trimmed)
+      return setStatus({
+        type: "error",
+        message: "Please enter an email address.",
+      });
+    if (!isValidEmail(trimmed))
+      return setStatus({ type: "error", message: "Invalid email address." });
 
     try {
       setLoading(true);
@@ -114,7 +119,10 @@ const EmailForm = ({ initialEmail, username, teamId, onUpdateSuccess }) => {
       setStatus({ type: "success", message: "Email updated successfully." });
       onUpdateSuccess(trimmed);
     } catch (err) {
-      setStatus({ type: "error", message: err.response?.data?.message || "Unable to update email." });
+      setStatus({
+        type: "error",
+        message: err.response?.data?.message || "Unable to update email.",
+      });
     } finally {
       setLoading(false);
     }
@@ -127,8 +135,12 @@ const EmailForm = ({ initialEmail, username, teamId, onUpdateSuccess }) => {
           <Mail size={18} />
         </div>
         <div>
-          <h3 className="text-base font-bold text-slate-900">Contact Information</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Update your notification email.</p>
+          <h3 className="text-base font-bold text-slate-900">
+            Contact Information
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Update your notification email.
+          </p>
         </div>
       </div>
 
@@ -187,15 +199,24 @@ const PasswordForm = ({ teamId }) => {
     setStatus({ type: null, message: "" });
 
     if (newPassword !== confirmPassword) {
-      return setStatus({ type: "error", message: "New passwords do not match." });
+      return setStatus({
+        type: "error",
+        message: "New passwords do not match.",
+      });
     }
     if (newPassword.length < 6) {
-      return setStatus({ type: "error", message: "Password must be at least 6 characters." });
+      return setStatus({
+        type: "error",
+        message: "Password must be at least 6 characters.",
+      });
     }
 
     try {
       setLoading(true);
-      await API.put(`/responderTeam/${teamId}`, { oldPassword, password: newPassword });
+      await API.put(`/responderTeam/${teamId}`, {
+        oldPassword,
+        password: newPassword,
+      });
       setStatus({ type: "success", message: "Password updated successfully." });
       setOldPassword("");
       setNewPassword("");
@@ -212,9 +233,26 @@ const PasswordForm = ({ teamId }) => {
 
   const getStrength = () => {
     if (newPassword.length === 0) return null;
-    if (newPassword.length < 6) return { label: "Weak", color: "bg-rose-500", text: "text-rose-500", width: "w-[30%]" };
-    if (newPassword.length < 10) return { label: "Fair", color: "bg-amber-500", text: "text-amber-500", width: "w-[60%]" };
-    return { label: "Strong", color: "bg-emerald-500", text: "text-emerald-500", width: "w-full" };
+    if (newPassword.length < 6)
+      return {
+        label: "Weak",
+        color: "bg-rose-500",
+        text: "text-rose-500",
+        width: "w-[30%]",
+      };
+    if (newPassword.length < 10)
+      return {
+        label: "Fair",
+        color: "bg-amber-500",
+        text: "text-amber-500",
+        width: "w-[60%]",
+      };
+    return {
+      label: "Strong",
+      color: "bg-emerald-500",
+      text: "text-emerald-500",
+      width: "w-full",
+    };
   };
 
   const strength = getStrength();
@@ -226,8 +264,12 @@ const PasswordForm = ({ teamId }) => {
           <Fingerprint size={18} />
         </div>
         <div>
-          <h3 className="text-base font-bold text-slate-900">Password Rotation</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Secure your team control panel.</p>
+          <h3 className="text-base font-bold text-slate-900">
+            Password Rotation
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Secure your team control panel.
+          </p>
         </div>
       </div>
 
@@ -296,9 +338,13 @@ const PasswordForm = ({ teamId }) => {
         {strength && (
           <div className="flex items-center gap-2.5 mt-1">
             <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full ${strength.color} rounded-full transition-all duration-300 ${strength.width}`} />
+              <div
+                className={`h-full ${strength.color} rounded-full transition-all duration-300 ${strength.width}`}
+              />
             </div>
-            <span className={`text-[10px] font-bold tracking-wider uppercase min-w-[42px] ${strength.text}`}>
+            <span
+              className={`text-[10px] font-bold tracking-wider uppercase min-w-[42px] ${strength.text}`}
+            >
               {strength.label}
             </span>
           </div>
@@ -309,7 +355,9 @@ const PasswordForm = ({ teamId }) => {
         <div className="flex justify-end mt-2">
           <button
             type="submit"
-            disabled={loading || !oldPassword || !newPassword || !confirmPassword}
+            disabled={
+              loading || !oldPassword || !newPassword || !confirmPassword
+            }
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 hover:to-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
@@ -353,20 +401,25 @@ const ResponderTeamSettingsPage = () => {
         const token = localStorage.getItem("token");
         const decoded = decodeToken(token);
         const extractedId = decoded?.id || decoded?.userId;
-        if (!extractedId) throw new Error("Could not extract team ID from token.");
+        if (!extractedId)
+          throw new Error("Could not extract team ID from token.");
         setTeamId(extractedId);
 
         const res = await API.get(`/responderTeam/${extractedId}`);
         const teamData = res.data?.data || res.data;
         let detail = teamData;
-        
-        const agencyId = teamData?.agencyId || teamData?.agency?.id || teamData?.agency?._id;
+
+        const agencyId =
+          teamData?.agencyId || teamData?.agency?.id || teamData?.agency?._id;
         if (agencyId) {
           try {
             const ar = await API.get(`/agency/${agencyId}`);
             detail = { ...teamData, agency: ar.data?.data || ar.data };
           } catch (agencyErr) {
-            console.error("Failed to append agency details details:", agencyErr);
+            console.error(
+              "Failed to append agency details details:",
+              agencyErr,
+            );
           }
         }
         setTeamProfile(detail);
@@ -391,15 +444,27 @@ const ResponderTeamSettingsPage = () => {
   }
 
   const metadataRows = [
-    { icon: <Building2 size={13} />, label: "Agency Type", value: getAgencyTypeLabel() },
-    { icon: <User size={13} />, label: "Username", value: teamProfile?.username || "Not assigned" },
-    { icon: <Mail size={13} />, label: "Email", value: teamProfile?.email || "No email on file", mono: true },
+    {
+      icon: <Building2 size={13} />,
+      label: "Agency Type",
+      value: getAgencyTypeLabel(),
+    },
+    {
+      icon: <User size={13} />,
+      label: "Username",
+      value: teamProfile?.username || "Not assigned",
+    },
+    {
+      icon: <Mail size={13} />,
+      label: "Email",
+      value: teamProfile?.email || "No email on file",
+      mono: true,
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-slate-50 to-slate-100 font-sans text-slate-900 px-6 py-12 md:pb-20">
       <div className="max-w-4xl mx-auto flex flex-col gap-7">
-        
         {/* ── HERO BANNER ── */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-10 text-white shadow-xl shadow-blue-600/20">
           {/* Decorative shapes */}
@@ -412,7 +477,9 @@ const ResponderTeamSettingsPage = () => {
                 <Shield size={12} /> Responder Settings
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-none mb-3">
-                {teamProfile?.name ? parseLocalizedText(teamProfile.name) : "Tactical Response Unit"}
+                {teamProfile?.name
+                  ? parseLocalizedText(teamProfile.name)
+                  : "Tactical Response Unit"}
               </h1>
               <p className="text-sm leading-relaxed text-blue-100/70 max-w-md font-normal">
                 Manage credentials and contact details for your responder unit.
@@ -428,8 +495,12 @@ const ResponderTeamSettingsPage = () => {
                 >
                   <span className="text-white/60 shrink-0">{icon}</span>
                   <div>
-                    <div className="text-[9px] font-bold tracking-widest uppercase text-white/50">{label}</div>
-                    <div className={`text-sm font-bold text-white mt-0.5 break-all ${mono ? "font-mono text-xs" : ""}`}>
+                    <div className="text-[9px] font-bold tracking-widest uppercase text-white/50">
+                      {label}
+                    </div>
+                    <div
+                      className={`text-sm font-bold text-white mt-0.5 break-all ${mono ? "font-mono text-xs" : ""}`}
+                    >
                       {value}
                     </div>
                   </div>
@@ -447,7 +518,9 @@ const ResponderTeamSettingsPage = () => {
             initialEmail={teamProfile?.email}
             username={teamProfile?.username}
             teamId={teamId}
-            onUpdateSuccess={(updatedEmail) => setTeamProfile((prev) => ({ ...prev, email: updatedEmail }))}
+            onUpdateSuccess={(updatedEmail) =>
+              setTeamProfile((prev) => ({ ...prev, email: updatedEmail }))
+            }
           />
           <PasswordForm teamId={teamId} />
         </div>

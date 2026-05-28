@@ -24,10 +24,7 @@ import {
   Radio,
 } from "lucide-react";
 
-const API_BASE =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://bahirlink-backend-1.onrender.com";
+const API_BASE = "https://bahirlink-backend-1.onrender.com";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const T = {

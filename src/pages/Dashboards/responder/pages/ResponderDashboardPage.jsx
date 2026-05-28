@@ -39,7 +39,7 @@ import {
   Cell,
 } from "recharts";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://bahirlink-backend-1.onrender.com";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const DEFAULT_PALETTE = [
@@ -553,7 +553,7 @@ const ResponderDashboardPage = () => {
       setAgencyInfo(agency);
 
       const agencyName = (agency?.name || "").toLowerCase();
-      const serviceKeywords = ["municipal", "electric", "water"];
+      const serviceKeywords = ["municipal", "electric", "water", "health"];
       const localIsService = serviceKeywords.some((kw) =>
         agencyName.includes(kw),
       );

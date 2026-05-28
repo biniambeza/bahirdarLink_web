@@ -26,14 +26,6 @@ function unlockAudioContext() {
   } catch (_) {}
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   SINGLE-DEVICE TESTING FIX:
-   React (responder) uses getDisplayMedia (screen share) instead of the webcam.
-   This means the physical camera stays free for Flutter (reporter) to grab.
-
-   In real deployment on separate devices, swap TEST_MODE to false and it will
-   use getUserMedia as normal.
-───────────────────────────────────────────────────────────────────────────── */
 const TEST_MODE = true; // ← set false for production / separate devices
 
 async function getLocalStream() {
@@ -98,7 +90,7 @@ const isMineMsg = (m) => m?.senderType === "responderTeam";
 export default function ChatTab({
   emergencyId,
   token,
-  apiBaseUrl = "http://localhost:5000",
+  apiBaseUrl = "https://bahirlink-backend-1.onrender.com",
 }) {
   /* ── chat ── */
   const [status,           setStatus]           = useState("idle");

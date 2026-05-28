@@ -54,10 +54,10 @@ const AddCasePage = ({ onClose, onSaved }) => {
 
         const user = JSON.parse(storedUser);
         const [caseTypeRes, kebeleRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/caseType", {
+          axios.get("https://bahirlink-backend-1.onrender.com/api/caseType", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("http://localhost:5000/api/kebele", {
+          axios.get("https://bahirlink-backend-1.onrender.com/api/kebele", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -146,11 +146,15 @@ const AddCasePage = ({ onClose, onSaved }) => {
 
       if (imageFile) data.append("media", imageFile);
 
-      const res = await axios.post("http://localhost:5000/api/cases", data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const res = await axios.post(
+        "https://bahirlink-backend-1.onrender.com/api/cases",
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       if (onSaved) onSaved(res.data);
       onClose();

@@ -27,9 +27,12 @@ const AddAgentPanel = ({ closePanel, refreshAgents }) => {
       try {
         const token = localStorage.getItem("token");
 
-        const res = await axios.get("http://localhost:5000/api/agencyType", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          "https://bahirlink-backend-1.onrender.com/api/agencyType",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
 
         if (res.data.success) {
           setAgencyTypes(res.data.data);
@@ -62,9 +65,13 @@ const AddAgentPanel = ({ closePanel, refreshAgents }) => {
     try {
       const token = localStorage.getItem("token");
 
-      await axios.post("http://localhost:5000/api/agency", form, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        "https://bahirlink-backend-1.onrender.com/api/agency",
+        form,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       refreshAgents();
       closePanel();

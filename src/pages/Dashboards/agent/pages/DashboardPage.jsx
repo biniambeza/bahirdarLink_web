@@ -51,8 +51,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import IncidentDetails from "./IncidentDetailPage";
 
-const API_BASE_URL = "http://localhost:5000/api";
-const SOCKET_URL = "http://localhost:5000";
+const BASE = "https://bahirlink-backend-1.onrender.com";
+const API_BASE_URL = `${BASE}/api`;
+const SOCKET_URL = BASE;
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const TEAM_COLORS = [
@@ -254,7 +255,7 @@ const DashboardPage = () => {
       "municipal",
       "electric utility",
       "water utility",
-      "health service",
+      "health",
     ].some((t) => type.includes(t));
     return {
       isService,
