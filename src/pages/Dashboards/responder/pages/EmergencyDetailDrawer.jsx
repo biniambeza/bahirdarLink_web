@@ -119,7 +119,6 @@ const resolveReporter = (e) => {
   return { name: "Unknown", contact: null, type: "guest" };
 };
 
-// ── Resolve ALL media from a report (returns array of URL strings) ────────────
 const resolveAllMedia = (e) => {
   const results = [];
 
@@ -187,34 +186,21 @@ const getToken = () =>
 // MEDIA URL UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns true for Cloudinary URLs and any other fully-qualified external URL.
- * These must be used directly as <img src> — fetching them via axios as blobs
- * is unnecessary, slower, and breaks on CORS for most CDN hosts.
- */
 const isExternalUrl = (url) =>
   typeof url === "string" && url.startsWith("http");
 
-/**
- * Guess media type from URL path/extension.
- * Cloudinary URLs look like:
- *   https://res.cloudinary.com/.../image/upload/.../filename.jpg
- *   https://res.cloudinary.com/.../video/upload/.../filename.mp4
- */
 const guessMediaType = (url) => {
-  if (!url) return "image"; // safe default
-  const lower = url.toLowerCase().split("?")[0]; // strip query string
+  if (!url) return "image";
+  const lower = url.toLowerCase().split("?")[0];
 
-  // Cloudinary embeds resource_type in the path
   if (lower.includes("/video/upload/")) return "video";
   if (lower.includes("/image/upload/")) return "image";
 
-  // Extension-based fallback
   if (/\.(mp4|mov|avi|webm|mkv|ogv)(\b|$)/.test(lower)) return "video";
   if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|avif|heic)(\b|$)/.test(lower))
     return "image";
 
-  return "image"; // default to image for unknown Cloudinary assets
+  return "image";
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -532,26 +518,14 @@ function Spinner({ label = "Loading…" }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SINGLE MEDIA ITEM
-//
-// KEY FIX: Cloudinary / external URLs are public CDN links — they MUST be used
-// directly as <img src> or <video src>. Fetching them via axios as blobs:
-//   1. Triggers CORS preflight that Cloudinary may reject without credentials
-//   2. Doubles bandwidth (blob → object URL → browser re-decode)
-//   3. Breaks the content-type detection (Cloudinary returns "application/octet-stream"
-//      on some transforms)
-//
-// Internal relative URLs (served by the Express backend) still go through the
-// authenticated blob fetch path.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
   const external = isExternalUrl(mediaUrl);
   const guessedType = guessMediaType(mediaUrl);
 
-  // ── For external (Cloudinary) URLs: skip blob fetch, use URL directly ──────
   const [imgError, setImgError] = useState(false);
 
-  // ── For internal URLs: fetch as authenticated blob ──────────────────────────
   const [blobState, setBlobState] = useState({
     url: null,
     type: null,
@@ -560,7 +534,7 @@ function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
   });
 
   useEffect(() => {
-    if (!mediaUrl || external) return; // external URLs don't need blob fetch
+    if (!mediaUrl || external) return;
     let cancelled = false;
     setBlobState({ url: null, type: null, loading: true, error: null });
 
@@ -595,7 +569,6 @@ function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
     };
   }, [mediaUrl, token, external]);
 
-  // ── Render: external path ────────────────────────────────────────────────────
   if (external) {
     if (imgError) {
       return (
@@ -620,7 +593,6 @@ function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
       );
     }
 
-    // image (default for external)
     return (
       <div
         className="rounded-[10px] overflow-hidden border border-[#E4EBF5] h-[90px] relative group cursor-zoom-in"
@@ -642,7 +614,6 @@ function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
     );
   }
 
-  // ── Render: internal / blob path ─────────────────────────────────────────────
   if (blobState.loading) {
     return (
       <div className="rounded-[10px] overflow-hidden bg-[#F4F7FB] border border-[#E4EBF5] h-[90px] flex items-center justify-center">
@@ -713,7 +684,7 @@ function MediaItem({ mediaUrl, token, index, onOpenLightbox }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MEDIA GALLERY — grid of all media for one report
+// MEDIA GALLERY
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MediaGallery({ mediaUrls, token }) {
@@ -767,10 +738,7 @@ function MediaGallery({ mediaUrls, token }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MEDIA VIEWER — single media used in DetailsTab
-//
-// Same fix as MediaItem: external (Cloudinary) URLs go directly to <img/video>,
-// internal URLs still use the authenticated blob fetch.
+// MEDIA VIEWER
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MediaViewer({ mediaUrl, token }) {
@@ -779,7 +747,6 @@ function MediaViewer({ mediaUrl, token }) {
   const [lightbox, setLightbox] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  // blob state only used for internal URLs
   const [blobState, setBlobState] = useState({
     url: null,
     type: null,
@@ -827,7 +794,6 @@ function MediaViewer({ mediaUrl, token }) {
 
   if (!mediaUrl) return null;
 
-  // ── External (Cloudinary) render ─────────────────────────────────────────────
   if (external) {
     if (imgError) {
       return (
@@ -852,7 +818,6 @@ function MediaViewer({ mediaUrl, token }) {
       );
     }
 
-    // image
     return (
       <>
         <div className="rounded-[14px] overflow-hidden border-[1.5px] border-[#E4EBF5] bg-[#F4F7FB] relative">
@@ -898,7 +863,6 @@ function MediaViewer({ mediaUrl, token }) {
     );
   }
 
-  // ── Internal (blob) render ────────────────────────────────────────────────────
   const isImage = blobState.type?.startsWith("image");
   const isVideo = blobState.type?.startsWith("video");
 
@@ -1239,7 +1203,6 @@ function MergedTab({
               icon={BarChart3}
             />
 
-            {/* Selector */}
             <div
               className="flex gap-2 overflow-x-auto pb-2 mb-1"
               style={{ scrollbarWidth: "none" }}
@@ -1294,7 +1257,6 @@ function MergedTab({
               })}
             </div>
 
-            {/* Selected report */}
             {sel && (
               <motion.div
                 key={selectedIdx}
@@ -1303,7 +1265,6 @@ function MergedTab({
                 transition={{ duration: 0.16 }}
                 className="mt-3 border-[1.5px] border-[#DBE9FD] rounded-[18px] overflow-hidden bg-white shadow-[0_2px_16px_rgba(37,99,235,.07)]"
               >
-                {/* Report header */}
                 <div className="flex items-center gap-3 p-[13px_16px] bg-[#EEF4FF] border-b-[1.5px] border-[#DBE9FD]">
                   <Avatar reporter={selReporter} size={38} fontSize={14} />
                   <div className="flex-1 min-w-0">
@@ -1339,7 +1300,6 @@ function MergedTab({
                 </div>
 
                 <div className="p-[13px_16px]">
-                  {/* Narrative */}
                   {(sel.description || sel.summary) && (
                     <div className="bg-[#EEF4FF] rounded-[10px] p-[11px_14px] border-[1.5px] border-l-[3px] border-[#DBE9FD] border-l-[#2563EB] mb-4">
                       <p className="m-0 text-[10px] font-[800] text-[#4A80F0] tracking-[.08em] uppercase mb-1">
@@ -1351,7 +1311,6 @@ function MergedTab({
                     </div>
                   )}
 
-                  {/* Media evidence */}
                   {selMediaUrls.length > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center gap-[7px] mb-2">
@@ -1383,7 +1342,6 @@ function MergedTab({
                     </div>
                   )}
 
-                  {/* Report rows */}
                   <div className="bg-[#F8FAFD] rounded-[12px] border-[1.5px] border-[#E4EBF5] px-4 py-1 mb-4">
                     <InfoRow
                       icon={Tag}
@@ -1433,7 +1391,6 @@ function MergedTab({
           </>
         )}
 
-        {/* PDF */}
         {localStatus === "resolved" && (
           <>
             <SectionHead label="Official record" icon={FileCheck} />
@@ -1606,7 +1563,6 @@ function DetailsTab({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
-  const fileInputRef = useRef(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [form, setForm] = useState({
     incidentSummary: "",
@@ -1616,7 +1572,6 @@ function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
     suspects: [""],
     propertyDamage: "",
     propertyDamageValue: 0,
-    media: [],
   });
 
   const isResolved = currentStatus === "resolved";
@@ -1896,58 +1851,6 @@ function ActionsTab({ currentStatus, onUpdateStatus, isService }) {
                 />
               </div>
 
-              <div className="mb-5">
-                <label className={labelCls}>Media evidence</label>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-[13px] border-2 border-dashed border-[#BAD1FB] rounded-[12px] bg-[#EEF4FF] text-[#4A80F0] flex items-center justify-center gap-2 text-[12px] font-[700] cursor-pointer font-[inherit] box-border"
-                >
-                  <Camera size={14} />
-                  {form.media.length > 0
-                    ? `${form.media.length} file(s) — click to add more`
-                    : "Attach scene photos / evidence"}
-                </button>
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={(ev) => {
-                    setForm((p) => ({
-                      ...p,
-                      media: [...p.media, ...Array.from(ev.target.files)],
-                    }));
-                    ev.target.value = "";
-                  }}
-                />
-                {form.media.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    {form.media.map((f, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between py-2 px-3 bg-[#F4F7FB] rounded-[9px] border border-[#E4EBF5] text-[12px] text-[#4A607F]"
-                      >
-                        <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[82%]">
-                          {f.name}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setForm((p) => ({
-                              ...p,
-                              media: p.media.filter((_, j) => j !== i),
-                            }))
-                          }
-                          className="bg-transparent border-none text-[#A8BDD8] cursor-pointer p-0"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <button
                 onClick={handleFinalize}
                 disabled={!form.incidentSummary.trim()}
@@ -2069,7 +1972,6 @@ export default function EmergencyDetailDrawer({
         }).forEach(([k, v]) => fd.append(k, v));
         reportPayload.witnesses.forEach((w) => fd.append("witnesses[]", w));
         reportPayload.suspects.forEach((s) => fd.append("suspects[]", s));
-        reportPayload.media?.forEach((f) => fd.append("media", f));
 
         const url = isMerged
           ? `${API_BASE}/api/emerged/${id}/finalize`
