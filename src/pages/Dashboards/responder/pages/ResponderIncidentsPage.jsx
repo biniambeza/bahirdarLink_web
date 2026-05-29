@@ -19,12 +19,23 @@ import EmergencyDetailDrawer from "./EmergencyDetailDrawer";
 
 const API_BASE = "https://bahirlink-backend-1.onrender.com";
 
-// Modified to strictly deliver English string content values
 const renderEnglish = (val) => {
   if (val === null || val === undefined || val === "") return "—";
 
   if (typeof val === "object") {
     return val.en || val.name?.en || val.label?.en || val.name || "—";
+  }
+
+  if (
+    typeof val === "string" &&
+    (val.includes('{"en":') || val.includes('{"am":'))
+  ) {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed.en || "—";
+    } catch (e) {
+      return val;
+    }
   }
 
   return String(val);
@@ -68,7 +79,6 @@ const ResponderIncidentsPage = () => {
       const agency = agencyRes.data?.data || agencyRes.data;
       setAgencyInfo(agency);
 
-      // 3. Mode Detection Logic (Using fixed helper)
       const agencyName = (renderEnglish(agency?.name) || "").toLowerCase();
       const serviceKeywords = ["municipal", "electric", "water"];
       const localIsService = serviceKeywords.some((kw) =>
@@ -144,18 +154,12 @@ const ResponderIncidentsPage = () => {
     }
   };
 
-  // FIXED: Collects all sub-reports sharing an emergedId into a grouped nested array
   const filteredIncidents = useMemo(() => {
     const map = new Map();
     incidents.forEach((item) => {
-      const key = item.emergedId || item.EmergedId || item._id || item.id;
-      if (!map.has(key)) {
-        map.set(key, { ...item, mergedCount: 1, mergedIncidents: [item] });
-      } else {
-        const existing = map.get(key);
-        existing.mergedCount += 1;
-        existing.mergedIncidents.push(item);
-      }
+      const key = item.emergedId || item._id || item.id;
+      if (!map.has(key)) map.set(key, { ...item, mergedCount: 1 });
+      else map.get(key).mergedCount += 1;
     });
 
     return Array.from(map.values()).filter((incident) => {
@@ -163,9 +167,7 @@ const ResponderIncidentsPage = () => {
         incident.serviceCategoryId ||
         incident.categoryId ||
         incident.serviceCategory?.id ||
-        incident.serviceCategory?._id ||
-        incident.category?.id ||
-        incident.category?._id;
+        incident.category?.id;
 
       const selectedCatId = selectedCategory?.id || selectedCategory?._id;
       const matchesCat =
@@ -272,7 +274,7 @@ const ResponderIncidentsPage = () => {
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  <span>{renderEnglish(cat.name)}</span>
+                  {renderEnglish(cat.name)}
                 </button>
               ))}
             </div>
@@ -376,14 +378,12 @@ const ResponderIncidentsPage = () => {
                                   Received
                                 </p>
                                 <p className="text-sm font-black text-slate-700">
-                                  {incident.createdAt
-                                    ? new Date(
-                                        incident.createdAt,
-                                      ).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : "—"}
+                                  {new Date(
+                                    incident.createdAt,
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </p>
                               </div>
 
