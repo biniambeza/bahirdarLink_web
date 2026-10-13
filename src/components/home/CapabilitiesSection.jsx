@@ -46,12 +46,28 @@ const CapabilitiesSection = () => {
               <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-blue-400 block mb-2">
                 Mobile SOS Relay
               </span>
-              <h3 className="text-2xl font-black tracking-tight leading-snug mb-4">
+              <h3 className="text-2xl font-black tracking-tight leading-snug mb-3">
                 Rapid Emergency Dispatch
               </h3>
-              <p className="text-sm text-slate-400 leading-relaxed mb-6 font-normal">
+              <p className="text-sm text-slate-400 leading-relaxed mb-5 font-normal">
                 Report incidents in seconds with auto-GPS coordinates, live audio stream, and direct dispatcher video link.
               </p>
+
+              {/* Instant incident classification tags */}
+              <div className="flex flex-wrap gap-1.5 mb-6">
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-slate-300 text-[10px] font-bold border border-white/10">
+                  🚨 Crime 991
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-slate-300 text-[10px] font-bold border border-white/10">
+                  🚗 Traffic Accident
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-slate-300 text-[10px] font-bold border border-white/10">
+                  🔥 Fire 939
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-slate-300 text-[10px] font-bold border border-white/10">
+                  🚑 Medical 907
+                </span>
+              </div>
             </div>
 
             <div className="pt-6 border-t border-white/10 flex items-center justify-between">
@@ -143,10 +159,10 @@ const CapabilitiesSection = () => {
               </div>
               <div>
                 <h5 className="text-xs font-bold text-slate-900">
-                  Amanuel Tessema
+                  Commander Amanuel
                 </h5>
                 <p className="text-[10px] text-slate-500 mb-1">
-                  Civic Engineering Relay
+                  Crime & Patrol Coordinator
                 </p>
                 <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   Active Duty
