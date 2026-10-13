@@ -1,200 +1,251 @@
 import React from "react";
-import { 
-  Bell, 
-  Users, 
-  Map, 
-  Shield, 
-  Activity, 
-  TrendingUp, 
-  ArrowRight 
-} from "lucide-react";
 import { motion } from "framer-motion";
+import {
+  ShieldAlert,
+  PhoneCall,
+  CheckCircle,
+  Radio,
+  ArrowRight,
+  Sparkles,
+  MapPin,
+  TrendingUp,
+} from "lucide-react";
 
-const capabilities = [
-  {
-    icon: <Bell className="w-5 h-5" />,
-    title: "Incident Monitoring",
-    description: "Track incidents reported from mobile applications in real time with AI-powered diagnostics.",
-    tag: "Real-time tracking",
-    bgAccent: "bg-blue-50 text-blue-600 border-blue-100"
-  },
-  {
-    icon: <Users className="w-5 h-5" />,
-    title: "Agency Coordination",
-    description: "Unified dispatch for police, fire, and medical units with smart routing protocols.",
-    tag: "Multi-agency",
-    bgAccent: "bg-indigo-50 text-indigo-600 border-indigo-100"
-  },
-  {
-    icon: <Map className="w-5 h-5" />,
-    title: "Live Map View",
-    description: "Geospatial visualization for faster response decisions using advanced heat mapping.",
-    tag: "3D visualization",
-    bgAccent: "bg-emerald-50 text-emerald-600 border-emerald-100"
-  },
-  {
-    icon: <Shield className="w-5 h-5" />,
-    title: "Resource Management",
-    description: "Efficiently deploy personnel and equipment with real-time availability updates.",
-    tag: "Resource tracking",
-    bgAccent: "bg-amber-50 text-amber-600 border-amber-100"
-  },
-  {
-    icon: <Activity className="w-5 h-5" />,
-    title: "Emergency Dispatch",
-    description: "Automated priority-based routing and ETA calculations for critical response.",
-    tag: "Smart dispatch",
-    bgAccent: "bg-sky-50 text-sky-600 border-sky-100"
-  },
-  {
-    icon: <TrendingUp className="w-5 h-5" />,
-    title: "Analytics Dashboard",
-    description: "Comprehensive reporting and performance optimization for administrative oversight.",
-    tag: "Real-time insights",
-    bgAccent: "bg-purple-50 text-purple-600 border-purple-100"
-  }
-];
-
-// Stagger Animation Variants for the Grid Container
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 }
-  }
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { type: "spring", stiffness: 120, damping: 18 }
-  }
-};
+import dispatcherPortrait from "../../../assets/images/dispatcher_portrait.jpg";
+import officerPortrait from "../../../assets/images/officer_portrait.jpg";
+import glassCharts from "../../../assets/images/glass_3d_charts.jpg";
 
 const CapabilitiesSection = () => {
   return (
-    <div className="relative w-full min-h-screen bg-slate-50 text-slate-900 overflow-hidden flex flex-col selection:bg-blue-600 selection:text-white">
-      
-      {/* PREMIUM BRIGHT BACKGROUND GRAPHICS */}
+    <section className="relative w-full py-24 bg-[#f8fafc] text-slate-900 overflow-hidden">
+      {/* Ambient background droplets */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Subtle geometric dot grid pattern */}
-        <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px] opacity-40" />
-        {/* Soft, professional gradient glows */}
-        <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[60%] bg-blue-100/50 blur-[130px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[50%] bg-sky-100/40 blur-[110px] rounded-full" />
+        <div className="absolute top-1/2 left-4 w-72 h-72 bg-blue-100/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-100/40 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full max-w-[1280px] mx-auto px-6 md:px-12 pt-32 pb-16 w-full flex-grow justify-between">
-        
-        {/* HEADER SECTION */}
-        <header className="mb-16 md:mb-20 max-w-3xl">
-          <motion.div 
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center gap-2.5 mb-4"
-          >
-            <span className="w-2 h-2 bg-blue-600 rounded-full shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
-            <span className="text-blue-600 font-semibold uppercase text-xs tracking-[0.2em]">
-              Platform Capabilities
-            </span>
-          </motion.div>
+      <div className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-8">
+        {/* ── BENTO GRID (DIRECTLY MATCHING REFERENCE LOWER SECTION) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
           
-          <motion.h1 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.05 }}
-            className="text-4xl sm:text-5xl md:text-6xl text-slate-900 tracking-tight font-extrabold leading-[1.15] mb-6"
+          {/* ── BENTO 1: DARK MOBILE EMERGENCY CARD (Left, span 4) ── */}
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="lg:col-span-4 p-8 rounded-[2.5rem] bg-slate-950 text-white border border-white/10 shadow-2xl flex flex-col justify-between relative overflow-hidden"
           >
-            Unified Emergency <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">Response Infrastructure</span>
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-lg text-slate-500 font-normal max-w-2xl leading-relaxed"
-          >
-            High-availability tools engineered for public safety agencies. Monitor, coordinate, and dispatch resources with absolute precision.
-          </motion.p>
-        </header>
+            {/* Ambient top light */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* FEATURE GRID */}
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
-        >
-          {capabilities.map((cap, index) => (
-            <motion.div
-              key={index}
-              variants={cardVariants}
-              whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              className="group relative flex flex-col justify-between p-6 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/[0.04] transition-all duration-300"
-            >
+            <div>
+              {/* Notch pill indicator */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="w-10 h-3 rounded-full bg-white/20" />
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              </div>
+
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-blue-400 block mb-2">
+                Mobile SOS Relay
+              </span>
+              <h3 className="text-2xl font-black tracking-tight leading-snug mb-4">
+                Rapid Emergency Dispatch
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed mb-6 font-normal">
+                Report incidents in seconds with auto-GPS coordinates, live audio stream, and direct dispatcher video link.
+              </p>
+            </div>
+
+            <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs font-mono text-slate-400">
+                // 911 PROTOCOL
+              </span>
+              <button className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-wide shadow-md shadow-blue-500/30 transition-all flex items-center gap-2">
+                <span>Quick SOS</span>
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          </motion.div>
+
+          {/* ── BENTO 2: DISPATCH OPERATOR PORTRAIT CARD (Center, span 5) ── */}
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="lg:col-span-5 p-7 rounded-[2.5rem] bg-white/85 backdrop-blur-xl border border-white/90 shadow-[0_12px_36px_rgba(0,0,0,0.03)] flex flex-col justify-between"
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+              {/* Operator Image */}
+              <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden shrink-0 border border-slate-100 shadow-md">
+                <img
+                  src={dispatcherPortrait}
+                  alt="Verified Dispatcher"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Description */}
               <div>
-                {/* Header Element Inside Card */}
-                <div className="flex justify-between items-start mb-6">
-                  {/* Icon wrapper with soft custom tint colors */}
-                  <div className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-transform duration-300 group-hover:scale-105 ${cap.bgAccent}`}>
-                    {cap.icon}
-                  </div>
-                  
-                  {/* Tech-inspired index label */}
-                  <span className="text-xs font-mono font-bold text-slate-300 group-hover:text-blue-400 tracking-wider transition-colors duration-300">
-                    // 0{index + 1}
-                  </span>
-                </div>
-
-                {/* Card Title & Description */}
-                <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-2 group-hover:text-blue-600 transition-colors duration-300">
-                  {cap.title}
-                </h3>
-                <p className="text-sm text-slate-500 font-normal leading-relaxed mb-6">
-                  {cap.description}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold mb-3 border border-blue-100">
+                  <CheckCircle size={11} />
+                  Certified Officer
+                </span>
+                <h4 className="text-xl font-bold tracking-tight text-slate-900 mb-2">
+                  Live Dispatch Team
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Dedicated 24/7 bilingual dispatchers safeguarding Bahir Dar with human compassion and real-time response.
                 </p>
               </div>
+            </div>
 
-              {/* Bottom Interactive Area */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
-                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold group-hover:text-slate-600 transition-colors">
-                  {cap.tag}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-800">
+                  Helen Mengistu • Head Dispatch
                 </span>
-                
-                <div className="w-7 h-7 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:border-blue-300 group-hover:bg-blue-50 transition-all duration-200">
-                  <ArrowRight size={13} className="transform group-hover:translate-x-0.5 transition-transform" />
-                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-blue-600 bg-white px-3 py-1 rounded-full border border-slate-200">
+                Online
+              </span>
+            </div>
+          </motion.div>
+
+          {/* ── BENTO 3: STACKED TELEMETRY & SECOND OFFICER CARD (Right, span 3) ── */}
+          <div className="lg:col-span-3 flex flex-col gap-6">
+            {/* Top Telemetry Widget */}
+            <motion.div
+              whileHover={{ y: -2 }}
+              className="p-5 rounded-3xl bg-slate-900 text-white border border-white/10 shadow-lg flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+                  Telemetry Relay
+                </span>
+                <Radio size={14} className="text-emerald-400 animate-pulse" />
+              </div>
+              <div className="text-lg font-black tracking-tight text-white mb-1">
+                11.5742° N, 37.3614° E
+              </div>
+              <div className="text-[11px] text-blue-400 font-semibold">
+                Lake Tana Central Grid
               </div>
             </motion.div>
-          ))}
-        </motion.div>
 
-        {/* BRIGHT SCHEME FOOTER */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
-          className="mt-20 pt-8 flex flex-col sm:flex-row gap-4 justify-between items-center border-t border-slate-200 text-[10px] text-slate-400 font-mono tracking-wider w-full"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
-            <span className="text-slate-600 font-semibold">ALL PROTOCOLS ONLINE // ENCRYPTED LINK</span>
+            {/* Bottom Second Officer Card */}
+            <motion.div
+              whileHover={{ y: -2 }}
+              className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex items-center gap-4"
+            >
+              <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-slate-100 shadow-sm">
+                <img
+                  src={officerPortrait}
+                  alt="Amanuel Tessema"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <h5 className="text-xs font-bold text-slate-900">
+                  Amanuel Tessema
+                </h5>
+                <p className="text-[10px] text-slate-500 mb-1">
+                  Civic Engineering Relay
+                </p>
+                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Active Duty
+                </span>
+              </div>
+            </motion.div>
           </div>
-          <div className="flex items-center gap-6">
-            <span className="hidden md:block opacity-60">SYSTEM INTEGRITY SECURED</span>
-            <span className="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-md text-[9px] font-bold shadow-sm">
-              RELAY CORE V1.2
-            </span>
-          </div>
-        </motion.div>
 
+        </div>
+
+        {/* ── ROW 2 BENTO: CIVIC SERVICES + 3D ANALYTICS (MATCHING REFERENCE) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* ── BENTO 4: CIVIC SERVICES MULTI-PILL CARD (Left, span 6) ── */}
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="lg:col-span-6 p-8 rounded-[2.5rem] bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between"
+          >
+            <div>
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-blue-600 block mb-2">
+                Public Administration
+              </span>
+              <h3 className="text-2xl font-black tracking-tight text-slate-900 mb-3">
+                Unified Civic Public Services
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed mb-8">
+                Seamless digital services for water utilities, business licensing, and civic infrastructure with automated tracking and resolution receipts.
+              </p>
+
+              {/* 3 Service Tiers / Pricing-style Pills (Matching Reference) */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                  <span className="text-[10px] font-bold text-slate-400 block mb-1">Water Works</span>
+                  <span className="text-base font-black text-slate-900">24 hr</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-center">
+                  <span className="text-[10px] font-bold text-blue-600 block mb-1">Power Grid</span>
+                  <span className="text-base font-black text-blue-900">12 hr</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                  <span className="text-[10px] font-bold text-slate-400 block mb-1">Municipal</span>
+                  <span className="text-base font-black text-slate-900">Instant</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-600">
+                100% Digital Processing
+              </span>
+              <button className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5">
+                <span>View All Services</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </motion.div>
+
+          {/* ── BENTO 5: 3D CHARTS & DEPLOYED UNITS CARD (Right, span 6) ── */}
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="lg:col-span-6 p-8 rounded-[2.5rem] bg-slate-950 text-white border border-white/10 shadow-2xl flex flex-col justify-between relative overflow-hidden"
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+              {/* 3D Chart Render Thumbnail */}
+              <div className="w-full sm:w-44 h-44 rounded-2xl overflow-hidden shrink-0 border border-white/10 shadow-lg">
+                <img
+                  src={glassCharts}
+                  alt="3D Analytics Graph"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Data & Telemetry (Matching Reference) */}
+              <div>
+                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-cyan-400 block mb-2">
+                  Real-Time Analytics
+                </span>
+                <h4 className="text-2xl font-black tracking-tight text-white mb-2">
+                  58 Active Units
+                </h4>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                  Autonomous priority routing and predictive deployment across all kebeles in Bahir Dar.
+                </p>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-[11px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Peak Efficiency: 98.4%
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>ALGORITHM: SMART DISPATCH V2</span>
+              <span className="text-blue-400 font-bold">ALL NODES SYNCHRONIZED</span>
+            </div>
+          </motion.div>
+
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 
