@@ -43,7 +43,7 @@ const services = [
 
 const CapabilitiesSection = () => {
   return (
-    <section className="relative w-full py-20 bg-white text-slate-900 border-t border-slate-100">
+    <section id="services" className="relative w-full py-20 bg-white text-slate-900 border-t border-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         {/* Simple Section Header */}

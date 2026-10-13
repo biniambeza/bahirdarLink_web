@@ -3,7 +3,7 @@ import { PhoneCall, MapPin, Mail, ShieldAlert } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className="relative w-full bg-white border-t border-slate-200/80 text-slate-700 py-16">
+    <footer id="contact" className="relative w-full bg-white border-t border-slate-200/80 text-slate-700 py-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-slate-100">

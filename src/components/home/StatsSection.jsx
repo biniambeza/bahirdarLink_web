@@ -10,7 +10,7 @@ const stats = [
 
 const StatsSection = () => {
   return (
-    <section className="relative w-full py-20 bg-[#f8fafc] text-slate-900 border-t border-slate-200/60">
+    <section id="about" className="relative w-full py-20 bg-[#f8fafc] text-slate-900 border-t border-slate-200/60">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         {/* Simple Header */}

@@ -10,6 +10,14 @@ const HomePage = () => {
   const { scrollYProgress } = useScroll();
 
   useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "");
+      const el = document.getElementById(id);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100);
+        return;
+      }
+    }
     window.scrollTo({
       top: 0,
       behavior: "smooth",

@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
-  { name: "Home", path: "/" },
-  { name: "Services", path: "/services" },
-  { name: "About", path: "/about" },
-  { name: "Contact", path: "/contact" },
+  { name: "Home", id: "home", path: "/" },
+  { name: "Services", id: "services", path: "/services" },
+  { name: "About", id: "about", path: "/about" },
+  { name: "Contact", id: "contact", path: "/contact" },
 ];
 
 const Navbar = () => {
+  const [activeSection, setActiveSection] = useState("home");
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
@@ -18,12 +19,51 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => {
+      // 1. Scrolled state for navbar floating styling
       const isScrolled = window.scrollY > 20;
       setScrolled((prev) => (prev !== isScrolled ? isScrolled : prev));
+
+      // 2. Scroll-spy detection for active section on home page
+      if (location.pathname !== "/") return;
+
+      const sections = ["home", "services", "about", "contact"];
+      const scrollPosition = window.scrollY + 160;
+
+      // Bottom of page activates Contact
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 60
+      ) {
+        setActiveSection("contact");
+        return;
+      }
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const el = document.getElementById(sections[i]);
+        if (el && el.offsetTop <= scrollPosition) {
+          setActiveSection(sections[i]);
+          break;
+        }
+      }
     };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [location.pathname]);
+
+  const handleNavClick = (item) => {
+    if (location.pathname === "/") {
+      const el = document.getElementById(item.id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        setActiveSection(item.id);
+      }
+    } else {
+      navigate(`/#${item.id}`);
+    }
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -37,7 +77,7 @@ const Navbar = () => {
         >
           {/* Logo */}
           <div
-            onClick={() => navigate("/")}
+            onClick={() => handleNavClick(navLinks[0])}
             className="flex items-center gap-2.5 cursor-pointer select-none"
           >
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center p-1.5 shadow-xs text-white">
@@ -52,18 +92,22 @@ const Navbar = () => {
             </span>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6">
+          {/* Scroll-Spy Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1.5">
             {navLinks.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive =
+                location.pathname === "/"
+                  ? activeSection === item.id
+                  : location.pathname === item.path;
+
               return (
                 <button
                   key={item.name}
-                  onClick={() => navigate(item.path)}
-                  className={`text-xs font-semibold tracking-wide transition-colors ${
+                  onClick={() => handleNavClick(item)}
+                  className={`relative px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all duration-300 ${
                     isActive
-                      ? "text-blue-600 font-bold"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "text-blue-600 font-bold bg-blue-50/90 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
                   {item.name}
@@ -93,7 +137,7 @@ const Navbar = () => {
         </div>
       </header>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer with Scroll-Spy Integration */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -110,20 +154,21 @@ const Navbar = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="fixed top-20 left-4 right-4 bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-50 md:hidden flex flex-col gap-3"
+              className="fixed top-20 left-4 right-4 bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-50 md:hidden flex flex-col gap-2.5"
             >
               {navLinks.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive =
+                  location.pathname === "/"
+                    ? activeSection === item.id
+                    : location.pathname === item.path;
+
                 return (
                   <button
                     key={item.name}
-                    onClick={() => {
-                      navigate(item.path);
-                      setIsOpen(false);
-                    }}
+                    onClick={() => handleNavClick(item)}
                     className={`text-left py-2.5 px-4 rounded-xl text-xs font-bold transition-colors ${
                       isActive
-                        ? "bg-blue-50 text-blue-600"
+                        ? "bg-blue-50 text-blue-600 font-black"
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
