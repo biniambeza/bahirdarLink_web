@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll } from "framer-motion";
+import { ArrowUp } from "lucide-react";
 import HeroSection from "../../components/home/HeroSection";
 import CapabilitiesSection from "../../components/home/CapabilitiesSection";
 import StatsSection from "../../components/home/StatsSection";
@@ -7,102 +8,58 @@ import Footer from "../../components/home/Footer";
 
 const HomePage = () => {
   const { scrollYProgress } = useScroll();
-  const backgroundColor = useTransform(
-    scrollYProgress,
-    [0, 0.5, 1],
-    ["#ffffff", "#f0f9ff", "#ffffff"]
-  );
 
   useEffect(() => {
-    // Smooth scroll to top when page loads
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "");
+      const el = document.getElementById(id);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100);
+        return;
+      }
+    }
     window.scrollTo({
       top: 0,
-      behavior: "smooth"
+      behavior: "smooth",
     });
   }, []);
 
-  // Animation variants for sections
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: "easeOut"
-      }
-    }
-  };
-
   return (
-    <motion.main 
-      style={{ backgroundColor }}
-      className="relative overflow-x-hidden"
-    >
-      {/* Background decorative elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse-slow transform-gpu will-change-transform" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl animate-pulse-slower transform-gpu will-change-transform" />
-      </div>
-
-      {/* Progress bar */}
-      <motion.div 
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 z-50 origin-left"
+    <main className="relative bg-white min-h-screen text-slate-900 overflow-x-hidden">
+      {/* Subtle Blue Progress Bar */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-0.5 bg-blue-600 z-50 origin-left"
         style={{ scaleX: scrollYProgress }}
       />
 
-      {/* Skip to content link for accessibility */}
-      <a 
-        href="#main-content" 
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50"
+      {/* Skip to Content for Accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50 text-xs font-bold"
       >
         Skip to main content
       </a>
 
-      {/* Main content */}
+      {/* Page Sections */}
       <div id="main-content">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={sectionVariants}
-        >
-          <HeroSection />
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={sectionVariants}
-        >
-          <CapabilitiesSection />
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={sectionVariants}
-        >
-          <StatsSection />
-        </motion.div>
-
+        <HeroSection />
+        <CapabilitiesSection />
+        <StatsSection />
         <Footer />
       </div>
 
       {/* Back to top button */}
       <BackToTopButton />
-    </motion.main>
+    </main>
   );
 };
 
-// Back to top button component
 const BackToTopButton = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const toggleVisibility = () => {
-      const shouldShow = window.scrollY > 300;
+      const shouldShow = window.scrollY > 400;
       setIsVisible((prev) => (prev !== shouldShow ? shouldShow : prev));
     };
 
@@ -113,33 +70,20 @@ const BackToTopButton = () => {
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: "smooth"
+      behavior: "smooth",
     });
   };
 
+  if (!isVisible) return null;
+
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0 }}
-      animate={{ opacity: isVisible ? 1 : 0, scale: isVisible ? 1 : 0 }}
-      transition={{ duration: 0.3 }}
+    <button
       onClick={scrollToTop}
-      className="fixed bottom-8 right-8 z-40 p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all"
+      className="fixed bottom-6 right-6 z-40 p-3 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full shadow-lg backdrop-blur-md transition-all hover:scale-105"
       aria-label="Back to top"
     >
-      <svg 
-        className="w-6 h-6" 
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24"
-      >
-        <path 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          strokeWidth={2} 
-          d="M5 10l7-7m0 0l7 7m-7-7v18" 
-        />
-      </svg>
-    </motion.button>
+      <ArrowUp size={18} />
+    </button>
   );
 };
 

@@ -1,232 +1,239 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FaArrowRight, FaVideo, FaComments,
-  FaShieldAlt, FaApple, FaGooglePlay
-} from "react-icons/fa";
+  ArrowRight,
+  PhoneCall,
+  ShieldAlert,
+  Car,
+  Flame,
+  Activity,
+  MapPin,
+  CheckCircle2,
+} from "lucide-react";
 
-import emergencyImg from "../../../assets/images/fire.jpg";
-import serviceImg from "../../../assets/images/crime.jpg";
-import safetyImg from "../../../assets/images/medical.jpg";
+import accidentImg from "../../../assets/images/accident_response.jpg";
+import crimeImg from "../../../assets/images/crime_response.jpg";
+import fireImg from "../../../assets/images/fire.jpg";
+import medicalImg from "../../../assets/images/medical.jpg";
 
-const Hero = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+const incidentCategories = [
+  {
+    id: "accident",
+    name: "Traffic Accident",
+    icon: Car,
+    img: accidentImg,
+    title: "Traffic Accident & Highway Rescue",
+    location: "Lake Tana Boulevard",
+    eta: "3.4 min",
+    phone: "907",
+  },
+  {
+    id: "crime",
+    name: "Crime Prevention",
+    icon: ShieldAlert,
+    img: crimeImg,
+    title: "Police Patrol & Crime Investigation",
+    location: "Central District",
+    eta: "2.8 min",
+    phone: "991",
+  },
+  {
+    id: "fire",
+    name: "Fire Emergency",
+    icon: Flame,
+    img: fireImg,
+    title: "Fire Suppression & Urban Rescue",
+    location: "Kebele 04 Zone",
+    eta: "4.1 min",
+    phone: "939",
+  },
+  {
+    id: "medical",
+    name: "Medical Triage",
+    icon: Activity,
+    img: medicalImg,
+    title: "Urgent Paramedic & Ambulance",
+    location: "Felege Hiwot Corridor",
+    eta: "3.9 min",
+    phone: "907",
+  },
+];
 
-  const slides = [
-    { img: emergencyImg, label: "Emergency Response" },
-    { img: serviceImg,   label: "Public Service"     },
-    { img: safetyImg,    label: "Public Safety"      },
-  ];
+const metrics = [
+  { label: "Avg Response", value: "3.8 min" },
+  { label: "Active Units", value: "320+" },
+  { label: "Emergency Line", value: "24/7" },
+  { label: "City Coverage", value: "100%" },
+];
+
+const HeroSection = () => {
+  const [activeCategory, setActiveCategory] = useState(incidentCategories[0]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
+    const interval = setInterval(() => {
+      setActiveCategory((prev) => {
+        const nextIndex =
+          (incidentCategories.findIndex((c) => c.id === prev.id) + 1) %
+          incidentCategories.length;
+        return incidentCategories[nextIndex];
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <section className="relative w-full min-h-screen overflow-hidden flex items-center font-sans tracking-tight">
+    <section id="home" className="relative w-full pt-32 pb-16 bg-[#f8fafc] text-slate-900">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        
+        {/* Main Grid */}
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center mb-16">
+          
+          {/* Left Column: Essential Text & Actions */}
+          <div className="lg:col-span-5 flex flex-col justify-center">
+            
+            {/* Simple Pill Tag */}
+            <div className="mb-4">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                Bahir Dar Public Safety
+              </span>
+            </div>
 
-      {/* ── BACKGROUND: Almost full photo, very light veil only on left for text ── */}
-      <div className="absolute inset-0 z-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.6 }}
-            className="absolute inset-0 w-full h-full"
-          >
-            {/* Photo — full bleed, Ken-Burns */}
-            <motion.div
-              initial={{ scale: 1.06 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 8, ease: "easeOut" }}
-              className="absolute inset-0 bg-cover bg-center transform-gpu will-change-transform"
-              style={{ backgroundImage: `url('${slides[currentSlide].img}')` }}
-            />
+            {/* Clear, Strong Headline */}
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 leading-[1.1] mb-5">
+              Fast Emergency & Crime Response
+            </h1>
 
-            {/* Thin white-to-transparent veil — ONLY far left for text legibility */}
-            <div className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(to right, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.38) 32%, rgba(255,255,255,0.08) 58%, transparent 78%)",
-              }}
-            />
+            {/* 1 Short, Concise Subtitle */}
+            <p className="text-base text-slate-600 leading-relaxed mb-8 max-w-md">
+              Direct connection to police patrol, traffic accident rescue, and 24/7 emergency dispatch in Bahir Dar.
+            </p>
 
-            {/* Very subtle blue tint across the whole image — natural coolness */}
-            <div className="absolute inset-0"
-              style={{ background: "rgba(219,234,254,0.10)" }}
-            />
-          </motion.div>
-        </AnimatePresence>
-      </div>
+            {/* Actions */}
+            <div className="flex flex-wrap items-center gap-3 mb-8">
+              <a
+                href="/login"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wide shadow-md shadow-blue-500/20 transition-all"
+              >
+                <span>Report Incident</span>
+                <ArrowRight size={14} />
+              </a>
 
-      {/* ── CONTENT GRID ── */}
-      <div className="relative z-20 max-w-[1400px] mx-auto px-6 md:px-14 w-full grid lg:grid-cols-12 gap-10 items-center pt-28 pb-36">
+              <a
+                href="tel:991"
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs tracking-wide border border-slate-200 shadow-xs transition-all"
+              >
+                <PhoneCall size={14} className="text-red-500" />
+                <span>Call Emergency (991)</span>
+              </a>
+            </div>
 
-        {/* ── LEFT ── */}
-        <motion.div
-          initial={{ opacity: 0, x: -22 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.9, ease: "easeOut" }}
-          className="lg:col-span-6"
-        >
-          {/* Badge */}
-          <div className="mb-7">
-            <span className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[0.22em] uppercase
-                             text-blue-700 bg-white/60 border border-blue-200 px-4 py-[7px] rounded-full backdrop-blur-sm">
-              <span className="w-[6px] h-[6px] rounded-full bg-blue-500 animate-pulse shrink-0" />
-              Bahir Dar • Urban Hub
-            </span>
+            {/* Simple Dispatch Status */}
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between max-w-md">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                  <CheckCircle2 size={18} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900">
+                    Live Dispatch Grid Active
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Average response: {activeCategory.eta}
+                  </div>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+                Online
+              </span>
+            </div>
           </div>
 
-          {/* Headline */}
-          <h1
-            className="font-black uppercase leading-[0.86] tracking-tighter mb-6"
-            style={{ fontSize: "clamp(62px, 9vw, 108px)" }}
-          >
-            <span className="text-slate-900">BAHIR</span>
-            <span className="text-blue-500">LINK</span>
-          </h1>
+          {/* Right Column: Clean Image Showcase */}
+          <div className="lg:col-span-7 flex flex-col items-center">
+            
+            {/* Category Selector Tabs */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mb-3.5 w-full">
+              {incidentCategories.map((cat) => {
+                const isSelected = activeCategory.id === cat.id;
+                const IconComponent = cat.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      isSelected
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
+                    }`}
+                  >
+                    <IconComponent size={13} />
+                    <span>{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Rule */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-[2px] w-12 bg-blue-500 rounded-full" />
-            <div className="h-[2px] w-4 bg-blue-300 rounded-full" />
+            {/* Unobstructed, Crisp 4K Image Container */}
+            <div className="relative w-full aspect-[16/11] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-xl shadow-slate-900/5">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeCategory.id}
+                  initial={{ opacity: 0, scale: 1.02 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.99 }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative w-full h-full"
+                >
+                  <img
+                    src={activeCategory.img}
+                    alt={activeCategory.title}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Clean, Subtle Bottom Caption Pill (Unobstructive) */}
+                  <div className="absolute bottom-3 left-3 right-3 p-3 rounded-2xl bg-slate-950/70 backdrop-blur-md text-white flex items-center justify-between border border-white/10 shadow-md">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={14} className="text-red-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-bold tracking-tight">
+                          {activeCategory.title}
+                        </div>
+                        <div className="text-[10px] text-slate-300">
+                          {activeCategory.location}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/20 text-white">
+                      Dial {activeCategory.phone}
+                    </span>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
+        </div>
 
-          {/* Body */}
-          <p className="text-[17px] text-slate-700 max-w-[400px] leading-[1.75] mb-10">
-            A unified digital ecosystem connecting citizens with
-            real-time public services and safety response teams.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-wrap gap-3 items-center mb-12">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-3 px-8 py-[15px] rounded-2xl
-                         bg-blue-600 hover:bg-blue-700
-                         text-white font-bold text-[11px] uppercase tracking-[0.18em] transition-colors"
+        {/* Clean, Simple 4-Metric Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-6 border-t border-slate-200/70">
+          {metrics.map((m) => (
+            <div
+              key={m.label}
+              className="p-4 rounded-2xl bg-white border border-slate-200/70 shadow-2xs flex flex-col"
             >
-              Start Exploring <FaArrowRight className="text-[9px]" />
-            </motion.button>
-
-            {[FaApple, FaGooglePlay].map((Icon, i) => (
-              <motion.a
-                key={i}
-                href="#"
-                whileHover={{ scale: 1.05 }}
-                className="w-12 h-12 flex items-center justify-center rounded-2xl
-                           bg-white/50 backdrop-blur-sm border border-white/70
-                           text-slate-800 hover:bg-white/80 hover:text-blue-600
-                           transition-all"
-              >
-                <Icon className="text-[17px]" />
-              </motion.a>
-            ))}
-          </div>
-
-          {/* Slide indicator */}
-          <div className="flex items-center gap-4">
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={slides[currentSlide].label}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.35 }}
-                className="text-[10px] font-bold tracking-[0.2em] uppercase text-blue-600"
-              >
-                {slides[currentSlide].label}
-              </motion.span>
-            </AnimatePresence>
-
-            <div className="flex gap-[5px]">
-              {slides.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentSlide(i)}
-                  className={`h-[3px] rounded-full transition-all duration-500 ${
-                    i === currentSlide
-                      ? "w-8 bg-blue-500"
-                      : "w-3 bg-white/60 hover:bg-white/90"
-                  }`}
-                />
-              ))}
+              <span className="text-2xl font-black text-slate-900 tracking-tight">
+                {m.value}
+              </span>
+              <span className="text-xs text-slate-500 font-medium mt-0.5">
+                {m.label}
+              </span>
             </div>
-          </div>
-        </motion.div>
+          ))}
+        </div>
 
-        {/* ── RIGHT: Feature cards — frosted glass over the natural photo ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.9 }}
-          className="lg:col-span-5 lg:col-start-8 hidden lg:grid grid-cols-2 gap-3"
-        >
-          {/* Card 1 – Video Call */}
-          <div className="bg-white/30 backdrop-blur-md border border-white/50 rounded-[1.8rem] p-7
-                          hover:bg-white/50 hover:border-white/70
-                          transition-all duration-400 group cursor-default">
-            <div className="w-11 h-11 rounded-xl bg-white/50 border border-white/60 flex items-center justify-center mb-5
-                            group-hover:bg-blue-600 group-hover:border-blue-600 transition-colors duration-300">
-              <FaVideo className="text-slate-800 text-[15px] group-hover:text-white transition-colors duration-300" />
-            </div>
-            <h4 className="font-bold text-[11px] tracking-[0.14em] uppercase text-slate-900 mb-1">Video Call</h4>
-            <p className="text-[11px] text-slate-700">Visual assessment</p>
-          </div>
-
-          {/* Card 2 – Direct Chat */}
-          <div className="bg-blue-600/85 backdrop-blur-md border border-blue-400/60 rounded-[1.8rem] p-7
-                          hover:bg-blue-600/95 transition-all duration-400 cursor-default">
-            <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center mb-5">
-              <FaComments className="text-white text-[15px]" />
-            </div>
-            <h4 className="font-bold text-[11px] tracking-[0.14em] uppercase text-white mb-1">Direct Chat</h4>
-            <p className="text-[11px] text-blue-100">24/7 response</p>
-          </div>
-
-          {/* Card 3 – Amharic */}
-          <div className="bg-white/30 backdrop-blur-md border border-white/50 rounded-[1.8rem] p-7
-                          flex items-center gap-4 hover:bg-white/50 hover:border-white/70
-                          transition-all duration-400 cursor-default">
-            <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center
-                            text-[20px] font-black shrink-0">
-              ሀ
-            </div>
-            <div>
-              <h4 className="font-bold text-[11px] tracking-[0.14em] uppercase text-slate-900 mb-1">Amharic</h4>
-              <p className="text-[11px] text-slate-700">Full support</p>
-            </div>
-          </div>
-
-          {/* Card 4 – Secure */}
-          <div className="bg-white/30 backdrop-blur-md border border-white/50 rounded-[1.8rem] p-7
-                          flex items-center gap-4 hover:bg-white/50 hover:border-white/70
-                          transition-all duration-400 cursor-default">
-            <div className="w-12 h-12 rounded-xl bg-white/50 border border-white/70 flex items-center justify-center shrink-0">
-              <FaShieldAlt className="text-blue-600 text-[15px]" />
-            </div>
-            <div>
-              <h4 className="font-bold text-[11px] tracking-[0.14em] uppercase text-slate-900 mb-1">Secure</h4>
-              <p className="text-[11px] text-slate-700">End-to-end</p>
-            </div>
-          </div>
-        </motion.div>
       </div>
-
-      {/* ── BOTTOM FADE — soft, not heavy ── */}
-      <div
-        className="absolute bottom-0 left-0 w-full h-24 z-30 pointer-events-none"
-        style={{ background: "linear-gradient(to top, rgba(255,255,255,0.55), transparent)" }}
-      />
     </section>
   );
 };
 
-export default Hero;
+export default HeroSection;
