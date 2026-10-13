@@ -68,10 +68,8 @@ const metrics = [
 
 const HeroSection = () => {
   const [activeCategory, setActiveCategory] = useState(incidentCategories[0]);
-  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (isPaused) return;
     const interval = setInterval(() => {
       setActiveCategory((prev) => {
         const nextIndex =
@@ -79,16 +77,12 @@ const HeroSection = () => {
           incidentCategories.length;
         return incidentCategories[nextIndex];
       });
-    }, 5500);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [isPaused]);
+  }, []);
 
   return (
-    <section
-      className="relative w-full pt-32 pb-16 bg-[#f8fafc] text-slate-900"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
+    <section className="relative w-full pt-32 pb-16 bg-[#f8fafc] text-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         {/* Main Grid */}
@@ -188,7 +182,7 @@ const HeroSection = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: "easeInOut" }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
                   className="relative w-full h-full"
                 >
                   <img
