@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -8,23 +8,37 @@ import {
 } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-import HomePage from "./pages/home/HomePage";
-import AboutPage from "./pages/AboutPage";
-import ServicesPage from "./pages/ServicesPage";
-import ContactPage from "./pages/ContactPage";
-import LoginPage from "./pages/auth/LoginPage";
-import AdminDashboard from "./pages/Dashboards/admin/AdminDashboard";
-import AgencyDashboard from "./pages/Dashboards/agent/AgencyDashboard";
-import ResponderDashboard from "./pages/Dashboards/responder/ResponderDashboard";
-import ServiceAdminDashboard from "./pages/Dashboards/serviceAdmin/pages/ServiceAdminDashboard";
-import IncidentsPage from "./pages/Dashboards/agent/pages/IncidentsPage";
-import IncidentDetailPage from "./pages/Dashboards/agent/pages/IncidentDetailPage";
-import EditAgentPage from "./pages/Dashboards/admin/pages/EditAgentPage";
-import ResponderIncidentsPage from "./pages/Dashboards/responder/pages/ResponderIncidentsPage";
-import ResponderIncidentDetail from "./pages/Dashboards/responder/pages/EmergencyDetailDrawer";
-import CaseDetailPage from "./pages/Dashboards/responder/pages/CaseDetailPage";
+// Lazy-loaded page components for route-level code splitting
+const HomePage = lazy(() => import("./pages/home/HomePage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
+const ServicesPage = lazy(() => import("./pages/ServicesPage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
+const AdminDashboard = lazy(() => import("./pages/Dashboards/admin/AdminDashboard"));
+const AgencyDashboard = lazy(() => import("./pages/Dashboards/agent/AgencyDashboard"));
+const ResponderDashboard = lazy(() => import("./pages/Dashboards/responder/ResponderDashboard"));
+const ServiceAdminDashboard = lazy(() => import("./pages/Dashboards/serviceAdmin/pages/ServiceAdminDashboard"));
+const IncidentsPage = lazy(() => import("./pages/Dashboards/agent/pages/IncidentsPage"));
+const IncidentDetailPage = lazy(() => import("./pages/Dashboards/agent/pages/IncidentDetailPage"));
+const EditAgentPage = lazy(() => import("./pages/Dashboards/admin/pages/EditAgentPage"));
+const ResponderIncidentsPage = lazy(() => import("./pages/Dashboards/responder/pages/ResponderIncidentsPage"));
+const ResponderIncidentDetail = lazy(() => import("./pages/Dashboards/responder/pages/EmergencyDetailDrawer"));
+const CaseDetailPage = lazy(() => import("./pages/Dashboards/responder/pages/CaseDetailPage"));
+
 import Navbar from "./components/home/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex flex-col items-center justify-center p-8">
+    <div className="relative w-10 h-10 flex items-center justify-center">
+      <div className="absolute inset-0 rounded-full border-2 border-blue-200 animate-ping opacity-25" />
+      <div className="w-8 h-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+    </div>
+    <span className="mt-3 text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400">
+      Loading
+    </span>
+  </div>
+);
 
 const INTERNAL_ROUTES = [
   "/login",
@@ -65,7 +79,9 @@ const AppLayout = ({ children }) => {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
         >
-          {children}
+          <Suspense fallback={<PageLoader />}>
+            {children}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
     </div>

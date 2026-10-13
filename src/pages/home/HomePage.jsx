@@ -41,8 +41,8 @@ const HomePage = () => {
     >
       {/* Background decorative elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse-slow"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl animate-pulse-slower"></div>
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse-slow transform-gpu will-change-transform" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl animate-pulse-slower transform-gpu will-change-transform" />
       </div>
 
       {/* Progress bar */}
@@ -87,15 +87,6 @@ const HomePage = () => {
           <StatsSection />
         </motion.div>
 
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={sectionVariants}
-        >
-
-        </motion.div>
-
         <Footer />
       </div>
 
@@ -111,14 +102,11 @@ const BackToTopButton = () => {
 
   useEffect(() => {
     const toggleVisibility = () => {
-      if (window.pageYOffset > 300) {
-        setIsVisible(true);
-      } else {
-        setIsVisible(false);
-      }
+      const shouldShow = window.scrollY > 300;
+      setIsVisible((prev) => (prev !== shouldShow ? shouldShow : prev));
     };
 
-    window.addEventListener("scroll", toggleVisibility);
+    window.addEventListener("scroll", toggleVisibility, { passive: true });
     return () => window.removeEventListener("scroll", toggleVisibility);
   }, []);
 
