@@ -44,7 +44,7 @@ const Hero = () => {
               initial={{ scale: 1.06 }}
               animate={{ scale: 1 }}
               transition={{ duration: 8, ease: "easeOut" }}
-              className="absolute inset-0 bg-cover bg-center"
+              className="absolute inset-0 bg-cover bg-center transform-gpu will-change-transform"
               style={{ backgroundImage: `url('${slides[currentSlide].img}')` }}
             />
 
